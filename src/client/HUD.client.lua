@@ -181,6 +181,8 @@ local function updateHud()
 		hintLabel.Text = "OVERTIME: the laser is attacking faster!"
 	elseif phase == "Active" then
 		hintLabel.Text = "Watch glowing tiles. Move before the laser hits."
+	elseif role == "Winner" then
+		hintLabel.Text = "Victory! The next round will start soon."
 	elseif role == "Spectator" then
 		hintLabel.Text = "You are out. Watch until the next round."
 	elseif phase == "Intermission" then

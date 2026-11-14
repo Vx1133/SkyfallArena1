@@ -16,12 +16,18 @@ function RoundService.new(arenaService, stateRemote, botService)
 	self.countdownSeconds = 0
 	self.aliveRunners = {}
 	self.winner = ""
-	self.winnerPlayer = nil
+	self.winnerCandidate = nil
+	self.controller = nil
+	self.nextController = nil
 	self.roundNumber = 0
 	self.roundStartedAt = 0
 	self.overtime = false
 	self.running = false
 	self.stats = {}
+	self.random = Random.new()
+	self.lastMapId = 0
+
+	Players.RespawnTime = Config.RESPAWN_TIME
 
 	Players.PlayerAdded:Connect(function(player)
 		self:_bindPlayer(player)
@@ -30,6 +36,21 @@ function RoundService.new(arenaService, stateRemote, botService)
 	Players.PlayerRemoving:Connect(function(player)
 		self.aliveRunners[player] = nil
 		self.stats[player] = nil
+
+		if self.controller
+			and self.controller.kind == "Player"
+			and self.controller.value == player
+		then
+			self.controller = nil
+		end
+
+		if self.nextController
+			and self.nextController.kind == "Player"
+			and self.nextController.value == player
+		then
+			self.nextController = nil
+		end
+
 		self:_broadcast()
 	end)
 
@@ -81,12 +102,13 @@ function RoundService:_lobbySpawnForPlayer(player)
 		end
 	end
 
-	return self.arena:GetLobbySpawnCFrame(index, #playerList)
+	return self.arena:GetLobbySpawnCFrame(index, #playerList, false)
 end
 
 function RoundService:_bindPlayer(player)
 	self:_setupStats(player)
 	player:SetAttribute("SkyfallRole", "Waiting")
+	player:SetAttribute("SkyfallSurvivalTime", 0)
 
 	player.CharacterAdded:Connect(function(character)
 		self:_onCharacterAdded(player, character)
@@ -99,27 +121,41 @@ end
 
 function RoundService:_placePlayer(player, spawnCFrame)
 	local character = player.Character
-	if character then
-		character:PivotTo(spawnCFrame)
-		local root = character:FindFirstChild("HumanoidRootPart")
-		if root then
-			root.AssemblyLinearVelocity = Vector3.zero
-			root.AssemblyAngularVelocity = Vector3.zero
-		end
+	if not character then
+		return
+	end
+
+	character:PivotTo(spawnCFrame)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.AssemblyLinearVelocity = Vector3.zero
+		root.AssemblyAngularVelocity = Vector3.zero
 	end
 end
 
 function RoundService:_onCharacterAdded(player, character)
 	local humanoid = character:WaitForChild("Humanoid", 10)
-	if self.phase == "Active" and self.aliveRunners[player] then
-		player:SetAttribute("SkyfallRole", "Runner")
-		self:_placePlayer(player, self.arena:GetRunnerSpawnCFrame(1, math.max(self:_aliveRunnerCount(), 1)))
-	else
-		if self.phase == "Active" then
-			player:SetAttribute("SkyfallRole", "Spectator")
+	character:WaitForChild("HumanoidRootPart", 10)
+
+	if self.phase == "Active" then
+		if self.controller
+			and self.controller.kind == "Player"
+			and self.controller.value == player
+		then
+			player:SetAttribute("SkyfallRole", "Controller")
+			self:_placePlayer(player, self.arena:GetControllerSpawnCFrame())
+		elseif self.aliveRunners[player] then
+			player:SetAttribute("SkyfallRole", "Runner")
+			self:_placePlayer(
+				player,
+				self.arena:GetRunnerSpawnCFrame(1, math.max(self:_aliveRunnerCount(), 1))
+			)
 		else
-			player:SetAttribute("SkyfallRole", "Waiting")
+			player:SetAttribute("SkyfallRole", "Spectator")
+			self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
 		end
+	else
+		player:SetAttribute("SkyfallRole", "Waiting")
 		self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
 	end
 
@@ -128,6 +164,72 @@ function RoundService:_onCharacterAdded(player, character)
 			self:HandleDeath(player)
 		end)
 	end
+end
+
+function RoundService:_candidateName(candidate)
+	if not candidate then
+		return ""
+	end
+
+	if candidate.kind == "Player" then
+		return candidate.value.DisplayName
+	end
+
+	return candidate.value.name
+end
+
+function RoundService:_isCandidateValid(candidate)
+	if not candidate then
+		return false
+	end
+
+	if candidate.kind == "Player" then
+		return candidate.value and candidate.value.Parent == Players
+	end
+
+	if candidate.kind == "Bot" then
+		local bot = candidate.value
+		return bot
+			and bot.model
+			and bot.model.Parent
+			and bot.humanoid
+			and bot.humanoid.Health > 0
+	end
+
+	return false
+end
+
+function RoundService:_chooseController()
+	if self:_isCandidateValid(self.nextController) then
+		local selected = self.nextController
+		self.nextController = nil
+		return selected
+	end
+
+	self.nextController = nil
+	local candidates = {}
+
+	for _, player in ipairs(Players:GetPlayers()) do
+		table.insert(candidates, {
+			kind = "Player",
+			value = player,
+		})
+	end
+
+	for _, bot in ipairs(self.botService:GetBots()) do
+		if self:_isCandidateValid({kind = "Bot", value = bot}) then
+			table.insert(candidates, {
+				kind = "Bot",
+				value = bot,
+			})
+		end
+	end
+
+	if #candidates == 0 then
+		return nil
+	end
+
+	return candidates[self.random:NextInteger(1, #candidates)]
 end
 
 function RoundService:_aliveRunnerCount()
@@ -159,6 +261,25 @@ function RoundService:GetAlivePositions()
 	return positions
 end
 
+function RoundService:GetController()
+	return self.controller
+end
+
+function RoundService:IsHumanController(player)
+	return self.phase == "Active"
+		and self.controller ~= nil
+		and self.controller.kind == "Player"
+		and self.controller.value == player
+		and player.Parent == Players
+end
+
+function RoundService:IsBotController()
+	return self.phase == "Active"
+		and self.controller ~= nil
+		and self.controller.kind == "Bot"
+		and self:_isCandidateValid(self.controller)
+end
+
 function RoundService:IsActive()
 	return self.phase == "Active"
 end
@@ -176,19 +297,39 @@ function RoundService:_broadcast()
 		playerCount = #Players:GetPlayers(),
 		botCount = self.botService and self.botService:GetBotCount() or 0,
 		winner = self.winner,
+		controllerName = self:_candidateName(self.controller),
+		controllerKind = self.controller and self.controller.kind or "",
 		roundNumber = self.roundNumber,
 		overtime = self.overtime,
+		mapName = self.arena:GetMapName(),
 	})
 end
 
+function RoundService:_moveEliminatedPlayerToLobby(player)
+	player:SetAttribute("SkyfallRole", "Spectator")
+	self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
+end
+
 function RoundService:HandleDeath(player)
-	if self.phase ~= "Active" or not self.aliveRunners[player] then
+	if self.phase ~= "Active" then
 		return
 	end
 
-	self.aliveRunners[player] = nil
-	player:SetAttribute("SkyfallRole", "Spectator")
-	self:_broadcast()
+	if self.controller
+		and self.controller.kind == "Player"
+		and self.controller.value == player
+	then
+		self.controller = nil
+		self:_moveEliminatedPlayerToLobby(player)
+		self:_broadcast()
+		return
+	end
+
+	if self.aliveRunners[player] then
+		self.aliveRunners[player] = nil
+		self:_moveEliminatedPlayerToLobby(player)
+		self:_broadcast()
+	end
 end
 
 function RoundService:Eliminate(player)
@@ -197,7 +338,7 @@ function RoundService:Eliminate(player)
 	end
 
 	self.aliveRunners[player] = nil
-	player:SetAttribute("SkyfallRole", "Spectator")
+	self:_moveEliminatedPlayerToLobby(player)
 
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
@@ -226,26 +367,66 @@ function RoundService:_eliminateFallenRunners()
 	if self.botService then
 		self.botService:EliminateFallenRunners(Config.OUT_OF_BOUNDS_Y)
 	end
+
+	if self.controller and self.controller.kind == "Player" then
+		local character = self.controller.value.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if not root or root.Position.Y < Config.OUT_OF_BOUNDS_Y then
+			self.controller = nil
+		end
+	end
 end
 
 function RoundService:_getSoleSurvivor()
-	local humanSurvivors = {}
+	local survivors = {}
+
 	for player in pairs(self.aliveRunners) do
 		if player.Parent == Players then
-			table.insert(humanSurvivors, player)
+			table.insert(survivors, {
+				kind = "Player",
+				value = player,
+			})
 		end
 	end
 
-	local botSurvivors = self.botService and self.botService:GetAliveBots() or {}
-	if #humanSurvivors + #botSurvivors ~= 1 then
-		return nil, nil
+	for _, bot in ipairs(self.botService:GetAliveBots()) do
+		table.insert(survivors, {
+			kind = "Bot",
+			value = bot,
+		})
 	end
 
-	if #humanSurvivors == 1 then
-		return humanSurvivors[1].DisplayName, humanSurvivors[1]
+	if #survivors == 1 then
+		return survivors[1]
 	end
 
-	return botSurvivors[1].name, nil
+	return nil
+end
+
+function RoundService:_getLongestSurvivor()
+	local survivors = {}
+
+	for player in pairs(self.aliveRunners) do
+		if player.Parent == Players then
+			table.insert(survivors, {
+				kind = "Player",
+				value = player,
+			})
+		end
+	end
+
+	for _, bot in ipairs(self.botService:GetAliveBots()) do
+		table.insert(survivors, {
+			kind = "Bot",
+			value = bot,
+		})
+	end
+
+	if #survivors == 0 then
+		return nil
+	end
+
+	return survivors[self.random:NextInteger(1, #survivors)]
 end
 
 function RoundService:_updateSurvivalRecords()
@@ -259,14 +440,20 @@ function RoundService:_updateSurvivalRecords()
 	end
 end
 
-function RoundService:_awardWinner(winnerPlayer)
-	if not winnerPlayer then
+function RoundService:_awardWinner(candidate)
+	if not candidate then
 		return
 	end
 
-	local statSet = self.stats[winnerPlayer]
-	if statSet and statSet.wins then
-		statSet.wins.Value += 1
+	if candidate.kind == "Player" then
+		local player = candidate.value
+		local statSet = self.stats[player]
+		if statSet and statSet.wins then
+			statSet.wins.Value += 1
+		end
+		player:SetAttribute("SkyfallRole", "Winner")
+	elseif candidate.kind == "Bot" then
+		self.botService:SetWinner(candidate.value)
 	end
 end
 
@@ -274,7 +461,10 @@ function RoundService:_placeAllPlayersInLobby()
 	local playerList = Players:GetPlayers()
 	for index, player in ipairs(playerList) do
 		player:SetAttribute("SkyfallRole", "Waiting")
-		self:_placePlayer(player, self.arena:GetLobbySpawnCFrame(index, #playerList))
+		self:_placePlayer(
+			player,
+			self.arena:GetLobbySpawnCFrame(index, #playerList, false)
+		)
 	end
 
 	if self.botService then
@@ -289,45 +479,68 @@ function RoundService:_runRound()
 	end
 
 	self.roundNumber += 1
+	local nextMapId = self.lastMapId == 1 and 2 or 1
+	self.lastMapId = nextMapId
+	self.arena:SetMap(nextMapId)
 	self.arena:ResetTiles()
+
 	self.aliveRunners = {}
 	self.elapsedSeconds = 0
 	self.countdownSeconds = 0
 	self.overtime = false
 	self.winner = ""
-	self.winnerPlayer = nil
+	self.winnerCandidate = nil
 	self.roundStartedAt = os.clock()
 	self.phase = "Active"
 
-	local botCount = self.botService and self.botService:GetBotCount() or 0
-	local totalContestants = #playersInRound + botCount
+	self.controller = self:_chooseController()
+	if not self.controller then
+		self.phase = "Waiting"
+		return
+	end
 
-	for index, player in ipairs(playersInRound) do
-		self.aliveRunners[player] = true
-		player:SetAttribute("SkyfallRole", "Runner")
-		player:SetAttribute("SkyfallSurvivalTime", 0)
-		self:_placePlayer(
-			player,
-			self.arena:GetRunnerSpawnCFrame(index, math.max(totalContestants, 1))
-		)
+	local controllerPlayer = self.controller.kind == "Player" and self.controller.value or nil
+	local controllerBot = self.controller.kind == "Bot" and self.controller.value or nil
+	local botList = self.botService:GetBots()
+	local totalContestants = #playersInRound + #botList
+	local spawnIndex = 0
+
+	for _, player in ipairs(playersInRound) do
+		if player == controllerPlayer then
+			player:SetAttribute("SkyfallRole", "Controller")
+			self:_placePlayer(player, self.arena:GetControllerSpawnCFrame())
+		else
+			spawnIndex += 1
+			self.aliveRunners[player] = true
+			player:SetAttribute("SkyfallRole", "Runner")
+			player:SetAttribute("SkyfallSurvivalTime", 0)
+			self:_placePlayer(
+				player,
+				self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(totalContestants - 1, 1))
+			)
+		end
 	end
 
 	local botSpawnCFrames = {}
-	for index = 1, botCount do
-		local spawnIndex = #playersInRound + index
-		botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(
-			spawnIndex,
-			math.max(totalContestants, 1)
-		)
+	for index, bot in ipairs(botList) do
+		if bot ~= controllerBot then
+			spawnIndex += 1
+			botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(
+				spawnIndex,
+				math.max(totalContestants - 1, 1)
+			)
+		end
 	end
 
-	if self.botService then
-		self.botService:StartRound(botSpawnCFrames)
-	end
+	self.botService:StartRound(
+		botSpawnCFrames,
+		controllerBot,
+		self.arena:GetControllerSpawnCFrame()
+	)
 
 	self:_broadcast()
-	local canceled = false
 
+	local canceled = false
 	while self.phase == "Active" do
 		if #Players:GetPlayers() == 0 then
 			canceled = true
@@ -340,21 +553,32 @@ function RoundService:_runRound()
 		self:_updateSurvivalRecords()
 		self:_broadcast()
 
-		if self:_aliveRunnerCount() <= 1 then
-			self.winner, self.winnerPlayer = self:_getSoleSurvivor()
-			if self:_aliveRunnerCount() == 0 then
-				self.winner = "NO SURVIVORS"
-			end
-			self:_awardWinner(self.winnerPlayer)
-			if self.winnerPlayer then
-				self.winnerPlayer:SetAttribute("SkyfallRole", "Winner")
-			elseif self.botService then
-				self.botService:SetWinner(self.winner)
-			end
+		local aliveCount = self:_aliveRunnerCount()
+		if aliveCount <= 1 or not self.controller then
 			break
 		end
 
 		task.wait(1)
+	end
+
+	if not canceled then
+		local aliveCount = self:_aliveRunnerCount()
+		if aliveCount == 1 then
+			self.winnerCandidate = self:_getSoleSurvivor()
+		elseif aliveCount == 0 and self.controller and self:_isCandidateValid(self.controller) then
+			self.winnerCandidate = self.controller
+		elseif aliveCount > 0 then
+			self.winnerCandidate = self:_getLongestSurvivor()
+		end
+
+		if self.winnerCandidate then
+			self.winner = self:_candidateName(self.winnerCandidate)
+			self.nextController = self.winnerCandidate
+			self:_awardWinner(self.winnerCandidate)
+		else
+			self.winner = "NO SURVIVORS"
+			self.nextController = self.controller
+		end
 	end
 
 	self.phase = canceled and "Waiting" or "Results"
@@ -373,6 +597,7 @@ function RoundService:_runRound()
 	self.countdownSeconds = 0
 	self.overtime = false
 	self.aliveRunners = {}
+	self.controller = nil
 	self.arena:ResetTiles()
 	self:_placeAllPlayersInLobby()
 	self:_broadcast()

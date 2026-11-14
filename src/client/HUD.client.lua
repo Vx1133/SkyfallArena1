@@ -78,7 +78,7 @@ end
 
 local timeLabel = makeLabel(
 	"TimeLabel",
-	UDim2.new(0, 3, 0, 0),
+	UDim2.fromOffset(3, 0),
 	UDim2.new(0.34, -4, 1, 0),
 	"TIME 00:00",
 	Color3.fromRGB(255, 246, 222)
@@ -86,15 +86,15 @@ local timeLabel = makeLabel(
 
 local playersLabel = makeLabel(
 	"PlayersLabel",
-	UDim2.new(0.34, 0, 0, 0),
-	UDim2.new(0.33, 0, 1, 0),
+	UDim2.fromScale(0.34, 0),
+	UDim2.fromScale(0.33, 1),
 	"PLAYERS 0",
 	Color3.fromRGB(230, 239, 244)
 )
 
 local remainingLabel = makeLabel(
 	"RemainingLabel",
-	UDim2.new(0.67, 0, 0, 0),
+	UDim2.fromScale(0.67, 0),
 	UDim2.new(0.33, -3, 1, 0),
 	"LEFT 0",
 	Color3.fromRGB(212, 238, 209)
@@ -115,9 +115,7 @@ local function updateHud()
 	local phase = state.phase or "Waiting"
 	local timeValue = state.elapsedSeconds or 0
 
-	if phase == "Intermission" then
-		timeValue = state.countdownSeconds or 0
-	elseif phase == "Results" then
+	if phase == "Intermission" or phase == "Results" then
 		timeValue = state.countdownSeconds or 0
 	elseif phase == "Waiting" then
 		timeValue = 0

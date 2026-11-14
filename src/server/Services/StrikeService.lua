@@ -5,13 +5,15 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ga
 local StrikeService = {}
 StrikeService.__index = StrikeService
 
-function StrikeService.new(arenaService, roundService, botService)
+function StrikeService.new(arenaService, roundService, botService, targetRemote)
 	local self = setmetatable({}, StrikeService)
 	self.arena = arenaService
 	self.rounds = roundService
 	self.botService = botService
+	self.targetRemote = targetRemote
 	self.random = Random.new()
 	self.lastTarget = nil
+	self.lastHumanStrikeAt = {}
 	self.running = false
 	return self
 end
@@ -85,14 +87,14 @@ function StrikeService:_chooseTarget()
 	return candidates[self.random:NextInteger(1, #candidates)]
 end
 
-function StrikeService:_strikeTile(tile)
+function StrikeService:_fireAtTile(tile)
 	if not self.rounds:IsActive() or not tile then
-		return
+		return false
 	end
 
 	local token = self.arena:MarkTile(tile)
 	if not token then
-		return
+		return false
 	end
 
 	self.lastTarget = tile
@@ -109,29 +111,57 @@ function StrikeService:_strikeTile(tile)
 
 		self.arena:CreateStrikeBeam(tile)
 		self.arena:BreakTile(tile, token)
-
-		task.delay(Config.TILE_REPAIR_SECONDS, function()
-			self.arena:RepairTile(tile, token)
-		end)
 	end)
+
+	return true
 end
 
-function StrikeService:_run()
+function StrikeService:_handleHumanTarget(player, gridX, gridZ)
+	if not self.rounds:IsHumanController(player) then
+		return
+	end
+
+	if typeof(gridX) ~= "number" or typeof(gridZ) ~= "number" then
+		return
+	end
+
+	if gridX % 1 ~= 0 or gridZ % 1 ~= 0 then
+		return
+	end
+
+	if gridX < 1 or gridX > Config.GRID_SIZE
+		or gridZ < 1 or gridZ > Config.GRID_SIZE
+	then
+		return
+	end
+
+	local now = os.clock()
+	local nextAllowed = self.lastHumanStrikeAt[player.UserId] or 0
+	if now - nextAllowed < Config.HUMAN_STRIKE_COOLDOWN_SECONDS then
+		return
+	end
+
+	local tile = self.arena:GetTile(gridX, gridZ)
+	if self:_fireAtTile(tile) then
+		self.lastHumanStrikeAt[player.UserId] = now
+	end
+end
+
+function StrikeService:_runBotController()
 	while self.running do
-		if self.rounds:IsActive() then
-			local strikeCount = Config.OVERTIME_STRIKES_PER_WAVE
-			if not self.rounds:IsOvertime() then
-				strikeCount = 1
-			end
+		if self.rounds:IsBotController() then
+			local strikeCount = self.rounds:IsOvertime()
+				and Config.OVERTIME_STRIKES_PER_WAVE
+				or 1
 
 			for index = 1, strikeCount do
-				if not self.rounds:IsActive() then
+				if not self.rounds:IsBotController() then
 					break
 				end
 
 				local tile = self:_chooseTarget()
 				if tile then
-					self:_strikeTile(tile)
+					self:_fireAtTile(tile)
 				end
 
 				if strikeCount > 1 and index < strikeCount then
@@ -139,14 +169,14 @@ function StrikeService:_run()
 				end
 			end
 
-			local interval = Config.STRIKE_INTERVAL_SECONDS
+			local interval = Config.BOT_STRIKE_INTERVAL_SECONDS
 			if self.rounds:IsOvertime() then
-				interval = Config.OVERTIME_STRIKE_INTERVAL_SECONDS
+				interval = Config.OVERTIME_BOT_STRIKE_INTERVAL_SECONDS
 			end
 			task.wait(interval)
 		else
 			self.lastTarget = nil
-			task.wait(0.5)
+			task.wait(0.25)
 		end
 	end
 end
@@ -157,8 +187,12 @@ function StrikeService:Start()
 	end
 
 	self.running = true
+	self.targetRemote.OnServerEvent:Connect(function(player, gridX, gridZ)
+		self:_handleHumanTarget(player, gridX, gridZ)
+	end)
+
 	task.spawn(function()
-		self:_run()
+		self:_runBotController()
 	end)
 end
 

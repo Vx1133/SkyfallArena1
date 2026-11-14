@@ -23,6 +23,7 @@ end
 local servicesFolder = script.Parent:WaitForChild("Services")
 local remotesFolder = getOrCreateFolder(ReplicatedStorage, "SkyfallRemotes")
 local stateRemote = getOrCreateRemote(remotesFolder, "RoundState")
+local targetRemote = getOrCreateRemote(remotesFolder, "TargetTile")
 
 local ArenaService = require(servicesFolder:WaitForChild("ArenaService"))
 local BotService = require(servicesFolder:WaitForChild("BotService"))
@@ -34,7 +35,7 @@ arena:Build()
 
 local bots = BotService.new(arena)
 local rounds = RoundService.new(arena, stateRemote, bots)
-local laser = StrikeService.new(arena, rounds, bots)
+local laser = StrikeService.new(arena, rounds, bots, targetRemote)
 
 laser:Start()
 rounds:Start()

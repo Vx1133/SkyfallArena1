@@ -20,7 +20,7 @@ Before the first upload, open the experience in Creator Dashboard and confirm it
 
 The upload request must set `published: true` so Roblox updates the selected place to a playable new version. This publishes a place version to the experience; it does **not** change the audience setting or make a Private experience public. The owner can access their private experience.
 
-**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. The owner has approved replacing this automatically created place with the Skyfall Arena test build. Roblox keeps place version history, which can be used to restore an earlier version. Do not create a new experience or replace the Place ID for normal updates.
+**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. All normal game updates should target this same Start Place and preserve the same Place ID. Roblox keeps place version history, which can be used to restore an earlier version. Do not create a new experience or replace the Place ID for normal updates.
 
 ## GitHub setting required
 
@@ -66,7 +66,7 @@ The workflow:
 
 ## What has and has not been tested
 
-The validation workflow successfully checked the project structure, Luau lint, and Rojo build, and uploaded a build artifact. The game has **not** yet been run in a live Roblox server. The private upload and in-app playtest are still pending.
+The validation workflow checks project structure, Luau lint, and the Rojo build, and uploads a build artifact. These checks do not start a live Roblox server. After publishing, verify controller selection, bot animations and movement, phone touch aiming, respawns, permanent floor damage during a round, and alternating map appearance in a private in-game playtest.
 
 Official Roblox guide: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
 

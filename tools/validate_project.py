@@ -97,6 +97,7 @@ for feature in (
     "function RoundService:_chooseController(",
     "function RoundService:_getSoleSurvivor(",
     "function RoundService:_getLongestSurvivor(",
+    "function RoundService:_isGrounded(",
     "function RoundService:IsHumanController(",
     "function RoundService:IsBotController(",
     "self.nextController = self.winnerCandidate",

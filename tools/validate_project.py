@@ -80,7 +80,7 @@ require("function ArenaService:RepairTile(" not in arena_source, "Tiles should o
 bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
 for feature in (
     "HairAccessory",
-    "Animator:LoadAnimation",
+    "animator:LoadAnimation",
     "humanoid.Running:Connect",
     "HumanoidStateType.Jumping",
     "function BotService:StartRound(",

@@ -209,17 +209,6 @@ function BotService:_isInDanger(bot)
 		return true
 	end
 
-	local gridX = currentTile:GetAttribute("GridX")
-	local gridZ = currentTile:GetAttribute("GridZ")
-	for x = math.max(1, gridX - 1), math.min(Config.GRID_SIZE, gridX + 1) do
-		for z = math.max(1, gridZ - 1), math.min(Config.GRID_SIZE, gridZ + 1) do
-			local tile = self.arena:GetTile(x, z)
-			if tile and tile:GetAttribute("IsWarning") then
-				return true
-			end
-		end
-	end
-
 	return false
 end
 

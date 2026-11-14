@@ -11,33 +11,78 @@ ArenaService.__index = ArenaService
 local MAPS = {
 	{
 		id = 1,
-		name = "NEXUS SKYGRID",
-		tileColor = Color3.fromRGB(35, 58, 83),
-		tileMaterial = Enum.Material.Metal,
-		warningColor = Color3.fromRGB(255, 131, 55),
-		brokenColor = Color3.fromRGB(85, 30, 48),
-		accent = Color3.fromRGB(54, 220, 245),
-		accent2 = Color3.fromRGB(68, 116, 204),
-		structure = Color3.fromRGB(29, 48, 75),
-		clockTime = 20,
-		ambient = Color3.fromRGB(44, 63, 92),
-		fogColor = Color3.fromRGB(15, 31, 57),
-		fogDensity = 0.24,
+		name = "SUNCREST CASTLE",
+		tileColor = Color3.fromRGB(224, 216, 197),
+		tileMaterial = Enum.Material.Marble,
+		studColor = Color3.fromRGB(244, 235, 214),
+		warningColor = Color3.fromRGB(255, 143, 73),
+		brokenColor = Color3.fromRGB(83, 48, 42),
+		structure = Color3.fromRGB(238, 230, 211),
+		roof = Color3.fromRGB(190, 153, 92),
+		accent = Color3.fromRGB(188, 145, 76),
+		secondary = Color3.fromRGB(78, 111, 151),
+		ambient = Color3.fromRGB(176, 177, 165),
+		fogColor = Color3.fromRGB(215, 225, 231),
 	},
 	{
 		id = 2,
-		name = "EMBER REACTOR",
-		tileColor = Color3.fromRGB(62, 48, 47),
+		name = "CLOUDSPIRE KINGDOM",
+		tileColor = Color3.fromRGB(211, 224, 231),
+		tileMaterial = Enum.Material.SmoothPlastic,
+		studColor = Color3.fromRGB(242, 247, 248),
+		warningColor = Color3.fromRGB(255, 150, 82),
+		brokenColor = Color3.fromRGB(65, 82, 103),
+		structure = Color3.fromRGB(233, 241, 243),
+		roof = Color3.fromRGB(180, 199, 207),
+		accent = Color3.fromRGB(191, 158, 91),
+		secondary = Color3.fromRGB(104, 153, 188),
+		ambient = Color3.fromRGB(190, 204, 211),
+		fogColor = Color3.fromRGB(222, 236, 244),
+	},
+	{
+		id = 3,
+		name = "GOLDEN DUNES TEMPLE",
+		tileColor = Color3.fromRGB(204, 174, 125),
+		tileMaterial = Enum.Material.Sandstone,
+		studColor = Color3.fromRGB(229, 204, 158),
+		warningColor = Color3.fromRGB(255, 119, 61),
+		brokenColor = Color3.fromRGB(91, 56, 38),
+		structure = Color3.fromRGB(190, 153, 103),
+		roof = Color3.fromRGB(151, 107, 68),
+		accent = Color3.fromRGB(171, 119, 66),
+		secondary = Color3.fromRGB(74, 147, 151),
+		ambient = Color3.fromRGB(190, 171, 143),
+		fogColor = Color3.fromRGB(235, 216, 184),
+	},
+	{
+		id = 4,
+		name = "EMERALD GROVE SANCTUARY",
+		tileColor = Color3.fromRGB(195, 205, 186),
 		tileMaterial = Enum.Material.Slate,
-		warningColor = Color3.fromRGB(255, 202, 74),
-		brokenColor = Color3.fromRGB(96, 30, 24),
-		accent = Color3.fromRGB(255, 132, 58),
-		accent2 = Color3.fromRGB(226, 74, 48),
-		structure = Color3.fromRGB(52, 37, 37),
-		clockTime = 18.2,
-		ambient = Color3.fromRGB(82, 54, 42),
-		fogColor = Color3.fromRGB(63, 29, 26),
-		fogDensity = 0.3,
+		studColor = Color3.fromRGB(222, 231, 210),
+		warningColor = Color3.fromRGB(255, 143, 73),
+		brokenColor = Color3.fromRGB(59, 79, 58),
+		structure = Color3.fromRGB(164, 181, 153),
+		roof = Color3.fromRGB(105, 130, 91),
+		accent = Color3.fromRGB(163, 139, 92),
+		secondary = Color3.fromRGB(91, 142, 103),
+		ambient = Color3.fromRGB(165, 190, 161),
+		fogColor = Color3.fromRGB(205, 223, 194),
+	},
+	{
+		id = 5,
+		name = "AZURE HARBOR FORTRESS",
+		tileColor = Color3.fromRGB(211, 219, 218),
+		tileMaterial = Enum.Material.Concrete,
+		studColor = Color3.fromRGB(239, 242, 236),
+		warningColor = Color3.fromRGB(255, 145, 76),
+		brokenColor = Color3.fromRGB(65, 77, 83),
+		structure = Color3.fromRGB(232, 234, 224),
+		roof = Color3.fromRGB(105, 136, 157),
+		accent = Color3.fromRGB(181, 151, 100),
+		secondary = Color3.fromRGB(76, 145, 171),
+		ambient = Color3.fromRGB(180, 202, 207),
+		fogColor = Color3.fromRGB(214, 231, 235),
 	},
 }
 
@@ -48,7 +93,7 @@ local function createPart(parent, name, size, position, color, material, canColl
 	part.Size = size
 	part.Position = position
 	part.Color = color
-	part.Material = material
+	part.Material = material or Enum.Material.SmoothPlastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.CanCollide = canCollide ~= false
@@ -63,23 +108,43 @@ local function createFolder(parent, name)
 	return folder
 end
 
-local function addNeonBar(parent, name, size, position, color, rotation)
-	local bar = createPart(
-		parent,
-		name,
-		size,
-		position,
-		color,
-		Enum.Material.Neon,
-		false
-	)
-	if rotation then
-		bar.CFrame = CFrame.new(position) * rotation
+local function addSquareStuds(basePart, color, studWidth, studHeight)
+	local width = studWidth or 0.85
+	local height = studHeight or 0.24
+	local insetX = math.max(0, basePart.Size.X / 2 - width * 1.65)
+	local insetZ = math.max(0, basePart.Size.Z / 2 - width * 1.65)
+	local offsets = {
+		Vector3.new(-insetX, 0, -insetZ),
+		Vector3.new(insetX, 0, -insetZ),
+		Vector3.new(-insetX, 0, insetZ),
+		Vector3.new(insetX, 0, insetZ),
+	}
+
+	for index, offset in ipairs(offsets) do
+		local stud = createPart(
+			basePart,
+			"SquareStud_" .. tostring(index),
+			Vector3.new(width, height, width),
+			basePart.Position + Vector3.new(0, basePart.Size.Y / 2 + height / 2, 0) + offset,
+			color,
+			Enum.Material.SmoothPlastic,
+			false
+		)
+		stud.CanTouch = false
+		stud.CanQuery = false
+		stud.CastShadow = false
 	end
-	bar.Transparency = 0.14
-	bar.CanTouch = false
-	bar.CanQuery = false
-	return bar
+end
+
+local function setTileStudState(tile, hidden, color)
+	for _, child in ipairs(tile:GetChildren()) do
+		if string.sub(child.Name, 1, 11) == "SquareStud_" and child:IsA("BasePart") then
+			child.Transparency = hidden and 1 or 0
+			if color then
+				child.Color = color
+			end
+		end
+	end
 end
 
 local function addSign(parent, name, position, size, title, subtitle, facePosition, accent)
@@ -88,14 +153,15 @@ local function addSign(parent, name, position, size, title, subtitle, facePositi
 		name,
 		size,
 		position,
-		Color3.fromRGB(12, 22, 37),
-		Enum.Material.Metal,
+		Color3.fromRGB(236, 229, 211),
+		Enum.Material.Marble,
 		false
 	)
 	if facePosition then
 		board.CFrame = CFrame.lookAt(position, facePosition)
 	end
 	board.CanQuery = false
+	board.CanTouch = false
 
 	local gui = Instance.new("SurfaceGui")
 	gui.Name = "SignSurface"
@@ -106,8 +172,8 @@ local function addSign(parent, name, position, size, title, subtitle, facePositi
 
 	local frame = Instance.new("Frame")
 	frame.Size = UDim2.fromScale(1, 1)
-	frame.BackgroundColor3 = Color3.fromRGB(12, 22, 37)
-	frame.BackgroundTransparency = 0.08
+	frame.BackgroundColor3 = Color3.fromRGB(236, 229, 211)
+	frame.BackgroundTransparency = 0.04
 	frame.BorderSizePixel = 0
 	frame.Parent = gui
 
@@ -118,14 +184,14 @@ local function addSign(parent, name, position, size, title, subtitle, facePositi
 	heading.BackgroundTransparency = 1
 	heading.Font = Enum.Font.GothamBlack
 	heading.Text = title
-	heading.TextColor3 = Color3.fromRGB(237, 246, 255)
+	heading.TextColor3 = Color3.fromRGB(64, 54, 43)
 	heading.TextScaled = true
 	heading.Parent = frame
 
 	local detail = Instance.new("TextLabel")
 	detail.Name = "Subtitle"
-	detail.Size = UDim2.new(1, -16, 0.32, 0)
-	detail.Position = UDim2.new(0, 8, 0.62, 0)
+	detail.Size = UDim2.new(1, -16, 0.3, 0)
+	detail.Position = UDim2.new(0, 8, 0.64, 0)
 	detail.BackgroundTransparency = 1
 	detail.Font = Enum.Font.GothamMedium
 	detail.Text = subtitle
@@ -135,14 +201,271 @@ local function addSign(parent, name, position, size, title, subtitle, facePositi
 
 	local outline = Instance.new("UIStroke")
 	outline.Color = accent
-	outline.Thickness = 1.5
+	outline.Thickness = 1.4
 	outline.Parent = frame
-
 	return board
 end
 
 local function tileKey(gridX, gridZ)
 	return tostring(gridX) .. ":" .. tostring(gridZ)
+end
+
+local function addSquareColumn(parent, name, position, width, height, bodyColor, capColor)
+	local body = createPart(
+		parent,
+		name,
+		Vector3.new(width, height, width),
+		position + Vector3.new(0, height / 2, 0),
+		bodyColor,
+		Enum.Material.Marble,
+		false
+	)
+	local base = createPart(
+		parent,
+		name .. "_Base",
+		Vector3.new(width + 2, 1.2, width + 2),
+		position + Vector3.new(0, 0.6, 0),
+		capColor,
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	local cap = createPart(
+		parent,
+		name .. "_Cap",
+		Vector3.new(width + 2.2, 1.2, width + 2.2),
+		position + Vector3.new(0, height + 0.6, 0),
+		capColor,
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	addSquareStuds(cap, bodyColor, 0.72, 0.2)
+	body.CanQuery = false
+	base.CanQuery = false
+	cap.CanQuery = false
+	return body
+end
+
+local function addTower(parent, name, center, width, height, bodyColor, roofColor)
+	local body = createPart(
+		parent,
+		name,
+		Vector3.new(width, height, width),
+		center + Vector3.new(0, height / 2, 0),
+		bodyColor,
+		Enum.Material.Marble,
+		false
+	)
+	local lowerRoof = createPart(
+		parent,
+		name .. "_RoofBase",
+		Vector3.new(width + 5, 2, width + 5),
+		center + Vector3.new(0, height + 1, 0),
+		roofColor,
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	local upperRoof = createPart(
+		parent,
+		name .. "_RoofTop",
+		Vector3.new(width * 0.62, 3, width * 0.62),
+		center + Vector3.new(0, height + 3.5, 0),
+		roofColor,
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	addSquareStuds(lowerRoof, bodyColor, 0.75, 0.22)
+	body.CanQuery = false
+	lowerRoof.CanQuery = false
+	upperRoof.CanQuery = false
+end
+
+local function addHall(parent, name, basePosition, width, height, depth, bodyColor, roofColor, accentColor)
+	local wall = createPart(
+		parent,
+		name .. "_MainHall",
+		Vector3.new(width, height, depth),
+		basePosition + Vector3.new(0, height / 2, 0),
+		bodyColor,
+		Enum.Material.Marble,
+		false
+	)
+	local roof = createPart(
+		parent,
+		name .. "_Roof",
+		Vector3.new(width + 7, 2.2, depth + 6),
+		basePosition + Vector3.new(0, height + 1.1, 0),
+		roofColor,
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	local upperRoof = createPart(
+		parent,
+		name .. "_UpperRoof",
+		Vector3.new(width * 0.72, 2.2, depth + 3),
+		basePosition + Vector3.new(0, height + 3.3, 0),
+		accentColor,
+		Enum.Material.Marble,
+		false
+	)
+	local frontZ = basePosition.Z + depth / 2 + 0.7
+	local doorway = createPart(
+		parent,
+		name .. "_Doorway",
+		Vector3.new(width * 0.2, height * 0.62, 0.7),
+		Vector3.new(basePosition.X, basePosition.Y + height * 0.32, frontZ),
+		Color3.fromRGB(82, 65, 49),
+		Enum.Material.Wood,
+		false
+	)
+	doorway.CanQuery = false
+
+	for side = -1, 1, 2 do
+		addSquareColumn(
+			parent,
+			name .. "_FrontColumn_" .. tostring(side),
+			Vector3.new(basePosition.X + side * width * 0.31, basePosition.Y, frontZ + 0.8),
+			math.max(3, width * 0.075),
+			height * 0.84,
+			bodyColor,
+			accentColor
+		)
+		local window = createPart(
+			parent,
+			name .. "_Window_" .. tostring(side),
+			Vector3.new(width * 0.1, height * 0.38, 0.32),
+			Vector3.new(basePosition.X + side * width * 0.19, basePosition.Y + height * 0.58, frontZ + 0.24),
+			Color3.fromRGB(111, 157, 177),
+			Enum.Material.Glass,
+			false
+		)
+		window.Transparency = 0.28
+		window.CanQuery = false
+	end
+
+	addSquareStuds(roof, accentColor, 0.9, 0.24)
+	wall.CanQuery = false
+	roof.CanQuery = false
+	upperRoof.CanQuery = false
+end
+
+local function addTree(parent, name, position, scale, trunkColor, leafColor)
+	local trunkHeight = 10 * scale
+	local trunk = createPart(
+		parent,
+		name .. "_Trunk",
+		Vector3.new(2.2 * scale, trunkHeight, 2.2 * scale),
+		position + Vector3.new(0, trunkHeight / 2, 0),
+		trunkColor,
+		Enum.Material.Wood,
+		false
+	)
+	trunk.Shape = Enum.PartType.Cylinder
+	trunk.CanQuery = false
+	trunk.CanTouch = false
+
+	for index = 1, 3 do
+		local angle = (index - 1) * math.pi * 2 / 3
+		local leaves = createPart(
+			parent,
+			name .. "_Canopy_" .. tostring(index),
+			Vector3.new(9 * scale, 7 * scale, 9 * scale),
+			position + Vector3.new(math.cos(angle) * 2.5 * scale, trunkHeight + 1.5 * scale, math.sin(angle) * 2.5 * scale),
+			leafColor,
+			Enum.Material.Grass,
+			false
+		)
+		leaves.Shape = Enum.PartType.Ball
+		leaves.CanQuery = false
+		leaves.CanTouch = false
+	end
+end
+
+local function addPalm(parent, name, position, scale, trunkColor, leafColor)
+	local trunk = createPart(
+		parent,
+		name .. "_Trunk",
+		Vector3.new(1.5 * scale, 13 * scale, 1.5 * scale),
+		position + Vector3.new(0, 6.5 * scale, 0),
+		trunkColor,
+		Enum.Material.Wood,
+		false
+	)
+	trunk.Shape = Enum.PartType.Cylinder
+	trunk.CFrame = CFrame.new(trunk.Position) * CFrame.Angles(0, 0, math.rad(-6))
+	trunk.CanQuery = false
+
+	for index = 1, 6 do
+		local angle = (index - 1) * math.pi / 3
+		local leaf = createPart(
+			parent,
+			name .. "_Leaf_" .. tostring(index),
+			Vector3.new(2.2 * scale, 0.5 * scale, 9 * scale),
+			position + Vector3.new(math.cos(angle) * 4.2 * scale, 13 * scale, math.sin(angle) * 4.2 * scale),
+			leafColor,
+			Enum.Material.Grass,
+			false
+		)
+		leaf.CFrame = CFrame.new(leaf.Position) * CFrame.Angles(0, -angle, math.rad(10))
+		leaf.CanQuery = false
+	end
+end
+
+local function addBench(parent, name, position, woodColor, stoneColor)
+	local seat = createPart(
+		parent,
+		name .. "_Seat",
+		Vector3.new(10, 0.8, 2.8),
+		position + Vector3.new(0, 2.2, 0),
+		woodColor,
+		Enum.Material.WoodPlanks,
+		true
+	)
+	local back = createPart(
+		parent,
+		name .. "_Back",
+		Vector3.new(10, 2.8, 0.8),
+		position + Vector3.new(0, 3.7, 1),
+		woodColor,
+		Enum.Material.WoodPlanks,
+		false
+	)
+	for side = -1, 1, 2 do
+		createPart(
+			parent,
+			name .. "_Support_" .. tostring(side),
+			Vector3.new(1.1, 2.1, 2.1),
+			position + Vector3.new(side * 3.8, 1.05, 0),
+			stoneColor,
+			Enum.Material.Marble,
+			false
+		)
+	end
+	seat.CanQuery = false
+	back.CanQuery = false
+end
+
+local function addPlanter(parent, name, position, stoneColor, leafColor)
+	local box = createPart(
+		parent,
+		name .. "_Box",
+		Vector3.new(9, 2, 9),
+		position + Vector3.new(0, 1, 0),
+		stoneColor,
+		Enum.Material.Marble,
+		false
+	)
+	local foliage = createPart(
+		parent,
+		name .. "_Plant",
+		Vector3.new(6, 5, 6),
+		position + Vector3.new(0, 4, 0),
+		leafColor,
+		Enum.Material.Grass,
+		false
+	)
+	foliage.Shape = Enum.PartType.Ball
+	box.CanQuery = false
+	foliage.CanQuery = false
 end
 
 function ArenaService.new()
@@ -168,7 +491,6 @@ function ArenaService.new()
 	self.tiles = {}
 	self.currentMapId = 0
 	self.theme = MAPS[1]
-	self.rotors = {}
 	self.aircraftModel = nil
 	self.aircraftBasePosition = Config.CONTROL_CENTER
 	return self
@@ -179,204 +501,118 @@ function ArenaService:_buildLobby()
 	local center = Config.LOBBY_CENTER
 	local size = Config.LOBBY_SIZE
 	local half = size / 2
+	local theme = self.theme
 
 	local platform = createPart(
 		decor,
 		"WaitingPlatform",
 		Vector3.new(size, 3, size),
 		center,
-		Color3.fromRGB(25, 40, 60),
-		Enum.Material.DiamondPlate
+		Color3.fromRGB(221, 215, 198),
+		Enum.Material.Marble,
+		true
 	)
 	platform.CanQuery = false
 
-	local trimY = center.Y + 1.8
-	addNeonBar(
-		decor,
-		"LobbyNorthTrim",
-		Vector3.new(size, 0.5, 1.2),
-		center + Vector3.new(0, trimY - center.Y, -half),
-		Color3.fromRGB(64, 211, 239)
-	)
-	addNeonBar(
-		decor,
-		"LobbySouthTrim",
-		Vector3.new(size, 0.5, 1.2),
-		center + Vector3.new(0, trimY - center.Y, half),
-		Color3.fromRGB(64, 211, 239)
-	)
-	addNeonBar(
-		decor,
-		"LobbyEastTrim",
-		Vector3.new(1.2, 0.5, size),
-		center + Vector3.new(half, trimY - center.Y, 0),
-		Color3.fromRGB(83, 132, 221)
-	)
-	addNeonBar(
-		decor,
-		"LobbyWestTrim",
-		Vector3.new(1.2, 0.5, size),
-		center + Vector3.new(-half, trimY - center.Y, 0),
-		Color3.fromRGB(83, 132, 221)
-	)
-
-	for xSign = -1, 1, 2 do
-		for zSign = -1, 1, 2 do
-			local pillarPosition = center + Vector3.new(xSign * (half - 6), 13, zSign * (half - 6))
-			local pillar = createPart(
+	local panelCount = 7
+	local panelSize = (size - 12) / panelCount
+	local spacing = size / panelCount
+	for gridX = 1, panelCount do
+		for gridZ = 1, panelCount do
+			local offsetX = (gridX - (panelCount + 1) / 2) * spacing
+			local offsetZ = (gridZ - (panelCount + 1) / 2) * spacing
+			local panel = createPart(
 				decor,
-				"LobbyPillar_" .. tostring(xSign) .. "_" .. tostring(zSign),
-				Vector3.new(3.5, 25, 3.5),
-				pillarPosition,
-				Color3.fromRGB(37, 57, 83),
-				Enum.Material.Metal,
+				"LobbyFloorPanel_" .. tostring(gridX) .. "_" .. tostring(gridZ),
+				Vector3.new(panelSize, 0.2, panelSize),
+				center + Vector3.new(offsetX, 1.61, offsetZ),
+				gridX % 2 == gridZ % 2 and Color3.fromRGB(232, 225, 207) or Color3.fromRGB(216, 209, 192),
+				Enum.Material.Marble,
 				false
 			)
-			pillar.CanQuery = false
-
-			local cap = createPart(
-				decor,
-				"LobbyPillarCap_" .. tostring(xSign) .. "_" .. tostring(zSign),
-				Vector3.new(5, 1.2, 5),
-				pillarPosition + Vector3.new(0, 13, 0),
-				Color3.fromRGB(65, 205, 234),
-				Enum.Material.Neon,
-				false
-			)
-			cap.CanTouch = false
-			cap.CanQuery = false
+			addSquareStuds(panel, theme.studColor, 0.8, 0.2)
+			panel.CanQuery = false
 		end
 	end
 
-	for index = 1, 8 do
-		local angle = ((index - 1) / 8) * math.pi * 2
-		local offset = Vector3.new(math.cos(angle) * 25, 1.9, math.sin(angle) * 25)
-		local pad = createPart(
-			decor,
-			"PlayerSpawnPad_" .. tostring(index),
-			Vector3.new(0.65, 9, 9),
-			center + offset,
-			Color3.fromRGB(46, 105, 139),
-			Enum.Material.Metal,
-			false
-		)
-		pad.Shape = Enum.PartType.Cylinder
-		pad.CFrame = CFrame.new(center + offset) * CFrame.Angles(0, 0, math.rad(90))
-		pad.CanTouch = false
-		pad.CanQuery = false
+	local poolCenter = center + Vector3.new(0, 1.76, -1)
+	local pool = createPart(
+		decor,
+		"LobbyWater",
+		Vector3.new(22, 0.24, 14),
+		poolCenter,
+		Color3.fromRGB(72, 157, 177),
+		Enum.Material.Water,
+		false
+	)
+	pool.Transparency = 0.12
+	pool.CanTouch = false
+	pool.CanQuery = false
 
-		local padRing = createPart(
-			decor,
-			"PlayerSpawnRing_" .. tostring(index),
-			Vector3.new(0.22, 10, 10),
-			center + offset + Vector3.new(0, 0.42, 0),
-			index % 2 == 0 and Color3.fromRGB(78, 143, 238) or Color3.fromRGB(54, 220, 245),
-			Enum.Material.Neon,
-			false
-		)
-		padRing.Shape = Enum.PartType.Cylinder
-		padRing.CFrame = CFrame.new(center + offset + Vector3.new(0, 0.42, 0))
-			* CFrame.Angles(0, 0, math.rad(90))
-		padRing.CanTouch = false
-		padRing.CanQuery = false
-		padRing.Transparency = 0.18
+	local poolRimColor = Color3.fromRGB(196, 185, 160)
+	local poolNorth = createPart(decor, "PoolNorthRim", Vector3.new(25, 1.1, 1.2), poolCenter + Vector3.new(0, 0.5, -7.5), poolRimColor, Enum.Material.Marble, false)
+	local poolSouth = createPart(decor, "PoolSouthRim", Vector3.new(25, 1.1, 1.2), poolCenter + Vector3.new(0, 0.5, 7.5), poolRimColor, Enum.Material.Marble, false)
+	local poolEast = createPart(decor, "PoolEastRim", Vector3.new(1.2, 1.1, 14), poolCenter + Vector3.new(12, 0.5, 0), poolRimColor, Enum.Material.Marble, false)
+	local poolWest = createPart(decor, "PoolWestRim", Vector3.new(1.2, 1.1, 14), poolCenter + Vector3.new(-12, 0.5, 0), poolRimColor, Enum.Material.Marble, false)
+	for _, rim in ipairs({poolNorth, poolSouth, poolEast, poolWest}) do
+		rim.CanQuery = false
 	end
 
-	local centerPad = createPart(
+	local waterfall = createPart(
 		decor,
-		"LobbyCenterPad",
-		Vector3.new(1, 25, 25),
-		center + Vector3.new(0, 1.95, 0),
-		Color3.fromRGB(35, 55, 78),
-		Enum.Material.Metal,
+		"LobbyWaterfall",
+		Vector3.new(0.7, 3.2, 9),
+		poolCenter + Vector3.new(0, 1.3, -7.2),
+		Color3.fromRGB(116, 190, 204),
+		Enum.Material.Water,
 		false
 	)
-	centerPad.Shape = Enum.PartType.Cylinder
-	centerPad.CFrame = CFrame.new(center + Vector3.new(0, 1.95, 0))
-		* CFrame.Angles(0, 0, math.rad(90))
-	centerPad.CanTouch = false
-	centerPad.CanQuery = false
+	waterfall.Transparency = 0.28
+	waterfall.CanTouch = false
+	waterfall.CanQuery = false
 
-	local centerCore = createPart(
-		decor,
-		"LobbyCore",
-		Vector3.new(4, 7, 4),
-		center + Vector3.new(0, 6, 0),
-		Color3.fromRGB(54, 220, 245),
-		Enum.Material.Neon,
-		false
-	)
-	centerCore.CanTouch = false
-	centerCore.CanQuery = false
+	for xSign = -1, 1, 2 do
+		for zSign = -1, 1, 2 do
+			local corner = center + Vector3.new(xSign * (half - 12), 0, zSign * (half - 12))
+			addBench(decor, "LobbyBench_" .. tostring(xSign) .. "_" .. tostring(zSign), corner, Color3.fromRGB(122, 88, 57), poolRimColor)
+			addPlanter(decor, "LobbyPlanter_" .. tostring(xSign) .. "_" .. tostring(zSign), corner + Vector3.new(-xSign * 5, 0, -zSign * 5), poolRimColor, Color3.fromRGB(83, 133, 83))
+		end
+	end
 
-	local coreLight = Instance.new("PointLight")
-	coreLight.Color = Color3.fromRGB(54, 220, 245)
-	coreLight.Brightness = 1.7
-	coreLight.Range = 28
-	coreLight.Parent = centerCore
-
+	local gateX = center.X + half - 8
 	for side = -1, 1, 2 do
-		local gatePillar = createPart(
+		addSquareColumn(
 			decor,
-			"LobbyGatePillar_" .. tostring(side),
-			Vector3.new(3, 15, 3),
-			center + Vector3.new(side * 19, 8.8, half - 8),
-			Color3.fromRGB(37, 57, 83),
-			Enum.Material.Metal,
-			false
-		)
-		gatePillar.CanQuery = false
-
-		addNeonBar(
-			decor,
-			"LobbyGateLight_" .. tostring(side),
-			Vector3.new(0.6, 13, 0.6),
-			gatePillar.Position,
-			Color3.fromRGB(54, 220, 245)
+			"LobbyEntranceColumn_" .. tostring(side),
+			Vector3.new(gateX, center.Y + 1.5, center.Z + side * 14),
+			4,
+			12,
+			Color3.fromRGB(217, 207, 184),
+			Color3.fromRGB(177, 143, 88)
 		)
 	end
-
 	local gateTop = createPart(
 		decor,
-		"LobbyGateTop",
-		Vector3.new(41, 2, 3),
-		center + Vector3.new(0, 16.2, half - 8),
-		Color3.fromRGB(38, 60, 88),
-		Enum.Material.Metal,
+		"LobbyEntranceHeader",
+		Vector3.new(5, 2.5, 31),
+		Vector3.new(gateX, center.Y + 15, center.Z),
+		Color3.fromRGB(177, 143, 88),
+		Enum.Material.Marble,
 		false
 	)
+	addSquareStuds(gateTop, Color3.fromRGB(232, 219, 190), 0.8, 0.22)
 	gateTop.CanQuery = false
-
-	addNeonBar(
-		decor,
-		"LobbyGateTopLight",
-		Vector3.new(37, 0.5, 0.5),
-		gateTop.Position + Vector3.new(0, 1.1, 0),
-		Color3.fromRGB(54, 220, 245)
-	)
 
 	addSign(
 		decor,
 		"LobbyWelcomeSign",
-		center + Vector3.new(0, 19, -half + 3),
-		Vector3.new(42, 12, 2),
-		"WAITING BAY",
-		"NEXT ROUND STARTS HERE",
+		center + Vector3.new(0, 12, -half + 3),
+		Vector3.new(32, 7, 1.2),
+		"WAITING GARDEN",
+		"SKYFALL ARENA",
 		center,
-		Color3.fromRGB(54, 220, 245)
+		Color3.fromRGB(156, 119, 66)
 	)
-
-	local floorLine = createPart(
-		decor,
-		"LobbyCenterLine",
-		Vector3.new(1, 0.2, 48),
-		center + Vector3.new(0, 1.62, 0),
-		Color3.fromRGB(46, 100, 138),
-		Enum.Material.Neon,
-		false
-	)
-	floorLine.CanTouch = false
-	floorLine.CanQuery = false
 end
 
 function ArenaService:_buildAircraft()
@@ -387,230 +623,237 @@ function ArenaService:_buildAircraft()
 
 	local base = Config.CONTROL_CENTER
 	self.aircraftBasePosition = base
-	self.rotors = {}
 
-	local function part(name, size, offset, color, material, shape)
-		local item = createPart(
+	local orb = createPart(
+		model,
+		"AircraftFuselage",
+		Vector3.new(16, 16, 16),
+		base,
+		Color3.fromRGB(211, 160, 61),
+		Enum.Material.Metal,
+		false
+	)
+	orb.Shape = Enum.PartType.Ball
+	orb.Material = Enum.Material.Metal
+	orb.Reflectance = 0.08
+	orb.CastShadow = false
+	model.PrimaryPart = orb
+
+	for index = 1, 8 do
+		local angle = (index - 1) * math.pi / 4
+		local panelPosition = base + Vector3.new(math.cos(angle) * 7.15, 0, math.sin(angle) * 7.15)
+		local panel = createPart(
 			model,
-			name,
-			size,
-			base + offset,
-			color,
-			material,
+			"ArmorPlate_" .. tostring(index),
+			Vector3.new(1.55, 8.3, 2.35),
+			panelPosition,
+			index % 2 == 0 and Color3.fromRGB(232, 188, 91) or Color3.fromRGB(194, 140, 48),
+			Enum.Material.SmoothPlastic,
 			false
 		)
-		if shape then
-			item.Shape = shape
-		end
-		item.CanTouch = false
-		item.CanQuery = false
-		return item
+		panel.Shape = Enum.PartType.Ball
+		panel.CFrame = CFrame.new(panelPosition) * CFrame.Angles(0, -angle, math.rad(7))
+		panel.CastShadow = false
+		panel.CanQuery = false
+		panel.CanTouch = false
 	end
 
-	local fuselage = part(
-		"AircraftFuselage",
-		Vector3.new(8, 3.6, 21),
-		Vector3.new(0, -1, 0),
-		Color3.fromRGB(48, 68, 96),
-		Enum.Material.Metal
-	)
-	model.PrimaryPart = fuselage
-
-	part(
-		"AircraftNose",
-		Vector3.new(6, 2.6, 7),
-		Vector3.new(0, -0.7, -13),
-		Color3.fromRGB(78, 104, 137),
+	local equatorialBand = createPart(
+		model,
+		"EquatorialGoldBand",
+		Vector3.new(14.6, 0.58, 14.6),
+		base,
+		Color3.fromRGB(238, 190, 91),
 		Enum.Material.Metal,
-		Enum.PartType.Ball
+		false
 	)
+	equatorialBand.Shape = Enum.PartType.Cylinder
+	equatorialBand.Transparency = 0.08
+	equatorialBand.CastShadow = false
+	equatorialBand.CanQuery = false
 
-	local cockpit = part(
-		"AircraftCockpit",
-		Vector3.new(5.4, 2.2, 5.5),
-		Vector3.new(0, 1.6, -4.5),
-		Color3.fromRGB(77, 190, 222),
+	local lowerBand = createPart(
+		model,
+		"EquatorialBronzeSeam",
+		Vector3.new(14.8, 0.16, 14.8),
+		base + Vector3.new(0, -0.36, 0),
+		Color3.fromRGB(103, 65, 35),
+		Enum.Material.Metal,
+		false
+	)
+	lowerBand.Shape = Enum.PartType.Cylinder
+	lowerBand.CastShadow = false
+	lowerBand.CanQuery = false
+
+	local outerCollar = createPart(
+		model,
+		"ControllerLensOuterCollar",
+		Vector3.new(7.5, 0.85, 7.5),
+		base + Vector3.new(-1.1, -6.3, -0.5),
+		Color3.fromRGB(223, 174, 74),
+		Enum.Material.Metal,
+		false
+	)
+	outerCollar.Shape = Enum.PartType.Cylinder
+	outerCollar.CastShadow = false
+	outerCollar.CanQuery = false
+
+	local bronzeGroove = createPart(
+		model,
+		"ControllerLensBronzeGroove",
+		Vector3.new(6.35, 0.42, 6.35),
+		base + Vector3.new(-1.1, -6.86, -0.5),
+		Color3.fromRGB(92, 50, 33),
+		Enum.Material.Metal,
+		false
+	)
+	bronzeGroove.Shape = Enum.PartType.Cylinder
+	bronzeGroove.CastShadow = false
+	bronzeGroove.CanQuery = false
+
+	local innerGoldRing = createPart(
+		model,
+		"ControllerLensInnerRing",
+		Vector3.new(5.6, 0.34, 5.6),
+		base + Vector3.new(-1.1, -7.2, -0.5),
+		Color3.fromRGB(236, 190, 96),
+		Enum.Material.Metal,
+		false
+	)
+	innerGoldRing.Shape = Enum.PartType.Cylinder
+	innerGoldRing.CastShadow = false
+	innerGoldRing.CanQuery = false
+
+	local lens = createPart(
+		model,
+		"ControllerLens",
+		Vector3.new(4.8, 0.24, 4.8),
+		base + Vector3.new(-1.1, -7.48, -0.5),
+		Color3.fromRGB(209, 32, 47),
 		Enum.Material.Glass,
-		Enum.PartType.Ball
+		false
 	)
-	cockpit.Transparency = 0.2
+	lens.Shape = Enum.PartType.Cylinder
+	lens.Transparency = 0.08
+	lens.Reflectance = 0.16
+	lens.CastShadow = false
+	lens.CanQuery = false
 
-	part(
-		"AircraftWings",
-		Vector3.new(32, 1.5, 7),
-		Vector3.new(0, -0.8, 1),
-		Color3.fromRGB(38, 54, 82),
-		Enum.Material.Metal
+	local lensLight = Instance.new("PointLight")
+	lensLight.Color = Color3.fromRGB(255, 69, 72)
+	lensLight.Brightness = 1.25
+	lensLight.Range = 18
+	lensLight.Parent = lens
+
+	local reticleColor = Color3.fromRGB(255, 113, 111)
+	local crossX = createPart(
+		model,
+		"LensReticleHorizontal",
+		Vector3.new(2.7, 0.07, 0.1),
+		base + Vector3.new(-1.1, -7.64, -0.5),
+		reticleColor,
+		Enum.Material.SmoothPlastic,
+		false
 	)
-
-	part(
-		"AircraftWingLeftLight",
-		Vector3.new(0.55, 0.5, 5.2),
-		Vector3.new(-15.3, 0.05, 1),
-		Color3.fromRGB(54, 220, 245),
-		Enum.Material.Neon
+	local crossZ = createPart(
+		model,
+		"LensReticleVertical",
+		Vector3.new(0.1, 0.07, 2.7),
+		base + Vector3.new(-1.1, -7.64, -0.5),
+		reticleColor,
+		Enum.Material.SmoothPlastic,
+		false
 	)
-	part(
-		"AircraftWingRightLight",
-		Vector3.new(0.55, 0.5, 5.2),
-		Vector3.new(15.3, 0.05, 1),
-		Color3.fromRGB(255, 92, 88),
-		Enum.Material.Neon
+	local centerDot = createPart(
+		model,
+		"LensReticleCenter",
+		Vector3.new(0.32, 0.1, 0.32),
+		base + Vector3.new(-1.1, -7.68, -0.5),
+		Color3.fromRGB(255, 179, 162),
+		Enum.Material.SmoothPlastic,
+		false
 	)
-
-	part(
-		"AircraftTailWing",
-		Vector3.new(12, 1.2, 3.5),
-		Vector3.new(0, 0.2, 11.2),
-		Color3.fromRGB(38, 54, 82),
-		Enum.Material.Metal
-	)
-	part(
-		"AircraftTailFin",
-		Vector3.new(1.2, 5.5, 4),
-		Vector3.new(0, 2.5, 11.2),
-		Color3.fromRGB(65, 93, 128),
-		Enum.Material.Metal
-	)
-
-	for side = -1, 1, 2 do
-		local engineOffset = Vector3.new(side * 12, -0.9, 2)
-		local engine = part(
-			"AircraftEngine_" .. tostring(side),
-			Vector3.new(9, 3.5, 3.5),
-			engineOffset,
-			Color3.fromRGB(30, 45, 70),
-			Enum.Material.Metal,
-			Enum.PartType.Cylinder
-		)
-		engine.CFrame = CFrame.new(base + engineOffset) * CFrame.Angles(math.rad(90), 0, 0)
-
-		local engineGlow = part(
-			"AircraftEngineGlow_" .. tostring(side),
-			Vector3.new(2.1, 2.1, 1),
-			engineOffset + Vector3.new(side * 4.5, 0, 0),
-			Color3.fromRGB(54, 220, 245),
-			Enum.Material.Neon,
-			Enum.PartType.Ball
-		)
-		local engineLight = Instance.new("PointLight")
-		engineLight.Color = Color3.fromRGB(54, 220, 245)
-		engineLight.Brightness = 1.3
-		engineLight.Range = 16
-		engineLight.Parent = engineGlow
-
-		local rotorCenter = base + engineOffset + Vector3.new(0, 2.5, -0.2)
-		local bladeA = part(
-			"AircraftRotorA_" .. tostring(side),
-			Vector3.new(0.4, 0.18, 6),
-			engineOffset + Vector3.new(0, 2.5, -0.2),
-			Color3.fromRGB(174, 198, 222),
-			Enum.Material.Metal
-		)
-		local bladeB = part(
-			"AircraftRotorB_" .. tostring(side),
-			Vector3.new(0.4, 0.18, 6),
-			engineOffset + Vector3.new(0, 2.5, -0.2),
-			Color3.fromRGB(174, 198, 222),
-			Enum.Material.Metal
-		)
-		table.insert(self.rotors, {
-			center = rotorCenter,
-			bladeA = bladeA,
-			bladeB = bladeB,
-		})
+	for _, detail in ipairs({crossX, crossZ, centerDot}) do
+		detail.CanQuery = false
+		detail.CanTouch = false
+		detail.CastShadow = false
 	end
 
-	local laserPod = part(
-		"AircraftLaserPod",
-		Vector3.new(3.2, 2.5, 5),
-		Vector3.new(0, -3.3, -2),
-		Color3.fromRGB(32, 44, 68),
-		Enum.Material.Metal
+	local highlightA = createPart(
+		model,
+		"LensWhiteHighlightA",
+		Vector3.new(0.82, 0.08, 0.34),
+		base + Vector3.new(-2.0, -7.66, 0.25),
+		Color3.fromRGB(255, 255, 246),
+		Enum.Material.SmoothPlastic,
+		false
 	)
-	laserPod.CanCollide = false
-
-	local emitter = part(
-		"AircraftLaserEmitter",
-		Vector3.new(2.2, 2.2, 2.2),
-		Vector3.new(0, -4.6, -2),
-		Color3.fromRGB(255, 64, 76),
-		Enum.Material.Neon,
-		Enum.PartType.Ball
+	local highlightB = createPart(
+		model,
+		"LensWhiteHighlightB",
+		Vector3.new(0.46, 0.08, 0.18),
+		base + Vector3.new(0.05, -7.66, -1.2),
+		Color3.fromRGB(255, 255, 255),
+		Enum.Material.SmoothPlastic,
+		false
 	)
-	local emitterLight = Instance.new("PointLight")
-	emitterLight.Color = Color3.fromRGB(255, 64, 76)
-	emitterLight.Brightness = 2.8
-	emitterLight.Range = 38
-	emitterLight.Parent = emitter
+	for _, detail in ipairs({highlightA, highlightB}) do
+		detail.Shape = Enum.PartType.Ball
+		detail.CanQuery = false
+		detail.CanTouch = false
+		detail.CastShadow = false
+	end
 
 	local pilotPlatform = createPart(
 		folder,
 		"PilotPlatform",
-		Vector3.new(25, 2, 24),
+		Vector3.new(27, 2, 25),
 		base + Vector3.new(0, -17, 18),
-		Color3.fromRGB(28, 44, 69),
-		Enum.Material.DiamondPlate,
+		Color3.fromRGB(218, 211, 194),
+		Enum.Material.Marble,
 		true
 	)
 	pilotPlatform.CanQuery = false
+	addSquareStuds(pilotPlatform, Color3.fromRGB(238, 229, 206), 0.9, 0.22)
 
 	for side = -1, 1, 2 do
-		createPart(
+		local rail = createPart(
 			folder,
 			"PilotRail_" .. tostring(side),
-			Vector3.new(1, 5, 22),
-			pilotPlatform.Position + Vector3.new(side * 12, 3, 0),
-			Color3.fromRGB(63, 104, 145),
-			Enum.Material.Metal,
+			Vector3.new(1, 4, 21),
+			pilotPlatform.Position + Vector3.new(side * 13, 3, 0),
+			Color3.fromRGB(178, 150, 101),
+			Enum.Material.Marble,
 			true
 		)
-		addNeonBar(
-			folder,
-			"PilotRailLight_" .. tostring(side),
-			Vector3.new(0.2, 0.25, 20),
-			pilotPlatform.Position + Vector3.new(side * 12, 5.6, 0),
-			Color3.fromRGB(54, 220, 245)
-		)
+		rail.CanQuery = false
 	end
 
 	addSign(
 		folder,
 		"PilotStationSign",
-		pilotPlatform.Position + Vector3.new(0, 8, 11),
-		Vector3.new(18, 5, 1),
-		"LASER PILOT",
-		"SELECT A FLOOR TILE",
+		pilotPlatform.Position + Vector3.new(0, 7, 11),
+		Vector3.new(15, 4.5, 1),
+		"LASER CONTROL",
+		"SKYFALL ARENA",
 		pilotPlatform.Position,
-		Color3.fromRGB(255, 92, 88)
+		Color3.fromRGB(154, 103, 61)
 	)
 
 	self.aircraftModel = model
-
-	task.spawn(function()
-		local angle = 0
-		while model.Parent do
-			angle = (angle + 0.32) % (math.pi * 2)
-			for _, rotor in ipairs(self.rotors) do
-				rotor.bladeA.CFrame = CFrame.new(rotor.center) * CFrame.Angles(0, angle, 0)
-				rotor.bladeB.CFrame = CFrame.new(rotor.center) * CFrame.Angles(0, angle + math.pi / 2, 0)
-			end
-			task.wait(0.04)
-		end
-	end)
 end
 
 function ArenaService:_setLighting(theme)
-	Lighting.ClockTime = theme.clockTime
-	Lighting.Brightness = 2
+	Lighting.ClockTime = 13.5
+	Lighting.Brightness = 3
 	Lighting.Ambient = theme.ambient
-	Lighting.OutdoorAmbient = theme.ambient:Lerp(Color3.new(0, 0, 0), 0.25)
+	Lighting.OutdoorAmbient = theme.ambient:Lerp(Color3.fromRGB(235, 235, 225), 0.42)
 	Lighting.FogColor = theme.fogColor
-	Lighting.FogStart = 95
-	Lighting.FogEnd = 360
+	Lighting.FogStart = 450
+	Lighting.FogEnd = 100000
 	Lighting.GlobalShadows = true
-	Lighting.EnvironmentDiffuseScale = 0.55
-	Lighting.EnvironmentSpecularScale = 0.65
+	Lighting.EnvironmentDiffuseScale = 0.72
+	Lighting.EnvironmentSpecularScale = 0.58
 
 	local atmosphere = Lighting:FindFirstChild("SkyfallAtmosphere")
 	if not atmosphere then
@@ -618,12 +861,12 @@ function ArenaService:_setLighting(theme)
 		atmosphere.Name = "SkyfallAtmosphere"
 		atmosphere.Parent = Lighting
 	end
-	atmosphere.Color = theme.fogColor:Lerp(Color3.fromRGB(180, 198, 220), 0.35)
+	atmosphere.Color = theme.fogColor:Lerp(Color3.fromRGB(235, 238, 235), 0.58)
 	atmosphere.Decay = theme.fogColor
-	atmosphere.Density = theme.fogDensity
-	atmosphere.Glare = 0.12
-	atmosphere.Haze = 1.2
-	atmosphere.Offset = 0.15
+	atmosphere.Density = 0.08
+	atmosphere.Glare = 0.08
+	atmosphere.Haze = 0.35
+	atmosphere.Offset = 0.1
 
 	local colorCorrection = Lighting:FindFirstChild("SkyfallColorCorrection")
 	if not colorCorrection then
@@ -631,10 +874,10 @@ function ArenaService:_setLighting(theme)
 		colorCorrection.Name = "SkyfallColorCorrection"
 		colorCorrection.Parent = Lighting
 	end
-	colorCorrection.Brightness = -0.02
-	colorCorrection.Contrast = 0.12
-	colorCorrection.Saturation = -0.04
-	colorCorrection.TintColor = theme.accent:Lerp(Color3.new(1, 1, 1), 0.8)
+	colorCorrection.Brightness = 0.015
+	colorCorrection.Contrast = 0.04
+	colorCorrection.Saturation = 0.035
+	colorCorrection.TintColor = Color3.fromRGB(255, 250, 239)
 
 	local bloom = Lighting:FindFirstChild("SkyfallBloom")
 	if not bloom then
@@ -642,210 +885,200 @@ function ArenaService:_setLighting(theme)
 		bloom.Name = "SkyfallBloom"
 		bloom.Parent = Lighting
 	end
-	bloom.Intensity = 0.25
-	bloom.Size = 20
-	bloom.Threshold = 1.4
+	bloom.Intensity = 0.08
+	bloom.Size = 12
+	bloom.Threshold = 1.8
 end
 
 function ArenaService:_buildMapDecoration(theme)
 	local folder = self.mapFolder
-	local gridHalf = ((Config.GRID_SIZE - 1) * (Config.TILE_SIZE + Config.TILE_GAP)) / 2
-	local edge = gridHalf + 8
-	local y = Config.ARENA_CENTER.Y - 0.12
+	local half = Config.ARENA_HALF_WIDTH
+	local lobbyEast = Config.LOBBY_CENTER.X + Config.LOBBY_SIZE / 2
+	local arenaWest = Config.ARENA_CENTER.X - half
+	local bridgeLength = arenaWest - lobbyEast
+	local bridgeCenterX = (lobbyEast + arenaWest) / 2
 
-	addNeonBar(
+	local bridge = createPart(
 		folder,
-		"MapNorthBorder",
-		Vector3.new(edge * 2, 0.8, 1.1),
-		Config.ARENA_CENTER + Vector3.new(0, y - Config.ARENA_CENTER.Y, -edge),
-		theme.accent
+		"LobbyToArenaWalkway",
+		Vector3.new(bridgeLength + 1, 1, 14),
+		Vector3.new(bridgeCenterX, Config.ARENA_CENTER.Y - 0.5, Config.ARENA_CENTER.Z),
+		theme.structure,
+		Enum.Material.Marble,
+		true
 	)
-	addNeonBar(
-		folder,
-		"MapSouthBorder",
-		Vector3.new(edge * 2, 0.8, 1.1),
-		Config.ARENA_CENTER + Vector3.new(0, y - Config.ARENA_CENTER.Y, edge),
-		theme.accent
-	)
-	addNeonBar(
-		folder,
-		"MapEastBorder",
-		Vector3.new(1.1, 0.8, edge * 2),
-		Config.ARENA_CENTER + Vector3.new(edge, y - Config.ARENA_CENTER.Y, 0),
-		theme.accent2
-	)
-	addNeonBar(
-		folder,
-		"MapWestBorder",
-		Vector3.new(1.1, 0.8, edge * 2),
-		Config.ARENA_CENTER + Vector3.new(-edge, y - Config.ARENA_CENTER.Y, 0),
-		theme.accent2
-	)
+	addSquareStuds(bridge, theme.studColor, 0.9, 0.2)
+	bridge.CanQuery = false
 
-	for xSign = -1, 1, 2 do
-		for zSign = -1, 1, 2 do
-			local position = Config.ARENA_CENTER + Vector3.new(
-				xSign * (edge + 7),
-				15,
-				zSign * (edge + 7)
-			)
-			local tower = createPart(
-				folder,
-				"MapTower_" .. tostring(xSign) .. "_" .. tostring(zSign),
-				Vector3.new(5, 27, 5),
-				position,
-				theme.structure,
-				Enum.Material.Metal,
-				false
-			)
-			tower.CanQuery = false
-
-			local crown = createPart(
-				folder,
-				"MapTowerCrown_" .. tostring(xSign) .. "_" .. tostring(zSign),
-				Vector3.new(8, 1.2, 8),
-				position + Vector3.new(0, 14, 0),
-				theme.accent,
-				Enum.Material.Neon,
-				false
-			)
-			crown.CanTouch = false
-			crown.CanQuery = false
-
-			local light = Instance.new("PointLight")
-			light.Color = theme.accent
-			light.Brightness = 1
-			light.Range = 18
-			light.Parent = crown
-		end
+	for side = -1, 1, 2 do
+		local curb = createPart(
+			folder,
+			"WalkwayCurb_" .. tostring(side),
+			Vector3.new(bridgeLength, 1.4, 0.8),
+			Vector3.new(bridgeCenterX, Config.ARENA_CENTER.Y + 0.2, side * 7),
+			theme.roof,
+			Enum.Material.Marble,
+			true
+		)
+		curb.CanQuery = false
 	end
+
+	local facadeZ = Config.ARENA_CENTER.Z - half - 34
+	local facadeBase = Vector3.new(Config.ARENA_CENTER.X, Config.ARENA_CENTER.Y - 1, facadeZ)
 
 	if theme.id == 1 then
-		for ringIndex = 1, 2 do
-			local radius = edge + 17 + ringIndex * 5
-			for index = 1, 16 do
-				local angle = ((index - 1) / 16) * math.pi * 2
-				local position = Config.ARENA_CENTER + Vector3.new(
-					math.cos(angle) * radius,
-					7 + ringIndex * 2,
-					math.sin(angle) * radius
-				)
-				local segment = createPart(
-					folder,
-					"NexusRingSegment_" .. tostring(ringIndex) .. "_" .. tostring(index),
-					Vector3.new(2.4, 1.1, 7),
-					position,
-					ringIndex == 1 and theme.accent or theme.accent2,
-					Enum.Material.Neon,
-					false
-				)
-				segment.CFrame = CFrame.lookAt(position, Config.ARENA_CENTER)
-				segment.CanTouch = false
-				segment.CanQuery = false
-				segment.Transparency = 0.18
-			end
-		end
-
-		addSign(
-			folder,
-			"MapNameSign",
-			Config.ARENA_CENTER + Vector3.new(0, 28, -edge - 12),
-			Vector3.new(34, 8, 1.5),
-			"NEXUS SKYGRID",
-			"SECTOR 01",
-			Config.ARENA_CENTER,
-			theme.accent
-		)
-	else
-		local reactorCenter = Config.ARENA_CENTER + Vector3.new(0, 3, 0)
-		for ringIndex = 1, 3 do
-			local radius = edge + 10 + ringIndex * 4
-			local ring = createPart(
+		addHall(folder, "SuncrestRoyalHall", facadeBase, 74, 27, 15, theme.structure, theme.roof, theme.accent)
+		addTower(folder, "SuncrestWestTower", facadeBase + Vector3.new(-46, 0, 0), 11, 39, theme.structure, theme.roof)
+		addTower(folder, "SuncrestEastTower", facadeBase + Vector3.new(46, 0, 0), 11, 39, theme.structure, theme.roof)
+		for side = -1, 1, 2 do
+			local banner = createPart(
 				folder,
-				"ReactorRing_" .. tostring(ringIndex),
-				Vector3.new(1.2, radius * 2, radius * 2),
-				reactorCenter + Vector3.new(0, ringIndex * 1.3, 0),
-				ringIndex == 2 and theme.accent2 or theme.accent,
-				Enum.Material.Neon,
+				"SuncrestRoyalBanner_" .. tostring(side),
+				Vector3.new(3, 11, 0.35),
+				facadeBase + Vector3.new(side * 27, 18, 8.2),
+				theme.secondary,
+				Enum.Material.Fabric,
 				false
 			)
-			ring.Shape = Enum.PartType.Cylinder
-			ring.CFrame = CFrame.new(reactorCenter + Vector3.new(0, ringIndex * 1.3, 0))
-				* CFrame.Angles(0, 0, math.rad(90))
-			ring.Transparency = 0.62 + ringIndex * 0.06
-			ring.CanTouch = false
-			ring.CanQuery = false
+			banner.CanQuery = false
 		end
-
-		for index = 1, 6 do
-			local angle = ((index - 1) / 6) * math.pi * 2
-			local position = Config.ARENA_CENTER + Vector3.new(
-				math.cos(angle) * (edge + 22),
-				8,
-				math.sin(angle) * (edge + 22)
+		addPlanter(folder, "SuncrestGardenWest", Config.ARENA_CENTER + Vector3.new(-half - 22, -1, 52), theme.structure, Color3.fromRGB(83, 142, 81))
+		addPlanter(folder, "SuncrestGardenEast", Config.ARENA_CENTER + Vector3.new(half + 22, -1, 52), theme.structure, Color3.fromRGB(83, 142, 81))
+	elseif theme.id == 2 then
+		addHall(folder, "CloudspireSkyPalace", facadeBase, 70, 31, 17, theme.structure, theme.roof, theme.accent)
+		addTower(folder, "CloudspireWestSpire", facadeBase + Vector3.new(-43, 0, -2), 10, 47, theme.structure, theme.accent)
+		addTower(folder, "CloudspireEastSpire", facadeBase + Vector3.new(43, 0, -2), 10, 47, theme.structure, theme.accent)
+		for index = 1, 5 do
+			local cloudPosition = Config.ARENA_CENTER + Vector3.new(
+				(index % 2 == 0 and 1 or -1) * (half + 38 + index * 3),
+				-3 + (index % 3) * 4,
+				-70 + index * 30
 			)
-			local vent = createPart(
+			local cloud = createPart(
 				folder,
-				"ReactorVent_" .. tostring(index),
-				Vector3.new(10, 1.2, 5),
-				position,
+				"CloudspireDistantCloud_" .. tostring(index),
+				Vector3.new(25 + index * 3, 8, 20 + index * 2),
+				cloudPosition,
+				Color3.fromRGB(239, 245, 246),
+				Enum.Material.SmoothPlastic,
+				false
+			)
+			cloud.Shape = Enum.PartType.Ball
+			cloud.Transparency = 0.16
+			cloud.CanQuery = false
+		end
+		for side = -1, 1, 2 do
+			addSquareColumn(
+				folder,
+				"CloudspireOuterPillar_" .. tostring(side),
+				Config.ARENA_CENTER + Vector3.new(side * (half + 19), -1, -42),
+				5,
+				20,
 				theme.structure,
-				Enum.Material.DiamondPlate,
-				false
+				theme.accent
 			)
-			vent.CFrame = CFrame.lookAt(position, Config.ARENA_CENTER)
-			vent.CanTouch = false
-			vent.CanQuery = false
-
-			local ventLight = createPart(
-				folder,
-				"ReactorVentLight_" .. tostring(index),
-				Vector3.new(7, 0.25, 1),
-				position + Vector3.new(0, 0.75, 0),
-				theme.accent,
-				Enum.Material.Neon,
-				false
-			)
-			ventLight.CFrame = vent.CFrame * CFrame.new(0, 0.75, 0)
-			ventLight.CanTouch = false
-			ventLight.CanQuery = false
 		end
-
-		addSign(
+	elseif theme.id == 3 then
+		addHall(folder, "GoldenDunesTemple", facadeBase, 72, 24, 18, theme.structure, theme.roof, theme.accent)
+		for side = -1, 1, 2 do
+			for index = 1, 2 do
+				addSquareColumn(
+					folder,
+					"GoldenTempleColumn_" .. tostring(side) .. "_" .. tostring(index),
+					facadeBase + Vector3.new(side * (33 + index * 9), 0, index * 4),
+					4.5,
+					18,
+					theme.structure,
+					theme.accent
+				)
+			end
+			addPalm(
+				folder,
+				"GoldenDunesPalm_" .. tostring(side),
+				Config.ARENA_CENTER + Vector3.new(side * (half + 27), -1, 66),
+				1.1,
+				Color3.fromRGB(119, 89, 59),
+				Color3.fromRGB(105, 137, 79)
+			)
+		end
+		for side = -1, 1, 2 do
+			local dune = createPart(
+				folder,
+				"GoldenDunesOuterDune_" .. tostring(side),
+				Vector3.new(38, 10, 25),
+				Config.ARENA_CENTER + Vector3.new(side * (half + 39), 1, -65),
+				Color3.fromRGB(198, 164, 113),
+				Enum.Material.Sand,
+				false
+			)
+			dune.Shape = Enum.PartType.Ball
+			dune.CanQuery = false
+		end
+	elseif theme.id == 4 then
+		addHall(folder, "EmeraldGroveSanctuary", facadeBase, 66, 25, 17, theme.structure, theme.roof, theme.accent)
+		addTower(folder, "EmeraldGroveWestPavilion", facadeBase + Vector3.new(-42, 0, 1), 9, 34, theme.structure, theme.roof)
+		addTower(folder, "EmeraldGroveEastPavilion", facadeBase + Vector3.new(42, 0, 1), 9, 34, theme.structure, theme.roof)
+		local treePositions = {
+			Vector3.new(-half - 31, -1, -85),
+			Vector3.new(half + 31, -1, -85),
+			Vector3.new(-half - 32, -1, 34),
+			Vector3.new(half + 32, -1, 35),
+		}
+		for index, offset in ipairs(treePositions) do
+			addTree(
+				folder,
+				"EmeraldGroveTree_" .. tostring(index),
+				Config.ARENA_CENTER + offset,
+				index % 2 == 0 and 1.2 or 1,
+				Color3.fromRGB(111, 82, 55),
+				index % 2 == 0 and Color3.fromRGB(67, 124, 71) or Color3.fromRGB(81, 143, 77)
+			)
+		end
+		addPlanter(folder, "EmeraldGroveOuterGardenWest", Config.ARENA_CENTER + Vector3.new(-half - 19, -1, 68), theme.structure, theme.secondary)
+		addPlanter(folder, "EmeraldGroveOuterGardenEast", Config.ARENA_CENTER + Vector3.new(half + 19, -1, 68), theme.structure, theme.secondary)
+	elseif theme.id == 5 then
+		addHall(folder, "AzureHarborFortress", facadeBase, 74, 27, 17, theme.structure, theme.roof, theme.accent)
+		addTower(folder, "AzureHarborWestTower", facadeBase + Vector3.new(-46, 0, 0), 10, 40, theme.structure, theme.roof)
+		addTower(folder, "AzureHarborEastTower", facadeBase + Vector3.new(46, 0, 0), 10, 40, theme.structure, theme.roof)
+		addTower(
 			folder,
-			"MapNameSign",
-			Config.ARENA_CENTER + Vector3.new(0, 28, -edge - 12),
-			Vector3.new(34, 8, 1.5),
-			"EMBER REACTOR",
-			"SECTOR 02",
-			Config.ARENA_CENTER,
+			"AzureHarborLighthouse",
+			Config.ARENA_CENTER + Vector3.new(half + 28, -1, -105),
+			12,
+			43,
+			theme.structure,
 			theme.accent
 		)
+		local sea = createPart(
+			folder,
+			"AzureHarborSea",
+			Vector3.new(470, 1, 390),
+			Config.ARENA_CENTER + Vector3.new(0, -20, 0),
+			Color3.fromRGB(58, 145, 169),
+			Enum.Material.Water,
+			false
+		)
+		sea.Transparency = 0.2
+		sea.CanQuery = false
+		sea.CanTouch = false
 	end
+
+	addSign(
+		folder,
+		"MapNameSign",
+		facadeBase + Vector3.new(0, 34, 9.5),
+		Vector3.new(36, 7, 1.2),
+		theme.name,
+		"SKYFALL ARENA",
+		Config.ARENA_CENTER,
+		theme.accent
+	)
 end
 
 function ArenaService:Build()
 	for _, child in ipairs(self.tilesFolder:GetChildren()) do
 		child:Destroy()
 	end
-
-	for _, legacyName in ipairs({
-		"LobbyPlatform",
-		"ControllerDeck",
-		"DroneCore",
-		"DroneWingLeft",
-		"DroneWingRight",
-	}) do
-		local legacyPart = self.root:FindFirstChild(legacyName)
-		if legacyPart then
-			legacyPart:Destroy()
-		end
-	end
-
-	for _, child in ipairs(self.decorFolder:GetChildren()) do
-		child:Destroy()
-	end
-
 	for _, child in ipairs(self.decorFolder:GetChildren()) do
 		child:Destroy()
 	end
@@ -877,6 +1110,7 @@ function ArenaService:Build()
 			tile:SetAttribute("IsBroken", false)
 			tile:SetAttribute("IsWarning", false)
 			tile:SetAttribute("StrikeToken", 0)
+			addSquareStuds(tile, MAPS[1].studColor, 0.86, 0.24)
 			self.tiles[tileKey(gridX, gridZ)] = tile
 		end
 	end
@@ -904,8 +1138,14 @@ function ArenaService:SetMap(mapId)
 		tile.Material = selected.tileMaterial
 		tile.CanCollide = true
 		tile.Transparency = 0
+		setTileStudState(tile, false, selected.studColor)
 	end
 
+	for _, child in ipairs(self.lobbyFolder:GetChildren()) do
+		if child.Name == "LobbyWelcomeSign" then
+			child:Destroy()
+		end
+	end
 	self:_buildMapDecoration(selected)
 	self:_setLighting(selected)
 	return selected.name
@@ -945,7 +1185,7 @@ function ArenaService:MarkTile(tile)
 	tile:SetAttribute("StrikeToken", token)
 	tile:SetAttribute("IsWarning", true)
 	tile.Color = self.theme.warningColor
-	tile.Material = Enum.Material.Neon
+	tile.Material = Enum.Material.SmoothPlastic
 	return token
 end
 
@@ -971,24 +1211,24 @@ function ArenaService:CreateStrikeBeam(tile)
 	local beamPosition = tile.Position + Vector3.new(0, Config.BEAM_HEIGHT / 2, 0)
 	local outerBeam = createPart(
 		self.root,
-		"LaserBeamGlow",
-		Vector3.new(5, Config.BEAM_HEIGHT, 5),
+		"LaserBeamOuter",
+		Vector3.new(4.4, Config.BEAM_HEIGHT, 4.4),
 		beamPosition,
-		Color3.fromRGB(255, 45, 78),
-		Enum.Material.Neon,
+		Color3.fromRGB(202, 34, 52),
+		Enum.Material.SmoothPlastic,
 		false
 	)
-	outerBeam.Transparency = 0.58
+	outerBeam.Transparency = 0.55
 	outerBeam.CanTouch = false
 	outerBeam.CanQuery = false
 
 	local innerBeam = createPart(
 		self.root,
 		"LaserBeamCore",
-		Vector3.new(1.6, Config.BEAM_HEIGHT, 1.6),
+		Vector3.new(1.2, Config.BEAM_HEIGHT, 1.2),
 		beamPosition,
-		Color3.fromRGB(255, 235, 235),
-		Enum.Material.Neon,
+		Color3.fromRGB(255, 224, 216),
+		Enum.Material.SmoothPlastic,
 		false
 	)
 	innerBeam.Transparency = 0.08
@@ -997,27 +1237,26 @@ function ArenaService:CreateStrikeBeam(tile)
 
 	local beamLight = Instance.new("PointLight")
 	beamLight.Color = Color3.fromRGB(255, 57, 78)
-	beamLight.Brightness = 4
-	beamLight.Range = 34
+	beamLight.Brightness = 3
+	beamLight.Range = 26
 	beamLight.Parent = innerBeam
 
 	local impact = createPart(
 		self.root,
 		"LaserImpact",
-		Vector3.new(7, 2, 7),
-		tile.Position + Vector3.new(0, 1.1, 0),
+		Vector3.new(6.2, 0.28, 6.2),
+		tile.Position + Vector3.new(0, 0.72, 0),
 		self.theme.warningColor,
-		Enum.Material.Neon,
+		Enum.Material.Glass,
 		false
 	)
-	impact.Shape = Enum.PartType.Ball
-	impact.Transparency = 0.35
+	impact.Transparency = 0.24
 	impact.CanTouch = false
 	impact.CanQuery = false
 
 	Debris:AddItem(outerBeam, 0.45)
 	Debris:AddItem(innerBeam, 0.45)
-	Debris:AddItem(impact, 0.35)
+	Debris:AddItem(impact, 0.3)
 end
 
 function ArenaService:BreakTile(tile, token)
@@ -1030,7 +1269,8 @@ function ArenaService:BreakTile(tile, token)
 	tile.Color = self.theme.brokenColor
 	tile.Material = Enum.Material.Slate
 	tile.CanCollide = false
-	tile.Transparency = 0.82
+	tile.Transparency = 0.84
+	setTileStudState(tile, true)
 end
 
 function ArenaService:ResetTiles()
@@ -1043,6 +1283,7 @@ function ArenaService:ResetTiles()
 		tile.Material = self.theme.tileMaterial
 		tile.CanCollide = true
 		tile.Transparency = 0
+		setTileStudState(tile, false, self.theme.studColor)
 	end
 end
 
@@ -1050,7 +1291,7 @@ function ArenaService:GetLobbySpawnCFrame(index, total, isBot)
 	local spawnIndex = math.max(1, index or 1)
 	local spawnTotal = math.max(1, total or 1)
 	local angle = ((spawnIndex - 1) / spawnTotal) * math.pi * 2
-	local radius = isBot and 36 or 24
+	local radius = isBot and Config.LOBBY_BOT_SPAWN_RADIUS or Config.LOBBY_SPAWN_RADIUS
 	local position = Config.LOBBY_CENTER + Vector3.new(
 		math.cos(angle) * radius,
 		5,
@@ -1061,10 +1302,10 @@ end
 
 function ArenaService:GetRunnerSpawnCFrame(index, total)
 	local angle = ((index - 1) / math.max(total, 1)) * math.pi * 2
-	local radius = 38
+	local radius = Config.RUNNER_SPAWN_RADIUS
 	local position = Config.ARENA_CENTER + Vector3.new(
 		math.cos(angle) * radius,
-		5,
+		6,
 		math.sin(angle) * radius
 	)
 	return CFrame.new(position)

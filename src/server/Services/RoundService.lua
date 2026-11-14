@@ -406,6 +406,24 @@ function RoundService:_getSoleSurvivor()
 	return nil
 end
 
+function RoundService:_isGrounded(candidate)
+	if not candidate then
+		return false
+	end
+
+	local humanoid
+	if candidate.kind == "Player" then
+		local character = candidate.value.Character
+		humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	elseif candidate.kind == "Bot" then
+		humanoid = candidate.value.humanoid
+	end
+
+	return humanoid
+		and humanoid.Health > 0
+		and humanoid.FloorMaterial ~= Enum.Material.Air
+end
+
 function RoundService:_getLongestSurvivor()
 	local survivors = {}
 
@@ -566,7 +584,12 @@ function RoundService:_runRound()
 		self:_broadcast()
 
 		local aliveCount = self:_aliveRunnerCount()
-		if aliveCount <= 1 or not self.controller then
+		if aliveCount == 1 then
+			local soleSurvivor = self:_getSoleSurvivor()
+			if self:_isGrounded(soleSurvivor) then
+				break
+			end
+		elseif aliveCount == 0 or not self.controller then
 			break
 		end
 

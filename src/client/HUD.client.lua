@@ -203,12 +203,22 @@ RunService.RenderStepped:Connect(function()
 
 		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
 
+		local isPortrait = camera.ViewportSize.X < camera.ViewportSize.Y
+		local cameraHeight = Config.CONTROLLER_CAMERA_HEIGHT
+		local cameraBack = Config.CONTROLLER_CAMERA_BACK
+		local cameraFov = Config.CONTROLLER_CAMERA_FOV
+		if not isPortrait then
+			cameraHeight = Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT
+			cameraBack = Config.CONTROLLER_CAMERA_LANDSCAPE_BACK
+			cameraFov = Config.CONTROLLER_CAMERA_LANDSCAPE_FOV
+		end
+
+		camera.FieldOfView = cameraFov
 		local cameraPosition = Config.ARENA_CENTER + Vector3.new(
 			0,
-			Config.CONTROLLER_CAMERA_HEIGHT,
-			-Config.CONTROLLER_CAMERA_BACK
+			cameraHeight,
+			-cameraBack
 		)
 		camera.CFrame = CFrame.lookAt(cameraPosition, Config.ARENA_CENTER)
 		camera.Focus = CFrame.new(Config.ARENA_CENTER)

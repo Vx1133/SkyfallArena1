@@ -13,7 +13,7 @@ local MAPS = {
 		id = 1,
 		name = "SUNCREST CASTLE",
 		tileColor = Color3.fromRGB(224, 216, 197),
-		tileMaterial = Enum.Material.Marble,
+		tileMaterial = Enum.Material.SmoothPlastic,
 		studColor = Color3.fromRGB(244, 235, 214),
 		warningColor = Color3.fromRGB(255, 143, 73),
 		brokenColor = Color3.fromRGB(83, 48, 42),
@@ -43,7 +43,7 @@ local MAPS = {
 		id = 3,
 		name = "GOLDEN DUNES TEMPLE",
 		tileColor = Color3.fromRGB(204, 174, 125),
-		tileMaterial = Enum.Material.Sand,
+		tileMaterial = Enum.Material.SmoothPlastic,
 		studColor = Color3.fromRGB(229, 204, 158),
 		warningColor = Color3.fromRGB(255, 119, 61),
 		brokenColor = Color3.fromRGB(91, 56, 38),
@@ -58,7 +58,7 @@ local MAPS = {
 		id = 4,
 		name = "EMERALD GROVE SANCTUARY",
 		tileColor = Color3.fromRGB(195, 205, 186),
-		tileMaterial = Enum.Material.Slate,
+		tileMaterial = Enum.Material.SmoothPlastic,
 		studColor = Color3.fromRGB(222, 231, 210),
 		warningColor = Color3.fromRGB(255, 143, 73),
 		brokenColor = Color3.fromRGB(59, 79, 58),
@@ -73,7 +73,7 @@ local MAPS = {
 		id = 5,
 		name = "AZURE HARBOR FORTRESS",
 		tileColor = Color3.fromRGB(211, 219, 218),
-		tileMaterial = Enum.Material.Concrete,
+		tileMaterial = Enum.Material.SmoothPlastic,
 		studColor = Color3.fromRGB(239, 242, 236),
 		warningColor = Color3.fromRGB(255, 145, 76),
 		brokenColor = Color3.fromRGB(65, 77, 83),
@@ -638,62 +638,104 @@ function ArenaService:_buildAircraft()
 	orb.CastShadow = false
 	model.PrimaryPart = orb
 
-	for index = 1, 8 do
-		local angle = (index - 1) * math.pi / 4
-		local panelPosition = base + Vector3.new(math.cos(angle) * 7.15, 0, math.sin(angle) * 7.15)
-		local panel = createPart(
-			model,
-			"ArmorPlate_" .. tostring(index),
-			Vector3.new(1.55, 8.3, 2.35),
-			panelPosition,
-			index % 2 == 0 and Color3.fromRGB(232, 188, 91) or Color3.fromRGB(194, 140, 48),
-			Enum.Material.SmoothPlastic,
-			false
-		)
-		panel.Shape = Enum.PartType.Ball
-		panel.CFrame = CFrame.new(panelPosition) * CFrame.Angles(0, -angle, math.rad(7))
-		panel.CastShadow = false
-		panel.CanQuery = false
-		panel.CanTouch = false
+	local armorGroups = {
+		{
+			name = "Upper",
+			normals = {
+				Vector3.new(-0.66, 0.48, -0.58),
+				Vector3.new(-0.34, 0.76, -0.55),
+				Vector3.new(0, 0.86, -0.50),
+				Vector3.new(0.34, 0.76, -0.55),
+				Vector3.new(0.66, 0.48, -0.58),
+			},
+		},
+		{
+			name = "Lower",
+			normals = {
+				Vector3.new(-0.67, -0.36, -0.65),
+				Vector3.new(-0.24, -0.68, -0.66),
+				Vector3.new(0.24, -0.68, -0.66),
+				Vector3.new(0.67, -0.36, -0.65),
+			},
+		},
+	}
+
+	for _, group in ipairs(armorGroups) do
+		for index, rawNormal in ipairs(group.normals) do
+			local normal = rawNormal.Unit
+			local panelPosition = base + normal * 7.76
+			local upVector = math.abs(normal.Y) > 0.88 and Vector3.new(0, 0, -1) or Vector3.yAxis
+			local plate = createPart(
+				model,
+				"ArmorPlate_" .. group.name .. "_" .. tostring(index),
+				Vector3.new(4.15, 2.55, 0.68),
+				panelPosition,
+				index % 2 == 0 and Color3.fromRGB(235, 195, 105) or Color3.fromRGB(194, 140, 48),
+				Enum.Material.Metal,
+				false
+			)
+			plate.Shape = Enum.PartType.Ball
+			plate.CFrame = CFrame.lookAt(panelPosition, panelPosition + normal, upVector)
+			plate.Reflectance = 0.04
+			plate.CastShadow = false
+			plate.CanQuery = false
+			plate.CanTouch = false
+		end
 	end
 
-	-- A segmented rectangular equatorial band replaces the old glowing aircraft trim.
-	for index = 1, 8 do
-		local angle = (index - 1) * math.pi / 4
+	-- A close-spaced segmented band follows the sphere's equator, with a bright lip and bronze lower seam.
+	for index = 1, 12 do
+		local angle = (index - 1) * math.pi / 6
 		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
 		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
-		local bandPosition = base + radial * 7.55
+		local bandPosition = base + radial * 7.56
 		local band = createPart(
 			model,
 			"EquatorialBandSegment_" .. tostring(index),
-			Vector3.new(3.6, 0.62, 0.72),
+			Vector3.new(3.92, 0.62, 0.72),
 			bandPosition,
-			Color3.fromRGB(238, 190, 91),
+			Color3.fromRGB(232, 187, 91),
 			Enum.Material.Metal,
 			false
 		)
 		band.CFrame = CFrame.fromMatrix(bandPosition, tangent, Vector3.yAxis, -radial)
+		band.Reflectance = 0.06
 		band.CastShadow = false
 		band.CanQuery = false
 		band.CanTouch = false
 
-		local seam = createPart(
+		local upperLip = createPart(
+			model,
+			"EquatorialBandUpperLip_" .. tostring(index),
+			Vector3.new(3.62, 0.11, 0.76),
+			bandPosition,
+			Color3.fromRGB(250, 218, 142),
+			Enum.Material.Metal,
+			false
+		)
+		upperLip.CFrame = band.CFrame * CFrame.new(0, 0.24, 0)
+		upperLip.CastShadow = false
+		upperLip.CanQuery = false
+		upperLip.CanTouch = false
+
+		local lowerSeam = createPart(
 			model,
 			"EquatorialBronzeSeam_" .. tostring(index),
-			Vector3.new(2.2, 0.12, 0.74),
-			bandPosition + Vector3.new(0, -0.38, 0),
+			Vector3.new(3.74, 0.12, 0.76),
+			bandPosition,
 			Color3.fromRGB(103, 65, 35),
 			Enum.Material.Metal,
 			false
 		)
-		seam.CFrame = band.CFrame * CFrame.new(0, -0.38, 0)
-		seam.CanQuery = false
-		seam.CanTouch = false
+		lowerSeam.CFrame = band.CFrame * CFrame.new(0, -0.25, 0)
+		lowerSeam.CanQuery = false
+		lowerSeam.CanTouch = false
+		lowerSeam.CastShadow = false
 	end
 
-	-- The lens faces outward and slightly downward so the pilot can see it from the arena view.
-	local lensCenter = base + Vector3.new(-1.1, -2.8, -6.8)
-	local lensNormal = Vector3.new(0, -0.32, -0.947).Unit
+	-- The lens sits slightly left of center on the sphere's equator and faces the arena.
+	local lensCenter = base + Vector3.new(-1.1, 0, -7.05)
+	local lensNormal = Vector3.new(0, -0.08, -0.997).Unit
 	local function lensFrameAt(position)
 		return CFrame.lookAt(position, position + lensNormal) * CFrame.Angles(0, math.rad(90), 0)
 	end
@@ -764,8 +806,8 @@ function ArenaService:_buildAircraft()
 
 	local lensLight = Instance.new("PointLight")
 	lensLight.Color = Color3.fromRGB(255, 69, 72)
-	lensLight.Brightness = 1.25
-	lensLight.Range = 18
+	lensLight.Brightness = 0.35
+	lensLight.Range = 4.5
 	lensLight.Parent = lens
 
 	local function lensDetail(name, size, localOffset, color)
@@ -787,6 +829,30 @@ function ArenaService:_buildAircraft()
 	end
 
 	local reticleColor = Color3.fromRGB(255, 113, 111)
+
+	local function addLensReticleRing(name, radius, segmentCount)
+		local frame = lensFrameAt(lensPosition)
+		local segmentLength = (2 * math.pi * radius / segmentCount) * 0.86
+		for index = 1, segmentCount do
+			local angle = (index - 1) * (2 * math.pi / segmentCount)
+			local localOffset = Vector3.new(
+				-0.34,
+				math.cos(angle) * radius,
+				math.sin(angle) * radius
+			)
+			local segment = lensDetail(
+				name .. "_" .. tostring(index),
+				Vector3.new(0.07, 0.09, segmentLength),
+				localOffset,
+				reticleColor
+			)
+			segment.CFrame = frame * CFrame.new(localOffset) * CFrame.Angles(angle + math.pi / 2, 0, 0)
+		end
+	end
+
+	addLensReticleRing("LensReticleRing_Outer", 1.82, 12)
+	addLensReticleRing("LensReticleRing_Inner", 1.12, 12)
+
 	lensDetail(
 		"LensReticleHorizontal",
 		Vector3.new(0.09, 2.7, 0.1),
@@ -805,18 +871,21 @@ function ArenaService:_buildAircraft()
 		Vector3.new(-0.38, 0, 0),
 		Color3.fromRGB(255, 179, 162)
 	)
-	lensDetail(
+	local highlightA = lensDetail(
 		"LensWhiteHighlightA",
 		Vector3.new(0.12, 0.82, 0.36),
 		Vector3.new(-0.4, -0.78, 0.48),
 		Color3.fromRGB(255, 255, 246)
 	)
-	lensDetail(
+	highlightA.Shape = Enum.PartType.Ball
+
+	local highlightB = lensDetail(
 		"LensWhiteHighlightB",
 		Vector3.new(0.1, 0.46, 0.18),
 		Vector3.new(-0.4, 0.72, -0.68),
 		Color3.fromRGB(255, 255, 255)
 	)
+	highlightB.Shape = Enum.PartType.Ball
 
 	-- Small rectangular slots give the equatorial band a restrained mechanical finish.
 	for index = 1, 4 do

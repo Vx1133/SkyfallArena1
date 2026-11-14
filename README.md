@@ -9,8 +9,9 @@ Skyfall Arena is a round-based Roblox survival arena. Each round selects one con
 - The five original map environments rotate between rounds: Suncrest Castle, Cloudspire Kingdom, Golden Dunes Temple, Emerald Grove Sanctuary, and Azure Harbor Fortress. The next map is selected randomly without repeating the immediately previous map.
 - Every map uses bright daytime lighting, a consistent square-stud construction style, readable tile seams, and no neon map decoration or segmented circular arena barriers.
 - Players and bots gather in a redesigned garden lobby with a medium-sized water feature, clear walkways, benches, and planters.
-- The controller uses a hovering gold spherical drone with segmented armor and a ruby-red targeting lens. Human laser requests are limited by the server to one successful strike every three seconds.
-- A warning appears before each laser strike. Destroyed floor tiles stay broken through the results and waiting period. The complete grid is restored only when the next round map is loaded.
+- The controller uses a hovering gold sphere with five upper and four lower armor plates, a double equatorial band, concentric ruby-lens reticles, and a tightly contained red highlight.
+- The controller camera switches between a close angled landscape view and a near-overhead portrait view. Tile selection uses a ray from the active camera, and the original player camera zoom is restored after the controller role ends.
+- Human laser requests are limited by the server to one successful strike every three seconds. A warning appears before each laser strike. Destroyed floor tiles stay broken through the results and waiting period. The complete grid is restored only when the next round map is loaded.
 - The controller camera uses an elevated angled view tuned to show the expanded arena. The mobile HUD displays only the timer, total participants, and players remaining in the round.
 - The first controller is selected randomly from available humans and bots. Later, the previous round's last survivor becomes the next controller.
 - Three scripted AI characters have distinct appearances, hair, movement animations, speeds, reaction delays, and risk preferences. Bots use Roblox PathfindingService, not external AI chat models.

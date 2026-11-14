@@ -442,7 +442,6 @@ function ArenaService:_buildAircraft()
 		Color3.fromRGB(38, 54, 82),
 		Enum.Material.Metal
 	)
-	wings.CanCollide = false
 
 	part(
 		"AircraftWingLeftLight",

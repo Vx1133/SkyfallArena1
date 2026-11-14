@@ -1,35 +1,29 @@
 # Skyfall Arena
 
-Skyfall Arena is a multiplayer Roblox survival round game.
+Skyfall Arena is a Roblox survival round game. One human player controls the overhead laser system while runners move across a tiled arena and avoid marked floor tiles.
 
-One player controls the arena's overhead strike system. The other players run across a tiled floor and try to survive as marked tiles are destroyed. Eliminated players become spectators. The controller role changes between rounds.
+## Current playtest foundation
 
-## Development approach
+- 9 by 9 procedural arena with a lobby and elevated controller deck.
+- Waiting, intermission, active-round, and results phases.
+- Three AI runner NPCs are available, so one human can start a solo test.
+- The AI runners use Roblox pathfinding and reactive tile-risk checks to move toward safe floor tiles and escape marked tiles.
+- Human players can still join. One human is selected as controller, other humans and the three bots become runners.
+- Server-validated laser targeting, warning indicators, tile breaks, and automatic tile repairs.
+- Eliminated runners become spectators until the next round.
+- Compact, responsive HUD layout and touch controls for phones, plus mouse support for desktop.
 
-This repository uses a cloud-first source workflow:
+The bots are scripted in-game NPC behavior, not external cloud AI services. The three bots have different movement speeds and reaction delays. Their behavior is intended for a first playtest and still needs live balance testing.
+
+## Cloud development
 
 - Luau source files are the editable project.
 - Rojo 7.7.1 maps the source files into a Roblox place.
 - Rokit pins the command-line tools.
-- GitHub Actions checks the source and builds a downloadable RBXLX place artifact.
+- GitHub Actions validates, lints, and builds the RBXLX place file.
 - No Roblox Studio installation on the phone is required for source changes or cloud builds.
 
-The live Rojo sync workflow requires Roblox Studio and its plugin. This repository instead builds the place file in GitHub Actions.
-
-## Current first-playable foundation
-
-- 9 by 9 arena tile grid.
-- Waiting, intermission, active-round, and results phases.
-- One controller and a group of runners.
-- Server-validated tile targeting.
-- A visible warning before each laser strike.
-- Broken tiles repair after a short delay.
-- Falling or dying runners become spectators.
-- Controller camera and tap-to-target controls, with mouse support.
-
-The first pass uses normal Roblox Parts. Advanced editable geometry and custom asset workflows are intentionally deferred.
-
-## Build
+## Build and validation
 
 Every push to a feature branch and every pull request to main runs the validation workflow. A successful run uploads an artifact named SkyfallArena-place containing SkyfallArena.rbxlx.
 
@@ -37,8 +31,8 @@ Open the repository's Actions tab to view a run and download its artifact.
 
 ## Publishing
 
-Publishing is not enabled yet. It requires an existing Roblox place, its Place ID, and a Roblox Open Cloud API key stored as a GitHub Actions secret. Never put that key in source code or in chat. See docs/CLOUD_PUBLISHING.md.
+The separate private test upload workflow publishes a new version to the configured Roblox Start Place. It does not change the experience audience setting. The Roblox Open Cloud key is stored only as a GitHub Actions secret and must never be committed to source code or shared in chat.
 
 ## Project status
 
-This is a first cloud-buildable gameplay foundation, not a finished, balanced, or publicly published Roblox experience. Runtime playtesting and visual polish remain required.
+This is a playable foundation for testing, not a finished or publicly released experience. The latest build must still be tested in a live Roblox server for NPC movement, phone layout, round flow, and gameplay balance.

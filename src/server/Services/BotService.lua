@@ -287,8 +287,9 @@ function BotService:_followPath(bot, targetTile)
 		return
 	end
 
+	local startedInDanger = self:_isInDanger(bot)
 	for _, waypoint in ipairs(path:GetWaypoints()) do
-		if not bot.alive or self:_isInDanger(bot) then
+		if not bot.alive or not self:_isSafeTile(targetTile) then
 			return
 		end
 
@@ -299,7 +300,10 @@ function BotService:_followPath(bot, targetTile)
 		humanoid:MoveTo(waypoint.Position)
 		local startedAt = os.clock()
 		while bot.alive and (root.Position - waypoint.Position).Magnitude > 3.5 do
-			if self:_isInDanger(bot) then
+			if not startedInDanger and self:_isInDanger(bot) then
+				return
+			end
+			if not self:_isSafeTile(targetTile) then
 				return
 			end
 			if os.clock() - startedAt > 2 then

@@ -149,10 +149,10 @@ function ArenaService:_buildLobby()
 	platform.CanQuery = false
 
 	local trimY = center.Y + 1.65
-	addNeonBorder(decor, "LobbyTrimNorth", center + Vector3.new(0, trimY - center.Y, -half), Vector3.new(size, 0.45, 1.2), 0, 0, ACCENT_CYAN)
-	addNeonBorder(decor, "LobbyTrimSouth", center + Vector3.new(0, trimY - center.Y, half), Vector3.new(size, 0.45, 1.2), 0, 0, ACCENT_CYAN)
-	addNeonBorder(decor, "LobbyTrimEast", center + Vector3.new(half, trimY - center.Y, 0), Vector3.new(1.2, 0.45, size), 0, 0, ACCENT_BLUE)
-	addNeonBorder(decor, "LobbyTrimWest", center + Vector3.new(-half, trimY - center.Y, 0), Vector3.new(1.2, 0.45, size), 0, 0, ACCENT_BLUE)
+	addNeonBorder(decor, "LobbyTrimNorth", Vector3.new(size, 0.45, 1.2), center + Vector3.new(0, trimY - center.Y, -half), ACCENT_CYAN)
+	addNeonBorder(decor, "LobbyTrimSouth", Vector3.new(size, 0.45, 1.2), center + Vector3.new(0, trimY - center.Y, half), ACCENT_CYAN)
+	addNeonBorder(decor, "LobbyTrimEast", Vector3.new(1.2, 0.45, size), center + Vector3.new(half, trimY - center.Y, 0), ACCENT_BLUE)
+	addNeonBorder(decor, "LobbyTrimWest", Vector3.new(1.2, 0.45, size), center + Vector3.new(-half, trimY - center.Y, 0), ACCENT_BLUE)
 
 	for xSign = -1, 1, 2 do
 		for zSign = -1, 1, 2 do
@@ -252,38 +252,30 @@ function ArenaService:_buildArenaFrame()
 	addNeonBorder(
 		decor,
 		"ArenaBorderNorth",
-		Config.ARENA_CENTER + Vector3.new(0, y - Config.ARENA_CENTER.Y, -edge),
 		Vector3.new(edge * 2, 0.8, 1.1),
-		0,
-		0,
+		Config.ARENA_CENTER + Vector3.new(0, y - Config.ARENA_CENTER.Y, -edge),
 		ACCENT_CYAN
 	)
 	addNeonBorder(
 		decor,
 		"ArenaBorderSouth",
-		Config.ARENA_CENTER + Vector3.new(0, y - Config.ARENA_CENTER.Y, edge),
 		Vector3.new(edge * 2, 0.8, 1.1),
-		0,
-		0,
+		Config.ARENA_CENTER + Vector3.new(0, y - Config.ARENA_CENTER.Y, edge),
 		ACCENT_CYAN
 	)
 	addNeonBorder(
 		decor,
 		"ArenaBorderEast",
-		Config.ARENA_CENTER + Vector3.new(edge, y - Config.ARENA_CENTER.Y, 0),
 		Vector3.new(1.1, 0.8, edge * 2),
-		0,
-		0,
+		Config.ARENA_CENTER + Vector3.new(edge, y - Config.ARENA_CENTER.Y, 0),
 		ACCENT_BLUE
 	)
 	addNeonBorder(
 		decor,
 		"ArenaBorderWest",
-		Config.ARENA_CENTER + Vector3.new(-edge, y - Config.ARENA_CENTER.Y, 0),
 		Vector3.new(1.1, 0.8, edge * 2),
-		0,
-		0,
-		ACCENT_BLUE
+		Config.ARENA_CENTER + Vector3.new(-edge, y - Config.ARENA_CENTER.Y, 0),
+		ACCENT_CYAN
 	)
 
 	for xSign = -1, 1, 2 do

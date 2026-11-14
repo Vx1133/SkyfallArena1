@@ -151,5 +151,6 @@ require('"104752078056182"' in upload_workflow, "The original Start Place ID mus
 require("ROBLOX_API_KEY" in upload_workflow, "The private upload must use a GitHub Actions secret")
 require("luau-execution-session-tasks" in upload_workflow, "The private upload must run a cloud Luau task")
 require("tests/cloud_smoke_tests.luau" in upload_workflow, "The cloud test script must run after upload")
+require("ROBLOX_LUAU_TEST_API_KEY" in upload_workflow, "Cloud tests must use a separate least-privilege API key")
 
 print("Skyfall Arena structural and gameplay validation passed.")

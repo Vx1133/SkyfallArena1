@@ -53,7 +53,7 @@ runTest("Arena builds a 15x15 destructible grid for a 30-participant match", fun
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
 	assert(Config.CONTROLLER_CAMERA_HEIGHT == 170, "Portrait controller camera height must fit the arena")
 	assert(Config.CONTROLLER_CAMERA_BACK == 24, "Portrait controller camera must use a small rear offset")
-	assert(Config.CONTROLLER_CAMERA_FOV == 92, "Portrait controller camera must frame the arena without an extreme wide lens")
+	assert(Config.CONTROLLER_CAMERA_FOV == 90, "Portrait controller camera must frame the arena without an extreme wide lens")
 	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT == 130, "Landscape controller camera height must bring the arena closer")
 	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_BACK == 130, "Landscape controller camera must use a balanced overhead angle")
 	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_FOV == 44, "Landscape controller camera must keep tiles large and readable")

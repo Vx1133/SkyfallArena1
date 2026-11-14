@@ -75,7 +75,10 @@ for feature in (
     "SkyfallLaserAircraft",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
-require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the round reset")
+require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
+map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
+require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken tiles")
+require("tile.CanCollide = true" in map_set_body, "The next map must restore floor collision")
 
 bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
 for feature in (

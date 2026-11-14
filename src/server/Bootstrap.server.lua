@@ -26,13 +26,15 @@ local stateRemote = getOrCreateRemote(remotesFolder, "RoundState")
 local targetRemote = getOrCreateRemote(remotesFolder, "TargetTile")
 
 local ArenaService = require(servicesFolder:WaitForChild("ArenaService"))
+local BotService = require(servicesFolder:WaitForChild("BotService"))
 local RoundService = require(servicesFolder:WaitForChild("RoundService"))
 local StrikeService = require(servicesFolder:WaitForChild("StrikeService"))
 
 local arena = ArenaService.new()
 arena:Build()
 
-local rounds = RoundService.new(arena, stateRemote)
+local bots = BotService.new(arena)
+local rounds = RoundService.new(arena, stateRemote, bots)
 local strikes = StrikeService.new(arena, rounds, targetRemote)
 
 strikes:Start()

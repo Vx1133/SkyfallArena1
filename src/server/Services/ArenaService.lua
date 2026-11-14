@@ -500,7 +500,6 @@ function ArenaService:_buildAircraft()
 		engineLight.Range = 16
 		engineLight.Parent = engineGlow
 
-		local rotorCenter = base + engineOffset + Vector3.new(0, 2.5, -0.2)
 		local bladeA = part(
 			"AircraftRotorA_" .. tostring(side),
 			Vector3.new(0.4, 0.18, 6),
@@ -829,6 +828,10 @@ function ArenaService:Build()
 	for _, child in ipairs(self.tilesFolder:GetChildren()) do
 		child:Destroy()
 	end
+	for _, child in ipairs(self.decorFolder:GetChildren()) do
+		child:Destroy()
+	end
+
 	for _, child in ipairs(self.decorFolder:GetChildren()) do
 		child:Destroy()
 	end

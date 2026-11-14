@@ -41,7 +41,17 @@ required_files = [
 
 config_source = (ROOT / "src/shared/GameConfig.lua").read_text(encoding="utf-8")
 require("Config.MIN_PLAYERS = 1" in config_source, "Solo playtest must be enabled")
-require("Config.BOT_COUNT = 3" in config_source, "Exactly three AI runner bots must be configured")
+require("Config.BOT_COUNT = 3" in config_source, "Exactly three AI contestants must be configured")
+require("Config.STRIKE_INTERVAL_SECONDS" in config_source, "Automatic laser interval is missing")
+require("Config.OVERTIME_START_SECONDS" in config_source, "Overtime escalation is missing")
+
+round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
+require("function RoundService:_getSoleSurvivor()" in round_source, "Last-survivor winner detection is missing")
+require("function RoundService:GetAlivePositions()" in round_source, "Live player positions are unavailable to the laser")
+
+laser_source = (ROOT / "src/server/Services/StrikeService.lua").read_text(encoding="utf-8")
+require("function StrikeService:_chooseTarget()" in laser_source, "Automatic random laser targeting is missing")
+require("TargetTile" not in laser_source, "Manual player targeting must be removed")
 
 for relative_path in required_files:
     path = ROOT / relative_path

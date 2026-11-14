@@ -200,6 +200,19 @@ function RoundService:_isCandidateValid(candidate)
 	return false
 end
 
+function RoundService:_chooseNextMapId()
+	if Config.MAP_COUNT <= 1 then
+		return 1
+	end
+
+	if self.lastMapId < 1 or self.lastMapId > Config.MAP_COUNT then
+		return self.random:NextInteger(1, Config.MAP_COUNT)
+	end
+
+	local offset = self.random:NextInteger(1, Config.MAP_COUNT - 1)
+	return ((self.lastMapId - 1 + offset) % Config.MAP_COUNT) + 1
+end
+
 function RoundService:_chooseController()
 	if self:_isCandidateValid(self.nextController) then
 		local selected = self.nextController
@@ -290,13 +303,17 @@ function RoundService:IsOvertime()
 end
 
 function RoundService:_broadcast()
+	local botCount = self.botService and self.botService:GetBotCount() or 0
+	local remainingPlayers = self:_aliveRunnerCount()
+
 	self.stateRemote:FireAllClients({
 		phase = self.phase,
 		elapsedSeconds = self.elapsedSeconds,
 		countdownSeconds = self.countdownSeconds,
-		aliveRunners = self:_aliveRunnerCount(),
-		playerCount = #Players:GetPlayers(),
-		botCount = self.botService and self.botService:GetBotCount() or 0,
+		aliveRunners = remainingPlayers,
+		remainingPlayers = remainingPlayers,
+		playerCount = #Players:GetPlayers() + botCount,
+		botCount = botCount,
 		winner = self.winner,
 		controllerName = self:_candidateName(self.controller),
 		controllerKind = self.controller and self.controller.kind or "",
@@ -505,7 +522,7 @@ function RoundService:_runRound()
 	end
 
 	self.roundNumber += 1
-	local nextMapId = self.lastMapId == 1 and 2 or 1
+	local nextMapId = self:_chooseNextMapId()
 	self.lastMapId = nextMapId
 	self.arena:SetMap(nextMapId)
 

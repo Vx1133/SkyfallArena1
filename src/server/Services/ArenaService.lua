@@ -254,7 +254,7 @@ function ArenaService:_buildLobby()
 		local pad = createPart(
 			decor,
 			"PlayerSpawnPad_" .. tostring(index),
-			Vector3.new(9, 0.65, 9),
+			Vector3.new(0.65, 9, 9),
 			center + offset,
 			Color3.fromRGB(46, 105, 139),
 			Enum.Material.Metal,
@@ -268,7 +268,7 @@ function ArenaService:_buildLobby()
 		local padRing = createPart(
 			decor,
 			"PlayerSpawnRing_" .. tostring(index),
-			Vector3.new(10, 0.22, 10),
+			Vector3.new(0.22, 10, 10),
 			center + offset + Vector3.new(0, 0.42, 0),
 			index % 2 == 0 and Color3.fromRGB(78, 143, 238) or Color3.fromRGB(54, 220, 245),
 			Enum.Material.Neon,
@@ -285,7 +285,7 @@ function ArenaService:_buildLobby()
 	local centerPad = createPart(
 		decor,
 		"LobbyCenterPad",
-		Vector3.new(25, 1, 25),
+		Vector3.new(1, 25, 25),
 		center + Vector3.new(0, 1.95, 0),
 		Color3.fromRGB(35, 55, 78),
 		Enum.Material.Metal,
@@ -477,7 +477,7 @@ function ArenaService:_buildAircraft()
 		local engineOffset = Vector3.new(side * 12, -0.9, 2)
 		local engine = part(
 			"AircraftEngine_" .. tostring(side),
-			Vector3.new(3.5, 3.5, 9),
+			Vector3.new(9, 3.5, 3.5),
 			engineOffset,
 			Color3.fromRGB(30, 45, 70),
 			Enum.Material.Metal,
@@ -488,7 +488,7 @@ function ArenaService:_buildAircraft()
 		local engineGlow = part(
 			"AircraftEngineGlow_" .. tostring(side),
 			Vector3.new(2.1, 2.1, 1),
-			engineOffset + Vector3.new(0, 0, 4.5),
+			engineOffset + Vector3.new(side * 4.5, 0, 0),
 			Color3.fromRGB(54, 220, 245),
 			Enum.Material.Neon,
 			Enum.PartType.Ball

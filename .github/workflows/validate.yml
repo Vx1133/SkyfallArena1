@@ -41,7 +41,7 @@ jobs:
         run: python tools/validate_project.py
 
       - name: Lint Luau source
-        run: selene src
+        run: selene src tests
 
       - name: Build Roblox place file
         run: |

@@ -13,6 +13,7 @@ function RoundService.new(arenaService, stateRemote, botService)
 	self.botService = botService
 	self.phase = "Waiting"
 	self.elapsedSeconds = 0
+	self.countdownSeconds = 0
 	self.aliveRunners = {}
 	self.winner = ""
 	self.winnerPlayer = nil
@@ -170,6 +171,7 @@ function RoundService:_broadcast()
 	self.stateRemote:FireAllClients({
 		phase = self.phase,
 		elapsedSeconds = self.elapsedSeconds,
+		countdownSeconds = self.countdownSeconds,
 		aliveRunners = self:_aliveRunnerCount(),
 		playerCount = #Players:GetPlayers(),
 		botCount = self.botService and self.botService:GetBotCount() or 0,
@@ -252,6 +254,7 @@ function RoundService:_updateSurvivalRecords()
 		local statSet = self.stats[player]
 		if player.Parent == Players and statSet and statSet.bestTime then
 			statSet.bestTime.Value = math.max(statSet.bestTime.Value, elapsed)
+			player:SetAttribute("SkyfallSurvivalTime", elapsed)
 		end
 	end
 end
@@ -289,6 +292,7 @@ function RoundService:_runRound()
 	self.arena:ResetTiles()
 	self.aliveRunners = {}
 	self.elapsedSeconds = 0
+	self.countdownSeconds = 0
 	self.overtime = false
 	self.winner = ""
 	self.winnerPlayer = nil
@@ -358,7 +362,7 @@ function RoundService:_runRound()
 
 	if not canceled then
 		for seconds = Config.RESULTS_SECONDS, 1, -1 do
-			self.timeLeft = seconds
+			self.countdownSeconds = seconds
 			self:_broadcast()
 			task.wait(1)
 		end
@@ -366,6 +370,7 @@ function RoundService:_runRound()
 
 	self.phase = "Waiting"
 	self.elapsedSeconds = 0
+	self.countdownSeconds = 0
 	self.overtime = false
 	self.aliveRunners = {}
 	self.arena:ResetTiles()
@@ -377,6 +382,7 @@ function RoundService:_runLoop()
 	while self.running do
 		self.phase = "Waiting"
 		self.elapsedSeconds = 0
+		self.countdownSeconds = 0
 		self:_broadcast()
 
 		while self.running and #Players:GetPlayers() < Config.MIN_PLAYERS do
@@ -396,7 +402,7 @@ function RoundService:_runLoop()
 				break
 			end
 
-			self.elapsedSeconds = seconds
+			self.countdownSeconds = seconds
 			self:_broadcast()
 			task.wait(1)
 		end

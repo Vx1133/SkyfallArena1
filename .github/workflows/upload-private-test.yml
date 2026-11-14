@@ -17,9 +17,9 @@ concurrency:
 
 jobs:
   upload-private-test:
-    name: Build and upload a private test version
+    name: Build, upload, and cloud-test a private version
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - name: Require explicit manual confirmation
         env:
@@ -57,6 +57,7 @@ jobs:
           test -s build/SkyfallArena.rbxlx
 
       - name: Upload place to Roblox and verify completion
+        id: upload
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
           ROBLOX_UNIVERSE_ID: "7975091208"
@@ -107,7 +108,14 @@ jobs:
                 exit 1
               fi
 
-              revision_id="$(jq -r '.response.revisionId // "unknown"' <<< "$operation_status")"
+              revision_id="$(jq -r '.response.revisionId // empty' <<< "$operation_status")"
+              if [ -z "$revision_id" ]; then
+                echo "::error::Roblox confirmed publication but did not return a place version number."
+                jq . <<< "$operation_status"
+                exit 1
+              fi
+
+              echo "revision_id=$revision_id" >> "$GITHUB_OUTPUT"
               {
                 echo "## Roblox private test upload"
                 echo "- Universe ID: $ROBLOX_UNIVERSE_ID"
@@ -125,3 +133,81 @@ jobs:
 
           echo "::error::Timed out waiting for Roblox to finish processing the place upload."
           exit 1
+
+      - name: Run headless Roblox Luau smoke tests on the exact uploaded version
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_UNIVERSE_ID: "7975091208"
+          ROBLOX_PLACE_ID: "104752078056182"
+          ROBLOX_PLACE_VERSION: ${{ steps.upload.outputs.revision_id }}
+        run: |
+          set -euo pipefail
+          : "${ROBLOX_API_KEY:?Missing GitHub Actions secret ROBLOX_API_KEY}"
+          : "${ROBLOX_PLACE_VERSION:?Missing uploaded Roblox place version}"
+
+          task_request="$(jq -cn --rawfile script tests/cloud_smoke_tests.luau \
+            --arg timeout "90s" '{script: $script, timeout: $timeout}')"
+
+          task_response="$(curl --fail-with-body --silent --show-error --location \
+            --request POST \
+            "https://apis.roblox.com/cloud/v2/universes/$ROBLOX_UNIVERSE_ID/places/$ROBLOX_PLACE_ID/versions/$ROBLOX_PLACE_VERSION/luau-execution-session-tasks" \
+            --header "x-api-key: $ROBLOX_API_KEY" \
+            --header "Content-Type: application/json" \
+            --data "$task_request")"
+
+          task_path="$(jq -r '.path // empty' <<< "$task_response")"
+          if [ -z "$task_path" ]; then
+            echo "::error::Roblox did not return a Luau execution task path."
+            jq . <<< "$task_response"
+            exit 1
+          fi
+
+          task_path="${task_path#/}"
+          task_path="${task_path#cloud/v2/}"
+          task_url="https://apis.roblox.com/cloud/v2/$task_path"
+          logs_url="$task_url/logs"
+          task_state=""
+
+          for attempt in $(seq 1 45); do
+            task_status="$(curl --fail-with-body --silent --show-error --location \
+              "$task_url" \
+              --header "x-api-key: $ROBLOX_API_KEY")"
+            task_state="$(jq -r '.state // "STATE_UNSPECIFIED"' <<< "$task_status")"
+
+            if [ "$task_state" = "COMPLETE" ] || [ "$task_state" = "FAILED" ] || [ "$task_state" = "CANCELLED" ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ "$task_state" != "COMPLETE" ]; then
+            echo "::error::Roblox Luau smoke test did not complete successfully. State: $task_state"
+            jq '.error // .' <<< "$task_status"
+            if logs_response="$(curl --fail-with-body --silent --show-error --location \
+              "$logs_url?view=FLAT" \
+              --header "x-api-key: $ROBLOX_API_KEY")"; then
+              jq -r '.luauExecutionSessionTaskLogs[]?.messages[]?' <<< "$logs_response"
+            fi
+            exit 1
+          fi
+
+          logs_response="$(curl --fail-with-body --silent --show-error --location \
+            "$logs_url?view=FLAT" \
+            --header "x-api-key: $ROBLOX_API_KEY")"
+          log_messages="$(jq -r '[.luauExecutionSessionTaskLogs[]?.messages[]?] | join("\n")' <<< "$logs_response")"
+
+          if ! grep -Fq "SKYFALL_CLOUD_TESTS_OK" <<< "$log_messages"; then
+            echo "::error::The Luau task completed without the expected success marker."
+            printf '%s\n' "$log_messages"
+            exit 1
+          fi
+
+          {
+            echo "## Roblox headless Luau smoke tests"
+            echo "- Tested exact Place ID: $ROBLOX_PLACE_ID"
+            echo "- Tested exact place version: $ROBLOX_PLACE_VERSION"
+            echo "- Roblox execution state: $task_state"
+            printf '%s\n' "$log_messages"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          printf '%s\n' "$log_messages"

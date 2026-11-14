@@ -51,7 +51,7 @@ The test script at `tests/cloud_smoke_tests.luau` is passed directly to Roblox O
 
 Current checks:
 
-- The arena builds 81 tiles and required lobby / aircraft structures.
+- The arena builds 225 destructible tiles in a 15 by 15 grid, plus the required lobby and gold controller drone structures.
 - Four laser-damaged tiles remain broken while the cloud task waits, and the next map restores the full grid.
 - Old laser tokens cannot damage tiles after a map reset.
 - Controller selection returns a valid candidate and prioritizes the previous survivor when supplied.
@@ -90,4 +90,4 @@ If the cloud test fails, GitHub Actions marks the upload workflow as failed and 
 
 ## Current arena redesign checks
 
-The latest arena build uses a 15 by 15 tile grid, five random no-immediate-repeat map environments, daytime lighting, no neon map materials, square tile studs, a redesigned waiting garden, and a gold controller sphere with a red lens. Cloud tests also check the three-second human cooldown and tile persistence. These checks are headless and do not validate rendered camera framing, physics, touch aiming, or live player navigation. The existing place must have its maximum player setting configured to 30 in Creator Dashboard for a 30-human-player session; code cannot change that place setting.
+The latest arena build uses a 15 by 15 tile grid (225 tiles), five random no-immediate-repeat map environments, daytime lighting, no neon map materials, square tile studs, a redesigned waiting garden, and a gold controller sphere with a red lens. Human laser requests have a three-second server-side cooldown, and destroyed tiles remain broken until the next map loads. The controller camera is configured with a 170-stud overhead height, 24-stud rear offset, and 96-degree field of view as a closer portrait-screen framing baseline. These checks are headless and do not validate rendered camera framing, physics, touch aiming, or live player navigation. The existing place must have its maximum player setting configured to 30 in Creator Dashboard for a 30-human-player session; code cannot change that place setting.

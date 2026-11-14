@@ -53,7 +53,7 @@ for setting in (
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
     "Config.CONTROLLER_CAMERA_HEIGHT = 170",
     "Config.CONTROLLER_CAMERA_BACK = 24",
-    "Config.CONTROLLER_CAMERA_FOV = 90",
+    "Config.CONTROLLER_CAMERA_FOV = 96",
     "Config.OVERTIME_START_SECONDS",
     "Config.RESPAWN_TIME",
 ):

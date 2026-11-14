@@ -219,9 +219,9 @@ RunService.RenderStepped:Connect(function()
 	if shouldUseControllerCamera then
 		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.FieldOfView = 62
+		camera.FieldOfView = 76
 		camera.CFrame = CFrame.lookAt(
-			Vector3.new(0, 171, -68),
+			Vector3.new(0, 190, -55),
 			Config.ARENA_CENTER
 		)
 	elseif controllerCameraActive then

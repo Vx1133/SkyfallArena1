@@ -128,7 +128,7 @@ boostScale.Parent = boostButton
 local boostIcon = Instance.new("TextLabel")
 boostIcon.Name = "AnimatedIcon"
 boostIcon.AnchorPoint = Vector2.new(0.5, 0.5)
-boostIcon.Position = UDim2.new(0.5, 0, 0.34, 0)
+boostIcon.Position = UDim2.fromScale(0.5, 0.34)
 boostIcon.Size = UDim2.fromOffset(52, 46)
 boostIcon.BackgroundTransparency = 1
 boostIcon.Font = Enum.Font.GothamBlack
@@ -140,7 +140,7 @@ boostIcon.Parent = boostButton
 
 local boostCaption = Instance.new("TextLabel")
 boostCaption.Name = "Caption"
-boostCaption.Position = UDim2.new(0, 4, 0, 54)
+boostCaption.Position = UDim2.fromOffset(4, 54)
 boostCaption.Size = UDim2.new(1, -8, 0, 16)
 boostCaption.BackgroundTransparency = 1
 boostCaption.Font = Enum.Font.GothamBold
@@ -151,7 +151,7 @@ boostCaption.Parent = boostButton
 
 local boostStatus = Instance.new("TextLabel")
 boostStatus.Name = "BoostStatus"
-boostStatus.Position = UDim2.new(0, 4, 0, 70)
+boostStatus.Position = UDim2.fromOffset(4, 70)
 boostStatus.Size = UDim2.new(1, -8, 0, 14)
 boostStatus.BackgroundTransparency = 1
 boostStatus.Font = Enum.Font.GothamMedium

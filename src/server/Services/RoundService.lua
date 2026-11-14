@@ -222,9 +222,7 @@ function RoundService:_runRound()
 	end
 
 	self.timeLeft = 0
-	if not self.controller or self.controller.Parent ~= Players then
-		self.winner = "RUNNERS"
-	elseif self:_aliveRunnerCount() == 0 then
+	if self.controller and self.controller.Parent == Players and self:_aliveRunnerCount() == 0 then
 		self.winner = "CONTROLLER"
 	else
 		self.winner = "RUNNERS"

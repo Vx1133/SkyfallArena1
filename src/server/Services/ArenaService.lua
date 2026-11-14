@@ -550,11 +550,11 @@ function ArenaService:ResetTiles()
 	end
 end
 
-function ArenaService:GetLobbySpawnCFrame(index, total)
+function ArenaService:GetLobbySpawnCFrame(index, total, isBot)
 	local spawnIndex = math.max(1, index or 1)
 	local spawnTotal = math.max(1, total or 1)
 	local angle = ((spawnIndex - 1) / spawnTotal) * math.pi * 2
-	local radius = math.min(25, 10 + spawnTotal * 1.4)
+	local radius = isBot and 36 or 25
 	local position = Config.LOBBY_CENTER + Vector3.new(
 		math.cos(angle) * radius,
 		5,

@@ -128,6 +128,7 @@ function RoundService:_placePlayer(player, spawnCFrame)
 	character:PivotTo(spawnCFrame)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	if root then
+		root.Anchored = false
 		root.AssemblyLinearVelocity = Vector3.zero
 		root.AssemblyAngularVelocity = Vector3.zero
 	end
@@ -454,6 +455,11 @@ function RoundService:_awardWinner(candidate)
 			statSet.wins.Value += 1
 		end
 		player:SetAttribute("SkyfallRole", "Winner")
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		if root then
+			root.Anchored = true
+		end
 	elseif candidate.kind == "Bot" then
 		self.botService:SetWinner(candidate.value)
 	end
@@ -484,7 +490,6 @@ function RoundService:_runRound()
 	local nextMapId = self.lastMapId == 1 and 2 or 1
 	self.lastMapId = nextMapId
 	self.arena:SetMap(nextMapId)
-	self.arena:ResetTiles()
 
 	self.aliveRunners = {}
 	self.elapsedSeconds = 0
@@ -605,7 +610,6 @@ function RoundService:_runRound()
 	self.overtime = false
 	self.aliveRunners = {}
 	self.controller = nil
-	self.arena:ResetTiles()
 	self:_placeAllPlayersInLobby()
 	self:_broadcast()
 end

@@ -34,6 +34,7 @@ required_files = [
     "src/server/Services/ArenaService.lua",
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
+    "src/server/Services/SpeedBoostService.lua",
     "src/client/HUD.client.lua",
     "docs/CLOUD_PUBLISHING.md",
 ]
@@ -42,6 +43,15 @@ for relative_path in required_files:
     path = ROOT / relative_path
     require(path.is_file(), f"Required project file is missing: {relative_path}")
     require(path.stat().st_size > 0, f"Required project file is empty: {relative_path}")
+
+speed_service = (ROOT / "src/server/Services/SpeedBoostService.lua").read_text(encoding="utf-8")
+arena_service = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
+hud_source = (ROOT / "src/client/HUD.client.lua").read_text(encoding="utf-8")
+require("OnServerEvent" in speed_service, "Server-side speed boost handler is missing")
+require("SPEED_BOOST_DURATION" in speed_service, "Speed boost duration setting is missing")
+require("ParkourCourse" in arena_service, "Parkour course generation is missing")
+require("SpeedBoostButton" in hud_source, "Speed boost button is missing")
+require("TweenService" in hud_source, "Animated speed icon is missing")
 
 workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
 require("pull_request:" in workflow, "Pull request validation trigger is missing")

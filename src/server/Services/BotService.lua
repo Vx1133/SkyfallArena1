@@ -14,6 +14,7 @@ local BOT_PROFILES = {
 		bodyColor = Color3.fromRGB(84, 166, 255),
 		hairColor = Color3.fromRGB(74, 47, 31),
 		hairId = 62234425,
+		hairStyle = "short",
 		walkSpeed = 15,
 		jumpPower = 48,
 		reactionDelay = 0.7,
@@ -32,6 +33,7 @@ local BOT_PROFILES = {
 		bodyColor = Color3.fromRGB(67, 224, 192),
 		hairColor = Color3.fromRGB(232, 197, 103),
 		hairId = 233615637,
+		hairStyle = "long",
 		walkSpeed = 17,
 		jumpPower = 54,
 		reactionDelay = 0.4,
@@ -50,6 +52,7 @@ local BOT_PROFILES = {
 		bodyColor = Color3.fromRGB(255, 172, 84),
 		hairColor = Color3.fromRGB(44, 34, 31),
 		hairId = 20573078,
+		hairStyle = "spiky",
 		walkSpeed = 16,
 		jumpPower = 51,
 		reactionDelay = 0.55,
@@ -75,7 +78,7 @@ local function getOrCreateFolder(parent, name)
 	return folder
 end
 
-local function createFallbackHair(model, hairColor)
+local function createFallbackHair(model, hairColor, hairStyle)
 	local head = model:FindFirstChild("Head")
 	if not head or not head:IsA("BasePart") then
 		return
@@ -84,7 +87,11 @@ local function createFallbackHair(model, hairColor)
 	local cap = Instance.new("Part")
 	cap.Name = "FallbackHairCap"
 	cap.Shape = Enum.PartType.Ball
-	cap.Size = Vector3.new(2.15, 0.8, 2.05)
+	cap.Size = hairStyle == "long"
+		and Vector3.new(2.2, 0.75, 2.1)
+		or hairStyle == "spiky"
+			and Vector3.new(2.05, 0.7, 2.0)
+			or Vector3.new(2.15, 0.8, 2.05)
 	cap.Color = hairColor
 	cap.Material = Enum.Material.SmoothPlastic
 	cap.CanCollide = false
@@ -99,25 +106,63 @@ local function createFallbackHair(model, hairColor)
 	capWeld.Part1 = cap
 	capWeld.Parent = cap
 
-	for index = 1, 3 do
-		local fringe = Instance.new("Part")
-		fringe.Name = "FallbackHairFringe_" .. tostring(index)
-		fringe.Shape = Enum.PartType.Ball
-		fringe.Size = Vector3.new(0.78, 0.55, 0.72)
-		fringe.Color = hairColor
-		fringe.Material = Enum.Material.SmoothPlastic
-		fringe.CanCollide = false
-		fringe.CanTouch = false
-		fringe.CanQuery = false
-		fringe.Massless = true
-		local xOffset = (index - 2) * 0.48
-		fringe.CFrame = head.CFrame * CFrame.new(xOffset, 0.15, -0.72)
-		fringe.Parent = model
+	local function attachHairPiece(name, size, offset, shape)
+		local piece = Instance.new("Part")
+		piece.Name = name
+		piece.Shape = shape or Enum.PartType.Ball
+		piece.Size = size
+		piece.Color = hairColor
+		piece.Material = Enum.Material.SmoothPlastic
+		piece.CanCollide = false
+		piece.CanTouch = false
+		piece.CanQuery = false
+		piece.Massless = true
+		piece.CFrame = head.CFrame * CFrame.new(offset)
+		piece.Parent = model
 
 		local weld = Instance.new("WeldConstraint")
 		weld.Part0 = head
-		weld.Part1 = fringe
-		weld.Parent = fringe
+		weld.Part1 = piece
+		weld.Parent = piece
+	end
+
+	if hairStyle == "long" then
+		for side = -1, 1, 2 do
+			attachHairPiece(
+				"LongHairLock_" .. tostring(side),
+				Vector3.new(0.55, 1.5, 0.78),
+				Vector3.new(side * 0.82, -0.25, 0.05)
+			)
+		end
+		attachHairPiece(
+			"LongHairBack",
+			Vector3.new(1.65, 1.5, 0.58),
+			Vector3.new(0, -0.35, 0.72)
+		)
+	elseif hairStyle == "spiky" then
+		for index = 1, 5 do
+			local angle = ((index - 1) / 5) * math.pi * 2
+			local offset = Vector3.new(
+				math.cos(angle) * 0.62,
+				0.62,
+				math.sin(angle) * 0.55
+			)
+			attachHairPiece(
+				"SpikyHairTuft_" .. tostring(index),
+				Vector3.new(0.52, 0.95, 0.52),
+				offset,
+				Enum.PartType.Wedge
+			)
+		end
+	else
+		for index = 1, 3 do
+			local xOffset = (index - 2) * 0.48
+			attachHairPiece(
+				"ShortHairFringe_" .. tostring(index),
+				Vector3.new(0.78, 0.55, 0.72),
+				Vector3.new(xOffset, 0.15, -0.72)
+			)
+		end
 	end
 end
 
@@ -134,6 +179,7 @@ function BotService.new(arenaService)
 			bodyColor = profile.bodyColor,
 			hairColor = profile.hairColor,
 			hairId = profile.hairId,
+			hairStyle = profile.hairStyle,
 			walkSpeed = profile.walkSpeed,
 			jumpPower = profile.jumpPower,
 			reactionDelay = profile.reactionDelay,
@@ -316,7 +362,7 @@ function BotService:_buildRig(bot)
 	model.Parent = self.folder
 
 	if not model:FindFirstChildWhichIsA("Accessory", true) then
-		createFallbackHair(model, bot.hairColor)
+		createFallbackHair(model, bot.hairColor, bot.hairStyle)
 	end
 
 	pcall(function()

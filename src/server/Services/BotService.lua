@@ -335,8 +335,10 @@ function BotService:_followPath(bot, targetTile)
 
 		humanoid:MoveTo(waypoint.Position)
 		local startedAt = os.clock()
+		local shouldAbort = false
 		while bot.alive and (root.Position - waypoint.Position).Magnitude > 3.5 do
 			if pathBlocked or (not startedInDanger and self:_isInDanger(bot)) then
+				shouldAbort = true
 				break
 			end
 			if not self:_isSafeTile(targetTile) then
@@ -348,7 +350,7 @@ function BotService:_followPath(bot, targetTile)
 			task.wait(0.1)
 		end
 
-		if pathBlocked or not self:_isSafeTile(targetTile) then
+		if pathBlocked or shouldAbort or not self:_isSafeTile(targetTile) then
 			break
 		end
 	end
@@ -398,6 +400,7 @@ function BotService:StartRound(spawnCFrames)
 			bot.lastTarget = nil
 			bot.humanoid.Health = bot.humanoid.MaxHealth
 			bot.humanoid.WalkSpeed = bot.walkSpeed
+			bot.humanoid.JumpPower = bot.jumpPower
 			bot.model:SetAttribute("SkyfallRole", "Runner")
 			bot.model:PivotTo(spawnCFrame)
 			bot.root.AssemblyLinearVelocity = Vector3.zero
@@ -413,9 +416,11 @@ function BotService:EliminateFallenRunners(outOfBoundsY)
 	for index, bot in ipairs(self.bots) do
 		if bot.alive
 			and (
-				not bot.root.Parent
-				or bot.root.Position.Y < outOfBoundsY
+				not bot.root
+				or not bot.root.Parent
+				or not bot.humanoid
 				or bot.humanoid.Health <= 0
+				or bot.root.Position.Y < outOfBoundsY
 			)
 		then
 			bot.alive = false

@@ -58,6 +58,7 @@ function BotService.new(arenaService)
 	for _, profile in ipairs(BOT_PROFILES) do
 		local bot = {
 			name = profile.name,
+			bodyColor = profile.bodyColor,
 			walkSpeed = profile.walkSpeed,
 			jumpPower = profile.jumpPower,
 			reactionDelay = profile.reactionDelay,

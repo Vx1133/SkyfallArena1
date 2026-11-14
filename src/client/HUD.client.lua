@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -10,6 +11,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ga
 local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
 local stateRemote = remotes:WaitForChild("RoundState")
 local targetRemote = remotes:WaitForChild("TargetTile")
+local speedBoostRemote = remotes:WaitForChild("SpeedBoost")
 local tileFolder = Workspace:WaitForChild("SkyfallArena"):WaitForChild("Tiles")
 
 local state = {
@@ -98,6 +100,131 @@ local hintLabel = makeLabel(
 	Color3.fromRGB(211, 219, 231)
 )
 
+local boostButton = Instance.new("TextButton")
+boostButton.Name = "SpeedBoostButton"
+boostButton.AnchorPoint = Vector2.new(1, 1)
+boostButton.Position = UDim2.new(1, -24, 1, -155)
+boostButton.Size = UDim2.fromOffset(92, 92)
+boostButton.BackgroundColor3 = Color3.fromRGB(31, 76, 126)
+boostButton.BorderSizePixel = 0
+boostButton.AutoButtonColor = false
+boostButton.Text = ""
+boostButton.Parent = screenGui
+
+local boostCorner = Instance.new("UICorner")
+boostCorner.CornerRadius = UDim.new(0, 22)
+boostCorner.Parent = boostButton
+
+local boostStroke = Instance.new("UIStroke")
+boostStroke.Color = Color3.fromRGB(105, 190, 255)
+boostStroke.Thickness = 2
+boostStroke.Transparency = 0.15
+boostStroke.Parent = boostButton
+
+local boostScale = Instance.new("UIScale")
+boostScale.Scale = 1
+boostScale.Parent = boostButton
+
+local boostIcon = Instance.new("TextLabel")
+boostIcon.Name = "AnimatedIcon"
+boostIcon.AnchorPoint = Vector2.new(0.5, 0.5)
+boostIcon.Position = UDim2.new(0.5, 0, 0.34, 0)
+boostIcon.Size = UDim2.fromOffset(52, 46)
+boostIcon.BackgroundTransparency = 1
+boostIcon.Font = Enum.Font.GothamBlack
+boostIcon.Text = "⚡"
+boostIcon.TextColor3 = Color3.fromRGB(255, 232, 135)
+boostIcon.TextSize = 38
+boostIcon.Rotation = -12
+boostIcon.Parent = boostButton
+
+local boostCaption = Instance.new("TextLabel")
+boostCaption.Name = "Caption"
+boostCaption.Position = UDim2.new(0, 4, 0, 54)
+boostCaption.Size = UDim2.new(1, -8, 0, 16)
+boostCaption.BackgroundTransparency = 1
+boostCaption.Font = Enum.Font.GothamBold
+boostCaption.Text = "SPEED"
+boostCaption.TextColor3 = Color3.fromRGB(255, 255, 255)
+boostCaption.TextSize = 13
+boostCaption.Parent = boostButton
+
+local boostStatus = Instance.new("TextLabel")
+boostStatus.Name = "BoostStatus"
+boostStatus.Position = UDim2.new(0, 4, 0, 70)
+boostStatus.Size = UDim2.new(1, -8, 0, 14)
+boostStatus.BackgroundTransparency = 1
+boostStatus.Font = Enum.Font.GothamMedium
+boostStatus.Text = "READY"
+boostStatus.TextColor3 = Color3.fromRGB(192, 225, 255)
+boostStatus.TextSize = 10
+boostStatus.Parent = boostButton
+
+local iconTween = TweenService:Create(
+	boostIcon,
+	TweenInfo.new(0.65, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+	{Rotation = 12}
+)
+iconTween:Play()
+
+local pulseTween = TweenService:Create(
+	boostScale,
+	TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+	{Scale = 1.06}
+)
+pulseTween:Play()
+
+local boostCooldownUntil = 0
+local boostActiveUntil = 0
+local boostRequestPending = false
+
+local function updateBoostWidget()
+	local now = os.clock()
+
+	if boostRequestPending then
+		boostStatus.Text = "WAIT..."
+		boostButton.BackgroundColor3 = Color3.fromRGB(55, 65, 83)
+	elseif boostActiveUntil > now then
+		boostStatus.Text = tostring(math.ceil(boostActiveUntil - now)) .. "s LEFT"
+		boostButton.BackgroundColor3 = Color3.fromRGB(23, 117, 101)
+	elseif boostCooldownUntil > now then
+		boostStatus.Text = tostring(math.ceil(boostCooldownUntil - now)) .. "s"
+		boostButton.BackgroundColor3 = Color3.fromRGB(55, 65, 83)
+	else
+		boostStatus.Text = "READY"
+		boostButton.BackgroundColor3 = Color3.fromRGB(31, 76, 126)
+	end
+end
+
+boostButton.Activated:Connect(function()
+	local now = os.clock()
+	if boostRequestPending or boostActiveUntil > now or boostCooldownUntil > now then
+		return
+	end
+
+	boostRequestPending = true
+	updateBoostWidget()
+	speedBoostRemote:FireServer()
+end)
+
+speedBoostRemote.OnClientEvent:Connect(function(result, firstValue, secondValue)
+	local now = os.clock()
+	boostRequestPending = false
+
+	if result == "Activated" then
+		boostActiveUntil = now + (tonumber(firstValue) or Config.SPEED_BOOST_DURATION)
+		boostCooldownUntil = now + (tonumber(secondValue) or Config.SPEED_BOOST_COOLDOWN)
+	elseif result == "Cooldown" then
+		boostCooldownUntil = now + (tonumber(firstValue) or 0)
+	elseif result == "Finished" then
+		boostActiveUntil = 0
+	elseif result == "Unavailable" then
+		boostStatus.Text = "TRY AGAIN"
+	end
+
+	updateBoostWidget()
+end)
+
 local function getRole()
 	return player:GetAttribute("SkyfallRole") or "Waiting"
 end
@@ -128,7 +255,7 @@ local function updateHud()
 	elseif role == "Spectator" then
 		hintLabel.Text = "You are out. Watch the arena until the next round."
 	else
-		hintLabel.Text = "Join the arena. A round starts when enough players are here."
+		hintLabel.Text = "Try the speed button and the short parkour beside the lobby."
 	end
 end
 
@@ -184,6 +311,8 @@ player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
 
 local usingControllerCamera = false
 RunService.RenderStepped:Connect(function()
+	updateBoostWidget()
+
 	local camera = Workspace.CurrentCamera
 	if not camera then
 		return
@@ -220,3 +349,4 @@ player.CharacterAdded:Connect(function(character)
 end)
 
 updateHud()
+updateBoostWidget()

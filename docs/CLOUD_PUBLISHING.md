@@ -12,7 +12,7 @@ The IDs copied from the Creator Dashboard are:
 - Universe ID: `7975091208`
 - Start Place ID: `104752078056182`
 
-The Universe ID identifies the experience and is used when scoping the Roblox API key. The Start Place ID identifies the exact place that the upload workflow updates. Both numbers are already configured in the workflow, so you do not need to create GitHub variables for them.
+The Universe ID identifies the experience and is used when scoping the Roblox API key. The Start Place ID identifies the exact place that the upload workflow updates. Both numbers are already configured in the workflow, so you do not need to create GitHub variables for them. Every update should target this same Place ID. Roblox creates a new place version rather than a second experience.
 
 ## Keep the experience private
 
@@ -20,7 +20,7 @@ Before the first upload, open the experience in Creator Dashboard and confirm it
 
 The upload request must set `published: true` so Roblox updates the selected place to a playable new version. This publishes a place version to the experience; it does **not** change the audience setting or make a Private experience public. The owner can access their private experience.
 
-**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. The owner has approved replacing this automatically created place with the Skyfall Arena test build. Roblox keeps place version history, which can be used to restore an earlier version.
+**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. The owner has approved replacing this automatically created place with the Skyfall Arena test build. Roblox keeps place version history, which can be used to restore an earlier version. Do not create a new experience or replace the Place ID for normal updates.
 
 ## GitHub setting required
 
@@ -48,7 +48,7 @@ These are the current permissions documented by Roblox for updating an existing 
 
 The workflow is `.github/workflows/upload-private-test.yml` and is on the repository's default `main` branch.
 
-To run it after the GitHub secret is configured:
+To run it after the GitHub secret is configured and the latest code has been merged into the main branch:
 
 1. Open the repository's **Actions** tab.
 2. Select **Upload Skyfall Arena private test**.
@@ -58,7 +58,7 @@ To run it after the GitHub secret is configured:
 The workflow:
 - Only starts through a manual `workflow_dispatch` action.
 - Requires the exact confirmation text `UPLOAD_PRIVATE_TEST`.
-- Rebuilds the place and repeats the structural validation and Selene lint checks.
+- Checks out the selected branch (choose main after merging), rebuilds the place, and repeats the structural validation and Selene lint checks.
 - Uploads the RBXLX file using the current Roblox Assets API endpoint:
   `PATCH https://apis.roblox.com/assets/v1/assets/{placeId}`
 - Polls the returned operation until Roblox reports completion and `isPublished: true`.

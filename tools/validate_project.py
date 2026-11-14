@@ -118,7 +118,6 @@ for feature in (
     "PlayersLabel",
     "Config.CONTROLLER_CAMERA_HEIGHT",
     "Config.CONTROLLER_CAMERA_FOV",
-    "Config.HUMAN_STRIKE_COOLDOWN_SECONDS",
     "camera.CFrame = CFrame.lookAt(",
     "targetRemote:FireServer(gridX, gridZ)",
 ):

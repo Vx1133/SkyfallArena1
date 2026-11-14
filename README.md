@@ -1,19 +1,22 @@
 # Skyfall Arena
 
-Skyfall Arena is a Roblox last-survivor game. Every human player and three AI opponents start in the waiting lobby. When a round begins, everyone enters the arena while an automatic laser randomly targets floor tiles. The last contestant standing wins.
+Skyfall Arena is a round-based Roblox arena game. Each round selects one controller to pilot the overhead laser aircraft. The other human players and three AI characters compete as runners. The last runner alive becomes the controller in the next round.
 
-## Current foundation
+## Current game foundation
 
-- Original experience and Start Place are kept. Updates publish new versions to the same Place ID.
-- A 9 by 9 arena with an expanded sci-fi lobby, spawn pads, illuminated borders, corner pylons, and an overhead laser rig.
-- Every player and three named AI runners are contestants. There is no player-controlled laser role.
-- The automatic laser randomly targets safe tiles, often favors tiles near active contestants to keep pressure on them, warns before striking, and breaks the tile.
-- The laser becomes faster and launches multiple strikes during overtime.
-- The round ends when one contestant remains. The winner receives a session win, and player best survival time is tracked in the server leaderboard.
-- After results, all players and bots return to the lobby and the next round begins automatically.
-- The mobile HUD is compact and displays the round, survivor count, elapsed time, and overtime state.
+- The original Roblox experience and Start Place are retained. Releases update the same Place ID.
+- All players and bots wait in a dedicated lobby before each round.
+- The first controller is selected randomly from the available humans and bots. Later, the previous round's last survivor becomes the next controller.
+- Human controllers pilot the aircraft from the raised deck and tap/click tiles to aim the laser. If a bot is selected, it targets tiles automatically.
+- A warning appears before each laser strike. Destroyed floor tiles stay broken through the results and waiting period. The complete grid is restored only when the next round's map is loaded.
+- The game ends when one runner remains, then moves players back to the lobby and repeats.
+- Two maps rotate between rounds: Nexus Skygrid and Ember Reactor. They use the same balanced arena footprint but have different themes, lighting, structures, and colors.
+- The overhead aircraft has a shaped fuselage, cockpit, wings, engines, animated rotors, and a visible laser emitter.
+- Three AI characters have distinct appearances, hair, nameplates, movement animations, speeds, reaction delays, and risk preferences.
+- The HUD is transparent, positioned near the top, and sized for mobile screens.
+- Eliminated players are moved to the waiting area and Roblox respawns them there.
 
-The AI opponents use scripted Roblox NPC logic and PathfindingService, not an external cloud AI model. They have different movement speeds, reaction delays, and risk preferences. Their behavior needs live playtesting and balance tuning.
+Bots use scripted Roblox NPC logic and PathfindingService. They are not external AI chat models.
 
 ## Development and release workflow
 
@@ -34,6 +37,6 @@ Every push to a feature branch and every pull request to main runs the validatio
 
 Use the separate manual workflow Upload Skyfall Arena private test to publish the merged main branch to the configured Start Place. Keep the experience private. The Roblox Open Cloud key is stored only as a GitHub Actions secret.
 
-## Status
+## Test status
 
-This is the next playable foundation. Cloud checks can confirm code structure, lint, and place-file generation, but they cannot prove that NPC movement, live physics, mobile layout, or game balance behave correctly in a Roblox server. Those still require a private in-game playtest.
+Cloud checks validate the project structure, Luau lint, and Rojo place build. They do not start a live Roblox server, so controller selection, NPC appearance and movement, touch aiming, respawn timing, laser physics, and the two-map rotation still require a private in-game playtest. Wins and best survival time are currently tracked for the current server session; persistent cross-session saving is a separate future update.

@@ -36,7 +36,7 @@ arena:Build()
 
 local rounds = RoundService.new(arena, stateRemote)
 local strikes = StrikeService.new(arena, rounds, targetRemote)
-local speedBoost = SpeedBoostService.new(speedBoostRemote)
+SpeedBoostService.new(speedBoostRemote)
 
 strikes:Start()
 rounds:Start()

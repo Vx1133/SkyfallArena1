@@ -76,7 +76,7 @@ jobs:
 
           upload_response="$(curl --fail-with-body --silent --show-error --location \
             --request PATCH "https://apis.roblox.com/assets/v1/assets/$ROBLOX_PLACE_ID" \
-            --header "x-api-key: $ROBLOX_LUAU_TEST_API_KEY" \
+            --header "x-api-key: $ROBLOX_API_KEY" \
             --form-string "request=$request_json" \
             --form "fileContent=@build/SkyfallArena.rbxlx;type=application/xml")"
 
@@ -91,7 +91,7 @@ jobs:
           for attempt in $(seq 1 60); do
             operation_status="$(curl --fail-with-body --silent --show-error --location \
               "https://apis.roblox.com/assets/v1/operations/$operation_id" \
-              --header "x-api-key: $ROBLOX_LUAU_TEST_API_KEY")"
+              --header "x-api-key: $ROBLOX_API_KEY")"
 
             done_value="$(jq -r '.done // false' <<< "$operation_status")"
             if [ "$done_value" = "true" ]; then

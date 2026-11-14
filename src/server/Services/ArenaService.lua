@@ -140,6 +140,90 @@ function ArenaService:Build()
 		wing.CanCollide = false
 		wing.CanQuery = false
 	end
+
+	local oldCourse = self.root:FindFirstChild("ParkourCourse")
+	if oldCourse then
+		oldCourse:Destroy()
+	end
+
+	local courseFolder = Instance.new("Folder")
+	courseFolder.Name = "ParkourCourse"
+	courseFolder.Parent = self.root
+
+	local courseParts = {
+		{
+			name = "ParkourStart",
+			size = Vector3.new(12, 2, 12),
+			position = Vector3.new(-162, 12, 0),
+			color = Color3.fromRGB(43, 143, 174),
+			material = Enum.Material.Slate,
+		},
+		{
+			name = "ParkourStep_1",
+			size = Vector3.new(8, 2, 8),
+			position = Vector3.new(-150, 14.5, 0),
+			color = Color3.fromRGB(54, 126, 190),
+			material = Enum.Material.Metal,
+		},
+		{
+			name = "ParkourStep_2",
+			size = Vector3.new(8, 2, 8),
+			position = Vector3.new(-138, 17, 2),
+			color = Color3.fromRGB(64, 139, 202),
+			material = Enum.Material.Metal,
+		},
+		{
+			name = "ParkourStep_3",
+			size = Vector3.new(8, 2, 8),
+			position = Vector3.new(-126, 19.5, -2),
+			color = Color3.fromRGB(75, 151, 210),
+			material = Enum.Material.Metal,
+		},
+		{
+			name = "ParkourStep_4",
+			size = Vector3.new(8, 2, 8),
+			position = Vector3.new(-114, 22, 2),
+			color = Color3.fromRGB(89, 164, 215),
+			material = Enum.Material.Metal,
+		},
+		{
+			name = "ParkourStep_5",
+			size = Vector3.new(8, 2, 8),
+			position = Vector3.new(-102, 24.5, 0),
+			color = Color3.fromRGB(110, 179, 219),
+			material = Enum.Material.Metal,
+		},
+		{
+			name = "ParkourFinish",
+			size = Vector3.new(18, 2, 14),
+			position = Vector3.new(-84, 24.5, 0),
+			color = Color3.fromRGB(63, 190, 145),
+			material = Enum.Material.Neon,
+		},
+	}
+
+	for index, definition in ipairs(courseParts) do
+		local platform = createPart(
+			courseFolder,
+			definition.name,
+			definition.size,
+			definition.position,
+			definition.color,
+			definition.material
+		)
+		platform:SetAttribute("ParkourIndex", index)
+	end
+
+	local finishBeacon = createPart(
+		courseFolder,
+		"ParkourFinishBeacon",
+		Vector3.new(3, 10, 3),
+		Vector3.new(-84, 30.5, 0),
+		Color3.fromRGB(255, 224, 112),
+		Enum.Material.Neon
+	)
+	finishBeacon.CanCollide = false
+	finishBeacon.CanQuery = false
 end
 
 function ArenaService:GetTile(gridX, gridZ)

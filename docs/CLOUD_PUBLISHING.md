@@ -12,7 +12,7 @@ The IDs copied from the Creator Dashboard are:
 - Universe ID: `7975091208`
 - Start Place ID: `104752078056182`
 
-The Universe ID identifies the experience and is used when scoping the Roblox API key. The Start Place ID identifies the exact place that the upload workflow updates.
+The Universe ID identifies the experience and is used when scoping the Roblox API key. The Start Place ID identifies the exact place that the upload workflow updates. Both numbers are already configured in the workflow, so you do not need to create GitHub variables for them.
 
 ## Keep the experience private
 
@@ -22,22 +22,15 @@ The upload request must set `published: true` so Roblox updates the selected pla
 
 **Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. The owner has approved replacing this automatically created place with the Skyfall Arena test build. Roblox keeps place version history, which can be used to restore an earlier version.
 
-## GitHub settings required
+## GitHub setting required
 
-In the repository `Vx1133/SkyfallArena1`, add these repository variables under **Settings > Secrets and variables > Actions > Variables**:
-
-| Name | Value |
-|---|---|
-| `ROBLOX_UNIVERSE_ID` | `7975091208` |
-| `ROBLOX_PLACE_ID` | `104752078056182` |
-
-Add this repository secret under **Settings > Secrets and variables > Actions > Secrets**:
+Only one GitHub repository secret is required. Open **Settings > Secrets and variables > Actions > Secrets**, click **New repository secret**, then add:
 
 | Name | Value |
 |---|---|
 | `ROBLOX_API_KEY` | Your Roblox Open Cloud API key |
 
-Never paste the key into chat, commit it to the repository, or put it in a Luau file.
+Do not paste the key into chat, commit it to the repository, or put it in a Luau file.
 
 ## Roblox API key permissions
 
@@ -53,9 +46,9 @@ These are the current permissions documented by Roblox for updating an existing 
 
 ## Manual upload workflow
 
-The workflow is `.github/workflows/upload-private-test.yml` and is now on the repository's default `main` branch.
+The workflow is `.github/workflows/upload-private-test.yml` and is on the repository's default `main` branch.
 
-To run it after the GitHub variables and secret are configured:
+To run it after the GitHub secret is configured:
 
 1. Open the repository's **Actions** tab.
 2. Select **Upload Skyfall Arena private test**.

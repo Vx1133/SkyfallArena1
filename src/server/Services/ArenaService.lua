@@ -261,6 +261,7 @@ function ArenaService:_buildLobby()
 			false
 		)
 		pad.Shape = Enum.PartType.Cylinder
+		pad.CFrame = CFrame.new(center + offset) * CFrame.Angles(0, 0, math.rad(90))
 		pad.CanTouch = false
 		pad.CanQuery = false
 
@@ -274,6 +275,8 @@ function ArenaService:_buildLobby()
 			false
 		)
 		padRing.Shape = Enum.PartType.Cylinder
+		padRing.CFrame = CFrame.new(center + offset + Vector3.new(0, 0.42, 0))
+			* CFrame.Angles(0, 0, math.rad(90))
 		padRing.CanTouch = false
 		padRing.CanQuery = false
 		padRing.Transparency = 0.18
@@ -289,6 +292,8 @@ function ArenaService:_buildLobby()
 		false
 	)
 	centerPad.Shape = Enum.PartType.Cylinder
+	centerPad.CFrame = CFrame.new(center + Vector3.new(0, 1.95, 0))
+		* CFrame.Angles(0, 0, math.rad(90))
 	centerPad.CanTouch = false
 	centerPad.CanQuery = false
 

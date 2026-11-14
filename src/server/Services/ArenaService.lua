@@ -634,7 +634,6 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	orb.Shape = Enum.PartType.Ball
-	orb.Material = Enum.Material.Metal
 	orb.Reflectance = 0.08
 	orb.CastShadow = false
 	model.PrimaryPart = orb
@@ -658,92 +657,110 @@ function ArenaService:_buildAircraft()
 		panel.CanTouch = false
 	end
 
-	local equatorialBand = createPart(
-		model,
-		"EquatorialGoldBand",
-		Vector3.new(14.6, 0.58, 14.6),
-		base,
-		Color3.fromRGB(238, 190, 91),
-		Enum.Material.Metal,
-		false
-	)
-	equatorialBand.Shape = Enum.PartType.Cylinder
-	equatorialBand.CFrame = CFrame.new(equatorialBand.Position) * CFrame.Angles(0, 0, math.rad(90))
-	equatorialBand.Transparency = 0.08
-	equatorialBand.CastShadow = false
-	equatorialBand.CanQuery = false
+	-- A segmented rectangular equatorial band replaces the old glowing aircraft trim.
+	for index = 1, 8 do
+		local angle = (index - 1) * math.pi / 4
+		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		local bandPosition = base + radial * 7.55
+		local band = createPart(
+			model,
+			"EquatorialBandSegment_" .. tostring(index),
+			Vector3.new(3.6, 0.62, 0.72),
+			bandPosition,
+			Color3.fromRGB(238, 190, 91),
+			Enum.Material.Metal,
+			false
+		)
+		band.CFrame = CFrame.fromMatrix(bandPosition, tangent, Vector3.yAxis, -radial)
+		band.CastShadow = false
+		band.CanQuery = false
+		band.CanTouch = false
 
-	local lowerBand = createPart(
-		model,
-		"EquatorialBronzeSeam",
-		Vector3.new(14.8, 0.16, 14.8),
-		base + Vector3.new(0, -0.36, 0),
-		Color3.fromRGB(103, 65, 35),
-		Enum.Material.Metal,
-		false
-	)
-	lowerBand.Shape = Enum.PartType.Cylinder
-	lowerBand.CFrame = CFrame.new(lowerBand.Position) * CFrame.Angles(0, 0, math.rad(90))
-	lowerBand.CastShadow = false
-	lowerBand.CanQuery = false
+		local seam = createPart(
+			model,
+			"EquatorialBronzeSeam_" .. tostring(index),
+			Vector3.new(2.2, 0.12, 0.74),
+			bandPosition + Vector3.new(0, -0.38, 0),
+			Color3.fromRGB(103, 65, 35),
+			Enum.Material.Metal,
+			false
+		)
+		seam.CFrame = band.CFrame * CFrame.new(0, -0.38, 0)
+		seam.CanQuery = false
+		seam.CanTouch = false
+	end
 
-	local outerCollar = createPart(
-		model,
+	-- The lens faces outward and slightly downward so the pilot can see it from the arena view.
+	local lensCenter = base + Vector3.new(-1.1, -2.8, -6.8)
+	local lensNormal = Vector3.new(0, -0.32, -0.947).Unit
+	local function lensFrameAt(position)
+		return CFrame.lookAt(position, position + lensNormal) * CFrame.Angles(0, math.rad(90), 0)
+	end
+
+	local function lensDisc(name, thickness, diameter, position, color, material)
+		local disc = createPart(
+			model,
+			name,
+			Vector3.new(thickness, diameter, diameter),
+			position,
+			color,
+			material,
+			false
+		)
+		disc.Shape = Enum.PartType.Cylinder
+		disc.CFrame = lensFrameAt(position)
+		disc.CastShadow = false
+		disc.CanQuery = false
+		disc.CanTouch = false
+		return disc
+	end
+
+	local outerCollar = lensDisc(
 		"ControllerLensOuterCollar",
-		Vector3.new(7.5, 0.85, 7.5),
-		base + Vector3.new(-1.1, -6.3, -0.5),
+		0.72,
+		7.5,
+		lensCenter,
 		Color3.fromRGB(223, 174, 74),
-		Enum.Material.Metal,
-		false
+		Enum.Material.Metal
 	)
-	outerCollar.Shape = Enum.PartType.Cylinder
-	outerCollar.CFrame = CFrame.new(outerCollar.Position) * CFrame.Angles(0, 0, math.rad(90))
-	outerCollar.CastShadow = false
-	outerCollar.CanQuery = false
+	outerCollar.Reflectance = 0.12
 
-	local bronzeGroove = createPart(
-		model,
+	lensDisc(
 		"ControllerLensBronzeGroove",
-		Vector3.new(6.35, 0.42, 6.35),
-		base + Vector3.new(-1.1, -6.86, -0.5),
+		0.28,
+		6.45,
+		lensCenter + lensNormal * 0.5,
 		Color3.fromRGB(92, 50, 33),
-		Enum.Material.Metal,
-		false
+		Enum.Material.Metal
 	)
-	bronzeGroove.Shape = Enum.PartType.Cylinder
-	bronzeGroove.CFrame = CFrame.new(bronzeGroove.Position) * CFrame.Angles(0, 0, math.rad(90))
-	bronzeGroove.CastShadow = false
-	bronzeGroove.CanQuery = false
 
-	local innerGoldRing = createPart(
-		model,
+	lensDisc(
 		"ControllerLensInnerRing",
-		Vector3.new(5.6, 0.34, 5.6),
-		base + Vector3.new(-1.1, -7.2, -0.5),
+		0.26,
+		5.65,
+		lensCenter + lensNormal * 0.76,
 		Color3.fromRGB(236, 190, 96),
-		Enum.Material.Metal,
-		false
+		Enum.Material.Metal
 	)
-	innerGoldRing.Shape = Enum.PartType.Cylinder
-	innerGoldRing.CFrame = CFrame.new(innerGoldRing.Position) * CFrame.Angles(0, 0, math.rad(90))
-	innerGoldRing.CastShadow = false
-	innerGoldRing.CanQuery = false
 
+	local lensPosition = lensCenter + lensNormal * 0.95
 	local lens = createPart(
 		model,
 		"ControllerLens",
-		Vector3.new(4.8, 0.24, 4.8),
-		base + Vector3.new(-1.1, -7.48, -0.5),
+		Vector3.new(0.5, 4.95, 4.95),
+		lensPosition,
 		Color3.fromRGB(209, 32, 47),
 		Enum.Material.Glass,
 		false
 	)
-	lens.Shape = Enum.PartType.Cylinder
-	lens.CFrame = CFrame.new(lens.Position) * CFrame.Angles(0, 0, math.rad(90))
+	lens.Shape = Enum.PartType.Ball
+	lens.CFrame = lensFrameAt(lensPosition)
 	lens.Transparency = 0.08
 	lens.Reflectance = 0.16
 	lens.CastShadow = false
 	lens.CanQuery = false
+	lens.CanTouch = false
 
 	local lensLight = Instance.new("PointLight")
 	lensLight.Color = Color3.fromRGB(255, 69, 72)
@@ -751,63 +768,72 @@ function ArenaService:_buildAircraft()
 	lensLight.Range = 18
 	lensLight.Parent = lens
 
-	local reticleColor = Color3.fromRGB(255, 113, 111)
-	local crossX = createPart(
-		model,
-		"LensReticleHorizontal",
-		Vector3.new(2.7, 0.07, 0.1),
-		base + Vector3.new(-1.1, -7.64, -0.5),
-		reticleColor,
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	local crossZ = createPart(
-		model,
-		"LensReticleVertical",
-		Vector3.new(0.1, 0.07, 2.7),
-		base + Vector3.new(-1.1, -7.64, -0.5),
-		reticleColor,
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	local centerDot = createPart(
-		model,
-		"LensReticleCenter",
-		Vector3.new(0.32, 0.1, 0.32),
-		base + Vector3.new(-1.1, -7.68, -0.5),
-		Color3.fromRGB(255, 179, 162),
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	for _, detail in ipairs({crossX, crossZ, centerDot}) do
+	local function lensDetail(name, size, localOffset, color)
+		local position = lensPosition + lensFrameAt(lensPosition):VectorToWorldSpace(localOffset)
+		local detail = createPart(
+			model,
+			name,
+			size,
+			position,
+			color,
+			Enum.Material.SmoothPlastic,
+			false
+		)
+		detail.CFrame = lensFrameAt(lensPosition) * CFrame.new(localOffset)
 		detail.CanQuery = false
 		detail.CanTouch = false
 		detail.CastShadow = false
+		return detail
 	end
 
-	local highlightA = createPart(
-		model,
+	local reticleColor = Color3.fromRGB(255, 113, 111)
+	lensDetail(
+		"LensReticleHorizontal",
+		Vector3.new(0.09, 2.7, 0.1),
+		Vector3.new(-0.34, 0, 0),
+		reticleColor
+	)
+	lensDetail(
+		"LensReticleVertical",
+		Vector3.new(0.09, 0.1, 2.7),
+		Vector3.new(-0.34, 0, 0),
+		reticleColor
+	)
+	lensDetail(
+		"LensReticleCenter",
+		Vector3.new(0.12, 0.34, 0.34),
+		Vector3.new(-0.38, 0, 0),
+		Color3.fromRGB(255, 179, 162)
+	)
+	lensDetail(
 		"LensWhiteHighlightA",
-		Vector3.new(0.82, 0.08, 0.34),
-		base + Vector3.new(-2.0, -7.66, 0.25),
-		Color3.fromRGB(255, 255, 246),
-		Enum.Material.SmoothPlastic,
-		false
+		Vector3.new(0.12, 0.82, 0.36),
+		Vector3.new(-0.4, -0.78, 0.48),
+		Color3.fromRGB(255, 255, 246)
 	)
-	local highlightB = createPart(
-		model,
+	lensDetail(
 		"LensWhiteHighlightB",
-		Vector3.new(0.46, 0.08, 0.18),
-		base + Vector3.new(0.05, -7.66, -1.2),
-		Color3.fromRGB(255, 255, 255),
-		Enum.Material.SmoothPlastic,
-		false
+		Vector3.new(0.1, 0.46, 0.18),
+		Vector3.new(-0.4, 0.72, -0.68),
+		Color3.fromRGB(255, 255, 255)
 	)
-	for _, detail in ipairs({highlightA, highlightB}) do
-		detail.Shape = Enum.PartType.Ball
-		detail.CanQuery = false
-		detail.CanTouch = false
-		detail.CastShadow = false
+
+	-- Small rectangular slots give the equatorial band a restrained mechanical finish.
+	for index = 1, 4 do
+		local angle = (index - 1) * math.pi / 2
+		local slotPosition = base + Vector3.new(math.cos(angle) * 7.9, 0, math.sin(angle) * 7.9)
+		local slot = createPart(
+			model,
+			"EquatorialSlot_" .. tostring(index),
+			Vector3.new(0.24, 0.18, 0.72),
+			slotPosition,
+			Color3.fromRGB(92, 62, 38),
+			Enum.Material.Metal,
+			false
+		)
+		slot.CFrame = CFrame.new(slotPosition) * CFrame.Angles(0, -angle, 0)
+		slot.CanQuery = false
+		slot.CanTouch = false
 	end
 
 	local pilotPlatform = createPart(

@@ -1,0 +1,9 @@
+build/
+*.rbxl
+*.rbxlx
+.rokit/
+.lune/
+node_modules/
+.DS_Store
+Thumbs.db
+.vscode/

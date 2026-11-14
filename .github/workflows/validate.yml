@@ -1,0 +1,57 @@
+name: Validate Skyfall Arena
+
+on:
+  push:
+    branches:
+      - main
+      - "feat/**"
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skyfall-validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Lint and build Roblox place
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pinned Roblox tools
+        uses: CompeyDev/setup-rokit@1d9390883f7ebce19d48f5b8d006e11d387c92ab
+        with:
+          version: v1.2.0
+          token: ${{ github.token }}
+          cache: true
+
+      - name: Verify tool versions
+        run: |
+          rojo --version
+          selene --version
+
+      - name: Validate repository structure
+        run: python tools/validate_project.py
+
+      - name: Lint Luau source
+        run: selene src
+
+      - name: Build Roblox place file
+        run: |
+          mkdir -p build
+          rojo build default.project.json -o build/SkyfallArena.rbxlx
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SkyfallArena-place
+          path: build/SkyfallArena.rbxlx
+          if-no-files-found: error
+          retention-days: 14

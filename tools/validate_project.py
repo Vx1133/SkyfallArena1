@@ -61,7 +61,7 @@ require("TILE_REPAIR_SECONDS" not in config_source, "Broken floor tiles must not
 
 arena_source = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
 for map_name in (
-    "SUNCReST CASTLE",
+    "SUNCREST CASTLE",
     "CLOUDSPIRE KINGDOM",
     "GOLDEN DUNES TEMPLE",
     "EMERALD GROVE SANCTUARY",

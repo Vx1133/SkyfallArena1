@@ -14,18 +14,24 @@ local BOT_PROFILES = {
 		walkSpeed = 15,
 		jumpPower = 48,
 		reactionDelay = 0.7,
+		caution = 6,
+		preferredDistance = 24,
 	},
 	{
 		name = "Nova",
 		walkSpeed = 17,
 		jumpPower = 54,
 		reactionDelay = 0.4,
+		caution = 3,
+		preferredDistance = 31,
 	},
 	{
 		name = "Rook",
 		walkSpeed = 16,
 		jumpPower = 51,
 		reactionDelay = 0.55,
+		caution = 4.5,
+		preferredDistance = 28,
 	},
 }
 
@@ -52,6 +58,8 @@ function BotService.new(arenaService)
 			walkSpeed = profile.walkSpeed,
 			jumpPower = profile.jumpPower,
 			reactionDelay = profile.reactionDelay,
+			caution = profile.caution,
+			preferredDistance = profile.preferredDistance,
 			alive = false,
 			targetTile = nil,
 			lastTarget = nil,
@@ -144,14 +152,33 @@ function BotService:GetBotCount()
 	return #self.bots
 end
 
-function BotService:GetAliveCount()
-	local count = 0
+function BotService:GetAliveBots()
+	local aliveBots = {}
 	for _, bot in ipairs(self.bots) do
-		if bot.alive and bot.model and bot.model.Parent and bot.humanoid.Health > 0 then
-			count += 1
+		if bot.alive
+			and bot.model
+			and bot.model.Parent
+			and bot.humanoid
+			and bot.humanoid.Health > 0
+		then
+			table.insert(aliveBots, bot)
 		end
 	end
-	return count
+	return aliveBots
+end
+
+function BotService:GetAliveCount()
+	return #self:GetAliveBots()
+end
+
+function BotService:GetAlivePositions()
+	local positions = {}
+	for _, bot in ipairs(self:GetAliveBots()) do
+		if bot.root and bot.root.Parent then
+			table.insert(positions, bot.root.Position)
+		end
+	end
+	return positions
 end
 
 function BotService:_nearestTile(position)
@@ -235,8 +262,8 @@ function BotService:_chooseSafeTile(bot)
 					Config.GRID_SIZE - gridZ
 				)
 
-				local score = math.min(warningDistance, 5) * 4
-				score -= math.abs(distance - 28) * 0.35
+				local score = math.min(warningDistance, 5) * bot.caution
+				score -= math.abs(distance - bot.preferredDistance) * 0.35
 				score += math.min(edgeDistance, 3) * 1.5
 				score += self.random:NextNumber(0, 2)
 
@@ -288,9 +315,18 @@ function BotService:_followPath(bot, targetTile)
 	end
 
 	local startedInDanger = self:_isInDanger(bot)
-	for _, waypoint in ipairs(path:GetWaypoints()) do
-		if not bot.alive or not self:_isSafeTile(targetTile) then
-			return
+	local currentWaypointIndex = 1
+	local pathBlocked = false
+	local blockedConnection = path.Blocked:Connect(function(blockedWaypointIndex)
+		if blockedWaypointIndex >= currentWaypointIndex then
+			pathBlocked = true
+		end
+	end)
+
+	for waypointIndex, waypoint in ipairs(path:GetWaypoints()) do
+		currentWaypointIndex = waypointIndex
+		if pathBlocked or not bot.alive or not self:_isSafeTile(targetTile) then
+			break
 		end
 
 		if waypoint.Action == Enum.PathWaypointAction.Jump then
@@ -300,18 +336,24 @@ function BotService:_followPath(bot, targetTile)
 		humanoid:MoveTo(waypoint.Position)
 		local startedAt = os.clock()
 		while bot.alive and (root.Position - waypoint.Position).Magnitude > 3.5 do
-			if not startedInDanger and self:_isInDanger(bot) then
-				return
+			if pathBlocked or (not startedInDanger and self:_isInDanger(bot)) then
+				break
 			end
 			if not self:_isSafeTile(targetTile) then
-				return
+				break
 			end
 			if os.clock() - startedAt > 2 then
 				break
 			end
 			task.wait(0.1)
 		end
+
+		if pathBlocked or not self:_isSafeTile(targetTile) then
+			break
+		end
 	end
+
+	blockedConnection:Disconnect()
 end
 
 function BotService:_runBot(bot)
@@ -368,12 +410,23 @@ function BotService:StartRound(spawnCFrames)
 end
 
 function BotService:EliminateFallenRunners(outOfBoundsY)
-	for _, bot in ipairs(self.bots) do
-		if bot.alive and (not bot.root.Parent or bot.root.Position.Y < outOfBoundsY or bot.humanoid.Health <= 0) then
+	for index, bot in ipairs(self.bots) do
+		if bot.alive
+			and (
+				not bot.root.Parent
+				or bot.root.Position.Y < outOfBoundsY
+				or bot.humanoid.Health <= 0
+			)
+		then
 			bot.alive = false
 			bot.targetTile = nil
 			if bot.model and bot.model.Parent then
 				bot.model:SetAttribute("SkyfallRole", "Spectator")
+				bot.humanoid.WalkSpeed = 0
+				local lobbySpawn = self.arena:GetLobbySpawnCFrame(index, #self.bots)
+				bot.model:PivotTo(lobbySpawn)
+				bot.root.AssemblyLinearVelocity = Vector3.zero
+				bot.root.AssemblyAngularVelocity = Vector3.zero
 			end
 		end
 	end
@@ -384,15 +437,22 @@ function BotService:SendToLobby()
 		bot.alive = false
 		bot.targetTile = nil
 
+		if not bot.humanoid or bot.humanoid.Health <= 0 or not bot.model or not bot.model.Parent then
+			self:_buildRig(bot)
+		end
+
 		if bot.model and bot.model.Parent then
 			bot.model:SetAttribute("SkyfallRole", "Waiting")
 			bot.humanoid.WalkSpeed = 0
+			bot.humanoid.JumpPower = 0
 			bot.humanoid:MoveTo(bot.root.Position)
 
-			local offset = Vector3.new((index - 2) * 8, 4, -7)
-			bot.model:PivotTo(CFrame.new(Config.LOBBY_CENTER + offset))
+			bot.model:PivotTo(self.arena:GetLobbySpawnCFrame(index, #self.bots))
 			bot.root.AssemblyLinearVelocity = Vector3.zero
 			bot.root.AssemblyAngularVelocity = Vector3.zero
+			pcall(function()
+				bot.root:SetNetworkOwner(nil)
+			end)
 		end
 	end
 end

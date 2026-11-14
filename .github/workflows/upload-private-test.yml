@@ -59,19 +59,12 @@ jobs:
       - name: Upload place to Roblox and verify completion
         env:
           ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
-          ROBLOX_UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
-          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_PLACE_ID }}
+          ROBLOX_UNIVERSE_ID: "7975091208"
+          ROBLOX_PLACE_ID: "104752078056182"
         run: |
           set -euo pipefail
 
           : "${ROBLOX_API_KEY:?Missing GitHub Actions secret ROBLOX_API_KEY}"
-          : "${ROBLOX_UNIVERSE_ID:?Missing GitHub Actions variable ROBLOX_UNIVERSE_ID}"
-          : "${ROBLOX_PLACE_ID:?Missing GitHub Actions variable ROBLOX_PLACE_ID}"
-
-          if [[ ! "$ROBLOX_UNIVERSE_ID" =~ ^[0-9]+$ || ! "$ROBLOX_PLACE_ID" =~ ^[0-9]+$ ]]; then
-            echo "::error::Roblox Universe ID and Place ID must contain digits only."
-            exit 1
-          fi
 
           echo "Target experience: $ROBLOX_UNIVERSE_ID"
           echo "Target place: $ROBLOX_PLACE_ID"

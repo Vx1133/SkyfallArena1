@@ -315,8 +315,16 @@ function BotService:_followPath(bot, targetTile)
 end
 
 function BotService:_runBot(bot)
-	while bot.model and bot.model.Parent do
-		if bot.alive and bot.humanoid.Health > 0 then
+	while true do
+		if bot.alive
+			and bot.model
+			and bot.model.Parent
+			and bot.humanoid
+			and bot.humanoid.Parent
+			and bot.humanoid.Health > 0
+			and bot.root
+			and bot.root.Parent
+		then
 			if not bot.targetTile
 				or not self:_isSafeTile(bot.targetTile)
 				or self:_isInDanger(bot)

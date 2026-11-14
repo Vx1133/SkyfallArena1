@@ -19,26 +19,31 @@ Confirm the experience's Audience / Access Settings are set to **Private** in Cr
 
 The workflow requires a manual `workflow_dispatch` action and the exact confirmation text `UPLOAD_PRIVATE_TEST`. It does not run on pushes or pull requests.
 
-## GitHub secret
+## GitHub secrets
 
-Keep one repository secret:
+Keep two separate repository secrets:
 
-| Name | Value |
+| Name | Purpose |
 |---|---|
-| `ROBLOX_API_KEY` | Dedicated Roblox Open Cloud API key |
+| `ROBLOX_API_KEY` | Updates the existing Place version through the Assets API |
+| `ROBLOX_LUAU_TEST_API_KEY` | Creates the headless Luau test task and reads its result and logs |
 
-Never paste the key into chat or commit it to the repository.
+Create separate Roblox API keys for these purposes. Never paste either key into chat or commit it to the repository.
 
 ## Roblox API key permissions
 
-Keep **Restrict by Experience** enabled and select only Universe ID `7975091208`. The same key needs these permissions:
+For both keys, keep **Restrict by Experience** enabled and select only Universe ID `7975091208`.
 
-- **Assets:** Read and Write, for updating the existing Place.
-- **Luau Execution:** Read and Write, for creating the cloud test task and reading its result and logs.
+The publishing key needs:
 
-The Luau Execution API scopes are `universe.place.luau-execution-session:write` and `universe.place.luau-execution-session:read`. Roblox requires the write scope to create a task and both read/write scopes to retrieve its status and logs.
+- **Assets:** Read and Write.
 
-Do not grant unrelated permissions such as monetization, player bans, or public release management.
+The cloud-test key needs only:
+
+- **Luau Execution:** Read and Write.
+- Scopes: `universe.place.luau-execution-session:write` and `universe.place.luau-execution-session:read`.
+
+Roblox requires the write scope to create a task and both read/write scopes to retrieve its status and logs. Do not grant unrelated permissions such as monetization, player bans, or public release management.
 
 ## What the cloud tests cover
 
@@ -78,6 +83,6 @@ If the cloud test fails, GitHub Actions marks the upload workflow as failed and 
 ## Official references
 
 - Roblox Luau Execution: https://create.roblox.com/docs/cloud/reference/features/luau-execution
+- Roblox API key management: https://create.roblox.com/docs/cloud/auth/api-keys
 - Roblox place publishing: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
-- Roblox API key guide: https://create.roblox.com/docs/cloud/auth/api-keys
 - GitHub Actions secrets: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets

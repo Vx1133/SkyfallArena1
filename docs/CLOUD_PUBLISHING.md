@@ -86,3 +86,8 @@ If the cloud test fails, GitHub Actions marks the upload workflow as failed and 
 - Roblox API key management: https://create.roblox.com/docs/cloud/auth/api-keys
 - Roblox place publishing: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
 - GitHub Actions secrets: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets
+
+
+## Current arena redesign checks
+
+The latest arena build uses a 15 by 15 tile grid, five random no-immediate-repeat map environments, daytime lighting, no neon map materials, square tile studs, a redesigned waiting garden, and a gold controller sphere with a red lens. Cloud tests also check the three-second human cooldown and tile persistence. These checks are headless and do not validate rendered camera framing, physics, touch aiming, or live player navigation. The existing place must have its maximum player setting configured to 30 in Creator Dashboard for a 30-human-player session; code cannot change that place setting.

@@ -828,6 +828,20 @@ function ArenaService:Build()
 	for _, child in ipairs(self.tilesFolder:GetChildren()) do
 		child:Destroy()
 	end
+
+	for _, legacyName in ipairs({
+		"LobbyPlatform",
+		"ControllerDeck",
+		"DroneCore",
+		"DroneWingLeft",
+		"DroneWingRight",
+	}) do
+		local legacyPart = self.root:FindFirstChild(legacyName)
+		if legacyPart then
+			legacyPart:Destroy()
+		end
+	end
+
 	for _, child in ipairs(self.decorFolder:GetChildren()) do
 		child:Destroy()
 	end

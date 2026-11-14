@@ -20,7 +20,7 @@ Before the first upload, open the experience in Creator Dashboard and confirm it
 
 The upload request must set `published: true` so Roblox updates the selected place to a playable new version. This publishes a place version to the experience; it does **not** change the audience setting or make a Private experience public. The owner can access their private experience.
 
-**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. Confirm that this automatically created place is okay to replace with the Skyfall Arena test build before running the upload. Roblox keeps place version history, which can be used to restore an earlier version.
+**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. The owner has approved replacing this automatically created place with the Skyfall Arena test build. Roblox keeps place version history, which can be used to restore an earlier version.
 
 ## GitHub settings required
 
@@ -37,36 +37,46 @@ Add this repository secret under **Settings > Secrets and variables > Actions > 
 |---|---|
 | `ROBLOX_API_KEY` | Your Roblox Open Cloud API key |
 
-Never paste the key into chat, commit it to GitHub, or put it in a Luau file.
+Never paste the key into chat, commit it to the repository, or put it in a Luau file.
 
 ## Roblox API key permissions
 
-Create the key in Creator Dashboard and scope it to the experience with Universe ID `7975091208`:
+Create a dedicated key in Creator Dashboard for this upload workflow:
 
+- Name: `SkyfallArena-PrivateTest`
 - Access permission: **Assets**
+- Experience restriction: keep **Restrict by Experience** enabled and select only Universe ID `7975091208`
 - Operations: **Read** and **Write**
-- Select only the intended experience, not unrelated experiences.
+- IP restriction: leave it off unless you have a fixed runner IP. GitHub-hosted runner IP addresses are not fixed.
 
 These are the current permissions documented by Roblox for updating an existing place through the Assets API.
 
 ## Manual upload workflow
 
-The workflow is `.github/workflows/upload-private-test.yml`.
+The workflow is `.github/workflows/upload-private-test.yml` and is now on the repository's default `main` branch.
 
-- It only starts through a manual `workflow_dispatch` action.
-- It requires the exact confirmation text `UPLOAD_PRIVATE_TEST`.
-- It rebuilds the place and repeats the structural validation and Selene lint checks.
-- It uploads the RBXLX file using the current Roblox Assets API endpoint:
+To run it after the GitHub variables and secret are configured:
+
+1. Open the repository's **Actions** tab.
+2. Select **Upload Skyfall Arena private test**.
+3. Click **Run workflow**.
+4. Enter exactly `UPLOAD_PRIVATE_TEST` in the confirmation field and start the workflow.
+
+The workflow:
+- Only starts through a manual `workflow_dispatch` action.
+- Requires the exact confirmation text `UPLOAD_PRIVATE_TEST`.
+- Rebuilds the place and repeats the structural validation and Selene lint checks.
+- Uploads the RBXLX file using the current Roblox Assets API endpoint:
   `PATCH https://apis.roblox.com/assets/v1/assets/{placeId}`
-- It polls the returned operation until Roblox reports completion and `isPublished: true`.
-- It does not run automatically when code is pushed, and it does not change the experience's Audience setting.
-
-GitHub only allows the manual Run workflow control when the workflow file is present on the repository's default branch. This workflow is currently on the feature branch and draft PR, so it becomes manually runnable after the PR is reviewed and merged.
+- Polls the returned operation until Roblox reports completion and `isPublished: true`.
+- Does not run automatically when code is pushed, and does not change the experience's Audience setting.
 
 ## What has and has not been tested
 
-The validation workflow has successfully checked the project structure, Luau lint, and Rojo build, and uploaded a build artifact. The game has **not** yet been run in a live Roblox server. The private upload and in-app playtest are still pending.
+The validation workflow successfully checked the project structure, Luau lint, and Rojo build, and uploaded a build artifact. The game has **not** yet been run in a live Roblox server. The private upload and in-app playtest are still pending.
 
 Official Roblox guide: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
 
-GitHub manual workflow guide: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow
+Official API key guide: https://create.roblox.com/docs/cloud/auth/api-keys
+
+GitHub secrets guide: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets

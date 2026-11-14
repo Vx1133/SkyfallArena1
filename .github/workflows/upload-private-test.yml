@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   upload-private-test:
-    name: Build, upload, and cloud-test a private version
+    name: Build, upload, and optionally cloud-test a private version
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
@@ -134,7 +134,31 @@ jobs:
           echo "::error::Timed out waiting for Roblox to finish processing the place upload."
           exit 1
 
+      - name: Check whether cloud test credentials are configured
+        id: cloud_test_credentials
+        env:
+          ROBLOX_LUAU_TEST_API_KEY: ${{ secrets.ROBLOX_LUAU_TEST_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -n "$ROBLOX_LUAU_TEST_API_KEY" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Report skipped cloud tests when credentials are not configured
+        if: steps.cloud_test_credentials.outputs.configured == 'false'
+        run: |
+          echo "::warning::Roblox upload succeeded, but headless Luau smoke tests were skipped because ROBLOX_LUAU_TEST_API_KEY is not configured."
+          {
+            echo "## Roblox headless Luau smoke tests"
+            echo "- Status: skipped"
+            echo "- Reason: GitHub Actions secret ROBLOX_LUAU_TEST_API_KEY is not configured."
+            echo "- The Roblox place upload completed successfully before this optional test."
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Run headless Roblox Luau smoke tests on the exact uploaded version
+        if: steps.cloud_test_credentials.outputs.configured == 'true'
         env:
           ROBLOX_LUAU_TEST_API_KEY: ${{ secrets.ROBLOX_LUAU_TEST_API_KEY }}
           ROBLOX_UNIVERSE_ID: "7975091208"

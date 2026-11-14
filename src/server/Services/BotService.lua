@@ -217,8 +217,9 @@ function BotService:_loadAnimations(bot, model, humanoid)
 		end
 	end
 
+	bot.inAir = false
 	humanoid.Running:Connect(function(speed)
-		if not bot.model or not bot.model.Parent or humanoid.Health <= 0 then
+		if not bot.model or not bot.model.Parent or humanoid.Health <= 0 or bot.inAir then
 			return
 		end
 
@@ -237,10 +238,13 @@ function BotService:_loadAnimations(bot, model, humanoid)
 		end
 
 		if newState == Enum.HumanoidStateType.Jumping then
+			bot.inAir = true
 			self:_playAnimation(bot, "jump", 0.08)
 		elseif newState == Enum.HumanoidStateType.Freefall then
+			bot.inAir = true
 			self:_playAnimation(bot, "fall", 0.12)
 		elseif newState == Enum.HumanoidStateType.Landed then
+			bot.inAir = false
 			self:_playAnimation(bot, "idle", 0.14)
 		end
 	end)
@@ -351,6 +355,24 @@ function BotService:_buildRig(bot)
 		bot.isController = false
 		bot.targetTile = nil
 		model:SetAttribute("SkyfallRole", "Spectator")
+
+		task.defer(function()
+			for index, candidate in ipairs(self.bots) do
+				if candidate == bot
+					and bot.model
+					and bot.model.Parent
+					and bot.root
+					and bot.root.Parent
+				then
+					bot.model:PivotTo(
+						self.arena:GetLobbySpawnCFrame(index, #self.bots, true)
+					)
+					bot.root.AssemblyLinearVelocity = Vector3.zero
+					bot.root.AssemblyAngularVelocity = Vector3.zero
+					break
+				end
+			end
+		end)
 	end)
 
 	return true
@@ -620,7 +642,7 @@ function BotService:StartRound(spawnCFrames, controllerBot, controllerSpawnCFram
 			self:_buildRig(bot)
 		end
 
-		if bot.model and bot.humanoid and bot.root then
+		if bot.model and bot.model.Parent and bot.humanoid and bot.root then
 			bot.targetTile = nil
 			bot.lastTarget = nil
 			bot.humanoid.Health = bot.humanoid.MaxHealth
@@ -709,7 +731,7 @@ function BotService:SendToLobby()
 			self:_buildRig(bot)
 		end
 
-		if bot.model and bot.humanoid and bot.root then
+		if bot.model and bot.model.Parent and bot.humanoid and bot.root then
 			bot.model:SetAttribute("SkyfallRole", "Waiting")
 			bot.humanoid.Health = bot.humanoid.MaxHealth
 			bot.humanoid.PlatformStand = false

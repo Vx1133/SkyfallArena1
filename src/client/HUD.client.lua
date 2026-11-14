@@ -16,13 +16,9 @@ local state = {
 	phase = "Waiting",
 	elapsedSeconds = 0,
 	countdownSeconds = 0,
+	playerCount = 0,
+	remainingPlayers = 0,
 	aliveRunners = 0,
-	winner = "",
-	controllerName = "",
-	controllerKind = "",
-	roundNumber = 0,
-	overtime = false,
-	mapName = "NEXUS SKYGRID",
 }
 
 local screenGui = Instance.new("ScreenGui")
@@ -35,84 +31,80 @@ screenGui.Parent = playerGui
 local panel = Instance.new("Frame")
 panel.Name = "StatusPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 2)
-panel.Size = UDim2.new(0.94, 0, 0, Config.HUD_HEIGHT)
-panel.BackgroundTransparency = 1
+panel.Position = UDim2.new(0.5, 0, 0, 4)
+panel.Size = UDim2.new(0.96, 0, 0, Config.HUD_HEIGHT)
+panel.BackgroundColor3 = Color3.fromRGB(25, 31, 34)
+panel.BackgroundTransparency = 0.26
 panel.BorderSizePixel = 0
 panel.Parent = screenGui
+
+local corner = Instance.new("UICorner")
+corner.CornerRadius = UDim.new(0, 9)
+corner.Parent = panel
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(226, 215, 190)
+stroke.Transparency = 0.72
+stroke.Thickness = 1
+stroke.Parent = panel
 
 local sizeConstraint = Instance.new("UISizeConstraint")
 sizeConstraint.MaxSize = Vector2.new(Config.HUD_MAX_WIDTH, Config.HUD_HEIGHT)
 sizeConstraint.Parent = panel
 
-local function makeLabel(name, position, size, text, textSize, color, font)
+local function makeLabel(name, position, size, initialText, color)
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.Position = position
 	label.Size = size
 	label.BackgroundTransparency = 1
-	label.Font = font or Enum.Font.GothamBold
-	label.Text = text
+	label.Font = Enum.Font.GothamBold
+	label.Text = initialText
 	label.TextColor3 = color
-	label.TextSize = textSize
+	label.TextSize = 14
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.TextStrokeColor3 = Color3.fromRGB(7, 12, 22)
-	label.TextStrokeTransparency = 0.28
+	label.TextStrokeColor3 = Color3.fromRGB(20, 24, 26)
+	label.TextStrokeTransparency = 0.65
 	label.Parent = panel
 
 	local constraint = Instance.new("UITextSizeConstraint")
-	constraint.MinTextSize = math.max(9, textSize - 1)
-	constraint.MaxTextSize = textSize
+	constraint.MinTextSize = 11
+	constraint.MaxTextSize = 14
 	constraint.Parent = label
-
 	return label
 end
 
-makeLabel(
-	"Title",
-	UDim2.fromOffset(0, 0),
-	UDim2.new(1, 0, 0, 16),
-	"SKYFALL ARENA",
-	13,
-	Color3.fromRGB(244, 248, 255),
-	Enum.Font.GothamBlack
+local timeLabel = makeLabel(
+	"TimeLabel",
+	UDim2.fromOffset(3, 0),
+	UDim2.new(0.34, -4, 1, 0),
+	"TIME 00:00",
+	Color3.fromRGB(255, 246, 222)
 )
 
-local statusLabel = makeLabel(
-	"Status",
-	UDim2.fromOffset(0, 17),
-	UDim2.new(1, 0, 0, 18),
-	"WAITING BAY",
-	12,
-	Color3.fromRGB(255, 218, 147)
+local playersLabel = makeLabel(
+	"PlayersLabel",
+	UDim2.fromScale(0.34, 0),
+	UDim2.fromScale(0.33, 1),
+	"PLAYERS 0",
+	Color3.fromRGB(230, 239, 244)
 )
 
-local roleLabel = makeLabel(
-	"Role",
-	UDim2.fromOffset(0, 35),
-	UDim2.new(1, 0, 0, 15),
-	"WAITING  •  NEXUS SKYGRID",
-	10,
-	Color3.fromRGB(142, 220, 255)
-)
-
-local hintLabel = makeLabel(
-	"Hint",
-	UDim2.fromOffset(0, 50),
-	UDim2.new(1, 0, 0, 16),
-	"Be the last runner standing.",
-	10,
-	Color3.fromRGB(237, 242, 250),
-	Enum.Font.GothamMedium
+local remainingLabel = makeLabel(
+	"RemainingLabel",
+	UDim2.fromScale(0.67, 0),
+	UDim2.new(0.33, -3, 1, 0),
+	"LEFT 0",
+	Color3.fromRGB(212, 238, 209)
 )
 
 local function formatTime(totalSeconds)
 	local seconds = math.max(0, math.floor(totalSeconds or 0))
 	local minutes = math.floor(seconds / 60)
 	local remainder = seconds % 60
-	return string.format("%d:%02d", minutes, remainder)
+	return string.format("%02d:%02d", minutes, remainder)
 end
 
 local function getRole()
@@ -121,42 +113,27 @@ end
 
 local function updateHud()
 	local phase = state.phase or "Waiting"
-	local role = getRole()
-	local mapName = state.mapName or "SKYFALL ARENA"
+	local timeValue = state.elapsedSeconds or 0
 
-	if phase == "Waiting" then
-		statusLabel.Text = "WAITING BAY"
-	elseif phase == "Intermission" then
-		statusLabel.Text = "NEXT ROUND IN  " .. tostring(math.max(0, math.floor(state.countdownSeconds or 0)))
-	elseif phase == "Active" then
-		statusLabel.Text = "ROUND " .. tostring(state.roundNumber or 1)
-			.. "   •   ALIVE " .. tostring(state.aliveRunners or 0)
-			.. "   •   " .. formatTime(state.elapsedSeconds)
-	elseif phase == "Results" then
-		statusLabel.Text = "WINNER  •  " .. tostring(state.winner or "NO SURVIVORS")
-			.. "   •   NEXT " .. tostring(state.countdownSeconds or 0)
-	else
-		statusLabel.Text = string.upper(phase)
+	if phase == "Intermission" or phase == "Results" then
+		timeValue = state.countdownSeconds or 0
+	elseif phase == "Waiting" then
+		timeValue = 0
 	end
 
-	roleLabel.Text = string.upper(role) .. "  •  " .. string.upper(mapName)
-
-	if phase == "Active" and role == "Controller" then
-		hintLabel.Text = "PILOT: TAP A FLOOR TILE TO FIRE THE LASER"
-	elseif phase == "Active" and state.overtime then
-		hintLabel.Text = "OVERTIME: LASER STRIKES ARE FASTER"
-	elseif phase == "Active" then
-		hintLabel.Text = "PILOT: " .. string.upper(state.controllerName or "LASER")
-			.. "  •  MOVE FROM GLOWING TILES"
-	elseif role == "Winner" then
-		hintLabel.Text = "VICTORY. YOU CONTROL THE LASER NEXT ROUND."
-	elseif role == "Spectator" then
-		hintLabel.Text = "YOU ARE OUT. WATCH FROM THE WAITING BAY."
-	elseif phase == "Intermission" then
-		hintLabel.Text = "THE NEXT ROUND IS ABOUT TO BEGIN"
-	else
-		hintLabel.Text = "AVOID THE LASER. BE THE LAST SURVIVOR."
+	local totalPlayers = state.playerCount
+	if typeof(totalPlayers) ~= "number" then
+		totalPlayers = #Players:GetPlayers()
 	end
+
+	local remainingPlayers = state.remainingPlayers
+	if typeof(remainingPlayers) ~= "number" then
+		remainingPlayers = state.aliveRunners or 0
+	end
+
+	timeLabel.Text = "TIME " .. formatTime(timeValue)
+	playersLabel.Text = "PLAYERS " .. tostring(math.max(0, totalPlayers))
+	remainingLabel.Text = "LEFT " .. tostring(math.max(0, remainingPlayers))
 end
 
 local function targetAt(screenPosition)
@@ -175,7 +152,7 @@ local function targetAt(screenPosition)
 	parameters.FilterDescendantsInstances = {tileFolder}
 	parameters.IgnoreWater = true
 
-	local result = Workspace:Raycast(ray.Origin, ray.Direction * 600, parameters)
+	local result = Workspace:Raycast(ray.Origin, ray.Direction * 900, parameters)
 	if not result then
 		return
 	end
@@ -210,6 +187,8 @@ end)
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
 
 local controllerCameraActive = false
+local previousFieldOfView = nil
+
 RunService.RenderStepped:Connect(function()
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -218,16 +197,29 @@ RunService.RenderStepped:Connect(function()
 
 	local shouldUseControllerCamera = getRole() == "Controller" and state.phase == "Active"
 	if shouldUseControllerCamera then
+		if not controllerCameraActive then
+			previousFieldOfView = camera.FieldOfView
+		end
+
 		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
-		camera.FieldOfView = 76
-		camera.CFrame = CFrame.lookAt(
-			Vector3.new(0, 190, -55),
-			Config.ARENA_CENTER
+		camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
+
+		local cameraPosition = Config.ARENA_CENTER + Vector3.new(
+			0,
+			Config.CONTROLLER_CAMERA_HEIGHT,
+			-Config.CONTROLLER_CAMERA_BACK
 		)
+		camera.CFrame = CFrame.lookAt(cameraPosition, Config.ARENA_CENTER)
+		camera.Focus = CFrame.new(Config.ARENA_CENTER)
 	elseif controllerCameraActive then
 		controllerCameraActive = false
 		camera.CameraType = Enum.CameraType.Custom
+		if previousFieldOfView then
+			camera.FieldOfView = previousFieldOfView
+			previousFieldOfView = nil
+		end
+
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if humanoid then

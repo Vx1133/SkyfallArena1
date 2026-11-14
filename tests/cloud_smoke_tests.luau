@@ -51,6 +51,9 @@ runTest("Arena builds a 15x15 destructible grid for a 30-participant match", fun
 	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
 	assert(Config.MAP_COUNT == 5, "Expected five original map layouts")
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
+	assert(Config.CONTROLLER_CAMERA_HEIGHT == 170, "Controller camera must be close above the arena")
+	assert(Config.CONTROLLER_CAMERA_BACK == 24, "Controller camera must use a small rear offset")
+	assert(Config.CONTROLLER_CAMERA_FOV == 90, "Controller camera must frame the wide arena on mobile")
 
 	arena = ArenaService.new()
 	arena:Build()

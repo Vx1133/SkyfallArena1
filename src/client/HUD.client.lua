@@ -187,6 +187,8 @@ end)
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
 
 local controllerCameraActive = false
+local previousFieldOfView = nil
+
 RunService.RenderStepped:Connect(function()
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -195,6 +197,10 @@ RunService.RenderStepped:Connect(function()
 
 	local shouldUseControllerCamera = getRole() == "Controller" and state.phase == "Active"
 	if shouldUseControllerCamera then
+		if not controllerCameraActive then
+			previousFieldOfView = camera.FieldOfView
+		end
+
 		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
 		camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
@@ -205,9 +211,15 @@ RunService.RenderStepped:Connect(function()
 			-Config.CONTROLLER_CAMERA_BACK
 		)
 		camera.CFrame = CFrame.lookAt(cameraPosition, Config.ARENA_CENTER)
+		camera.Focus = CFrame.new(Config.ARENA_CENTER)
 	elseif controllerCameraActive then
 		controllerCameraActive = false
 		camera.CameraType = Enum.CameraType.Custom
+		if previousFieldOfView then
+			camera.FieldOfView = previousFieldOfView
+			previousFieldOfView = nil
+		end
+
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 		if humanoid then

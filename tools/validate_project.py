@@ -51,8 +51,9 @@ for setting in (
     "Config.MAX_PLAYER_CAPACITY = 30",
     "Config.MAP_COUNT = 5",
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
-    "Config.CONTROLLER_CAMERA_HEIGHT",
-    "Config.CONTROLLER_CAMERA_FOV",
+    "Config.CONTROLLER_CAMERA_HEIGHT = 170",
+    "Config.CONTROLLER_CAMERA_BACK = 24",
+    "Config.CONTROLLER_CAMERA_FOV = 90",
     "Config.OVERTIME_START_SECONDS",
     "Config.RESPAWN_TIME",
 ):
@@ -119,6 +120,9 @@ for feature in (
     "Config.CONTROLLER_CAMERA_HEIGHT",
     "Config.CONTROLLER_CAMERA_FOV",
     "camera.CFrame = CFrame.lookAt(",
+    "camera.Focus = CFrame.new(Config.ARENA_CENTER)",
+    "previousFieldOfView = camera.FieldOfView",
+    "camera.FieldOfView = previousFieldOfView",
     "targetRemote:FireServer(gridX, gridZ)",
 ):
     require(feature in hud_source, f"Mobile HUD or controller camera feature is missing: {feature}")

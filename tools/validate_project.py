@@ -32,11 +32,16 @@ required_files = [
     "src/shared/GameConfig.lua",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
+    "src/server/Services/BotService.lua",
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
     "src/client/HUD.client.lua",
     "docs/CLOUD_PUBLISHING.md",
 ]
+
+config_source = (ROOT / "src/shared/GameConfig.lua").read_text(encoding="utf-8")
+require("Config.MIN_PLAYERS = 1" in config_source, "Solo playtest must be enabled")
+require("Config.BOT_COUNT = 3" in config_source, "Exactly three AI runner bots must be configured")
 
 for relative_path in required_files:
     path = ROOT / relative_path

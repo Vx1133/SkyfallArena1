@@ -146,7 +146,8 @@ local function updateHud()
 	elseif phase == "Active" and state.overtime then
 		hintLabel.Text = "OVERTIME: LASER STRIKES ARE FASTER"
 	elseif phase == "Active" then
-		hintLabel.Text = "MOVE AWAY WHEN A TILE GLOWS"
+		hintLabel.Text = "PILOT: " .. string.upper(state.controllerName or "LASER")
+			.. "  •  MOVE FROM GLOWING TILES"
 	elseif role == "Winner" then
 		hintLabel.Text = "VICTORY. YOU CONTROL THE LASER NEXT ROUND."
 	elseif role == "Spectator" then

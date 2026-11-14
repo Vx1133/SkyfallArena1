@@ -43,7 +43,7 @@ local MAPS = {
 		id = 3,
 		name = "GOLDEN DUNES TEMPLE",
 		tileColor = Color3.fromRGB(204, 174, 125),
-		tileMaterial = Enum.Material.Sandstone,
+		tileMaterial = Enum.Material.Sand,
 		studColor = Color3.fromRGB(229, 204, 158),
 		warningColor = Color3.fromRGB(255, 119, 61),
 		brokenColor = Color3.fromRGB(91, 56, 38),
@@ -668,6 +668,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	equatorialBand.Shape = Enum.PartType.Cylinder
+	equatorialBand.CFrame = CFrame.new(equatorialBand.Position) * CFrame.Angles(0, 0, math.rad(90))
 	equatorialBand.Transparency = 0.08
 	equatorialBand.CastShadow = false
 	equatorialBand.CanQuery = false
@@ -682,6 +683,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	lowerBand.Shape = Enum.PartType.Cylinder
+	lowerBand.CFrame = CFrame.new(lowerBand.Position) * CFrame.Angles(0, 0, math.rad(90))
 	lowerBand.CastShadow = false
 	lowerBand.CanQuery = false
 
@@ -695,6 +697,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	outerCollar.Shape = Enum.PartType.Cylinder
+	outerCollar.CFrame = CFrame.new(outerCollar.Position) * CFrame.Angles(0, 0, math.rad(90))
 	outerCollar.CastShadow = false
 	outerCollar.CanQuery = false
 
@@ -708,6 +711,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	bronzeGroove.Shape = Enum.PartType.Cylinder
+	bronzeGroove.CFrame = CFrame.new(bronzeGroove.Position) * CFrame.Angles(0, 0, math.rad(90))
 	bronzeGroove.CastShadow = false
 	bronzeGroove.CanQuery = false
 
@@ -721,6 +725,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	innerGoldRing.Shape = Enum.PartType.Cylinder
+	innerGoldRing.CFrame = CFrame.new(innerGoldRing.Position) * CFrame.Angles(0, 0, math.rad(90))
 	innerGoldRing.CastShadow = false
 	innerGoldRing.CanQuery = false
 
@@ -734,6 +739,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	lens.Shape = Enum.PartType.Cylinder
+	lens.CFrame = CFrame.new(lens.Position) * CFrame.Angles(0, 0, math.rad(90))
 	lens.Transparency = 0.08
 	lens.Reflectance = 0.16
 	lens.CastShadow = false

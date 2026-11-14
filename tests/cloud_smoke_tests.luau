@@ -1,6 +1,7 @@
--- Runs against one exact uploaded place version through Roblox Open Cloud Luau Execution.
--- This is a headless DataModel/module test. It does not simulate physics or player input.
+-- Headless smoke tests for the exact uploaded Skyfall Arena place version.
+-- This validates the DataModel and service logic, not real physics or touch input.
 
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
@@ -43,30 +44,72 @@ local function runTest(name, callback)
 	end
 end
 
-local arena = nil
+local arena
 
-runTest("Arena builds a complete 9x9 tile grid and required structures", function()
-	assert(Config.GRID_SIZE == 9, "Expected the configured 9x9 arena")
+runTest("Arena builds a 15x15 destructible grid for a 30-participant match", function()
+	assert(Config.GRID_SIZE == 15, "Expected a 15x15 tile grid")
+	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
+	assert(Config.MAP_COUNT == 5, "Expected five original map layouts")
+	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
+
 	arena = ArenaService.new()
 	arena:Build()
 
-	assert(#arena.tilesFolder:GetChildren() == Config.GRID_SIZE * Config.GRID_SIZE, "Unexpected tile count")
-	assert(#arena:GetSafeTiles() == 81, "All 81 tiles should be safe at round start")
-	assert(arena:GetTile(1, 1) ~= nil, "Top-left grid tile is missing")
-	assert(arena:GetTile(9, 9) ~= nil, "Bottom-right grid tile is missing")
+	local expectedTileCount = Config.GRID_SIZE * Config.GRID_SIZE
+	assert(#arena.tilesFolder:GetChildren() == expectedTileCount, "Unexpected tile count")
+	assert(#arena:GetSafeTiles() == expectedTileCount, "All tiles should be safe at round start")
+
+	local centerTile = arena:GetTile(8, 8)
+	assert(centerTile ~= nil, "Center tile is missing")
+	assert(centerTile:FindFirstChild("SquareStud_1"), "Square stud details are missing from floor tiles")
+	local stud = centerTile:FindFirstChild("SquareStud_1")
+	assert(stud:IsA("BasePart") and stud.Shape == Enum.PartType.Block, "Floor studs must be square blocks")
+	assert(math.abs(stud.Size.X - stud.Size.Z) < 0.001, "Floor studs must have square footprints")
+
 	assert(arena.lobbyFolder:FindFirstChild("WaitingPlatform"), "Waiting platform is missing")
-	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Aircraft fuselage is missing")
+	local water = arena.lobbyFolder:FindFirstChild("LobbyWater")
+	assert(water and water.Material == Enum.Material.Water, "Medium lobby water feature is missing")
+	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Golden controller sphere is missing")
+	assert(arena.aircraftModel:FindFirstChild("ControllerLens"), "Red controller lens is missing")
 	assert(arena.mapFolder:FindFirstChild("MapNameSign"), "Map name sign is missing")
+
+	for index = 1, Config.MAX_PLAYER_CAPACITY do
+		local runnerPosition = arena:GetRunnerSpawnCFrame(index, Config.MAX_PLAYER_CAPACITY).Position
+		assert(math.abs(runnerPosition.X - Config.ARENA_CENTER.X) < Config.ARENA_HALF_WIDTH, "Runner spawn is outside the arena")
+		assert(math.abs(runnerPosition.Z - Config.ARENA_CENTER.Z) < Config.ARENA_HALF_WIDTH, "Runner spawn is outside the arena")
+
+		local lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
+		assert(math.abs(lobbyPosition.X - Config.LOBBY_CENTER.X) < Config.LOBBY_SIZE / 2, "Lobby spawn is outside the waiting platform")
+		assert(math.abs(lobbyPosition.Z - Config.LOBBY_CENTER.Z) < Config.LOBBY_SIZE / 2, "Lobby spawn is outside the waiting platform")
+	end
 end)
 
-runTest("Damaged tiles stay broken until the next map begins", function()
+runTest("All five maps are daytime, have no neon decoration, and contain no arena rings", function()
+	assert(arena ~= nil, "Arena setup did not complete")
+
+	for mapId, expectedName in ipairs(Config.MAP_NAMES) do
+		assert(arena:SetMap(mapId) == expectedName, "Map name does not match map " .. tostring(mapId))
+		assert(arena:GetMapName() == expectedName, "Active map name is incorrect")
+		assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
+
+		for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				assert(descendant.Material ~= Enum.Material.Neon, "Neon material remains in map: " .. descendant:GetFullName())
+				assert(not string.find(descendant.Name, "RingSegment"), "Segmented ring barrier remains in the map")
+				assert(not string.find(descendant.Name, "ReactorRing"), "Circular reactor barrier remains in the map")
+			end
+		end
+	end
+end)
+
+runTest("Broken tiles remain broken until a new map is loaded", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 
 	local targets = {
-		{5, 5},
-		{4, 5},
-		{5, 4},
-		{6, 5},
+		{8, 8},
+		{7, 8},
+		{8, 7},
+		{9, 8},
 	}
 
 	for _, coordinates in ipairs(targets) do
@@ -78,57 +121,72 @@ runTest("Damaged tiles stay broken until the next map begins", function()
 		arena:BreakTile(tile, token)
 		assert(tile:GetAttribute("IsBroken") == true, "Tile must be marked broken")
 		assert(tile.CanCollide == false, "Broken tile must not collide")
+		for _, child in ipairs(tile:GetChildren()) do
+			if child.Name == "SquareStud_1" or string.match(child.Name, "^SquareStud_") then
+				assert(child.Transparency == 1, "Square studs on a broken tile must be hidden")
+			end
+		end
 	end
 
-	assert(#arena:GetSafeTiles() == 77, "Four broken tiles should leave 77 safe tiles")
+	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE - 4, "Four broken tiles should be excluded from safe tiles")
 	task.wait(2.2)
 
 	for _, coordinates in ipairs(targets) do
 		local tile = arena:GetTile(coordinates[1], coordinates[2])
-		assert(tile:GetAttribute("IsBroken") == true, "A broken tile repaired itself before the next round")
-		assert(tile.CanCollide == false, "A broken tile regained collision before the next round")
+		assert(tile:GetAttribute("IsBroken") == true, "A broken tile repaired itself before the next map")
+		assert(tile.CanCollide == false, "A broken tile regained collision before the next map")
 	end
-	assert(#arena:GetSafeTiles() == 77, "Safe tile count changed before a new map started")
 end)
 
-runTest("A new map restores the full floor and invalidates old laser tokens", function()
+runTest("Every new map restores the floor and invalidates stale laser tokens", function()
 	assert(arena ~= nil, "Arena setup did not complete")
-	local tile = arena:GetTile(5, 5)
+	local tile = arena:GetTile(8, 8)
 	local staleToken = tile:GetAttribute("StrikeToken")
 
-	assert(arena:SetMap(2) == "EMBER REACTOR", "Map 2 did not activate")
-	assert(arena:GetMapName() == "EMBER REACTOR", "Map 2 name is incorrect")
-	assert(#arena:GetSafeTiles() == 81, "Map 2 must restore all 81 tiles")
-	assert(tile:GetAttribute("IsBroken") == false, "Map 2 did not clear broken state")
-	assert(tile.CanCollide == true, "Map 2 did not restore floor collision")
-
-	arena:BreakTile(tile, staleToken)
-	assert(tile:GetAttribute("IsBroken") == false, "A stale laser token damaged a tile after map reset")
-
-	assert(arena:SetMap(1) == "NEXUS SKYGRID", "Map 1 did not activate")
-	assert(arena:GetMapName() == "NEXUS SKYGRID", "Map 1 name is incorrect")
-	assert(#arena:GetSafeTiles() == 81, "Map 1 must also have a complete floor")
+	for mapId, expectedName in ipairs(Config.MAP_NAMES) do
+		assert(arena:SetMap(mapId) == expectedName, "Map rotation failed at map " .. tostring(mapId))
+		assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New map did not restore the full grid")
+		assert(tile:GetAttribute("IsBroken") == false, "New map did not clear broken state")
+		assert(tile.CanCollide == true, "New map did not restore floor collision")
+		assert(arena:BreakTile(tile, staleToken) == nil, "Stale laser token should not break a tile after map reset")
+	end
 end)
 
-runTest("Round selection accepts a first controller and prioritizes the previous survivor", function()
+runTest("Random map selection never repeats the previous map", function()
+	local harness = setmetatable({
+		lastMapId = 0,
+		random = Random.new(73421),
+	}, RoundService)
+
+	for _ = 1, 100 do
+		local nextMapId = harness:_chooseNextMapId()
+		assert(nextMapId >= 1 and nextMapId <= Config.MAP_COUNT, "Selected map ID is outside the five-map range")
+		assert(nextMapId ~= harness.lastMapId, "The same map repeated in consecutive rounds")
+		harness.lastMapId = nextMapId
+	end
+end)
+
+runTest("Controller drone and arena remain free of neon materials", function()
+	assert(arena ~= nil, "Arena setup did not complete")
+	for _, root in ipairs({arena.tilesFolder, arena.decorFolder}) do
+		for _, descendant in ipairs(root:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				assert(descendant.Material ~= Enum.Material.Neon, "Neon material found in the game map")
+			end
+		end
+	end
+end)
+
+runTest("Controller selection accepts a first controller and prioritizes the previous survivor", function()
 	local testBot = {
 		name = "CloudTestBot",
 		model = {Parent = Workspace},
-		humanoid = {
-			Health = 100,
-			FloorMaterial = Enum.Material.Metal,
-		},
+		humanoid = {Health = 100, FloorMaterial = Enum.Material.Metal},
 	}
-
 	local testBotService = {
-		GetBots = function()
-			return {testBot}
-		end,
-		GetAliveBots = function()
-			return {testBot}
-		end,
+		GetBots = function() return {testBot} end,
+		GetAliveBots = function() return {testBot} end,
 	}
-
 	local harness = setmetatable({
 		botService = testBotService,
 		random = Random.new(12345),
@@ -142,8 +200,7 @@ runTest("Round selection accepts a first controller and prioritizes the previous
 
 	harness.nextController = {kind = "Bot", value = testBot}
 	local nextController = harness:_chooseController()
-	assert(nextController ~= nil, "Previous survivor should be selected next")
-	assert(nextController.kind == "Bot", "Previous survivor kind should be retained")
+	assert(nextController and nextController.kind == "Bot", "Previous survivor kind should be retained")
 	assert(nextController.value == testBot, "Previous survivor should be the next controller")
 end)
 
@@ -151,15 +208,10 @@ runTest("Sole survivor and grounded checks distinguish air from floor", function
 	local testBot = {
 		name = "CloudTestBot",
 		model = {Parent = Workspace},
-		humanoid = {
-			Health = 100,
-			FloorMaterial = Enum.Material.Metal,
-		},
+		humanoid = {Health = 100, FloorMaterial = Enum.Material.Metal},
 	}
 	local testBotService = {
-		GetAliveBots = function()
-			return {testBot}
-		end,
+		GetAliveBots = function() return {testBot} end,
 	}
 	local harness = setmetatable({
 		botService = testBotService,
@@ -169,43 +221,33 @@ runTest("Sole survivor and grounded checks distinguish air from floor", function
 	local survivor = harness:_getSoleSurvivor()
 	assert(survivor and survivor.kind == "Bot" and survivor.value == testBot, "The only living bot should be the sole survivor")
 	assert(harness:_isGrounded(survivor) == true, "A survivor touching a floor should be grounded")
-
 	testBot.humanoid.FloorMaterial = Enum.Material.Air
 	assert(harness:_isGrounded(survivor) == false, "A survivor in the air must not be treated as grounded")
 end)
 
-runTest("Human laser requests validate role, coordinates, active phase, and cooldown", function()
+runTest("Human laser requests validate the controller, coordinates, phase, and three-second cooldown", function()
 	local controller = {UserId = 8675309}
 	local canControl = false
 	local isActive = true
 	local markCount = 0
 	local beamCount = 0
 	local breakCount = 0
-
 	local mockTiles = {
-		["5:5"] = {token = 0, broken = false},
-		["6:5"] = {token = 0, broken = false},
+		["8:8"] = {token = 0, broken = false},
+		["9:8"] = {token = 0, broken = false},
 	}
 
 	local mockArena = {
-		GetTile = function(_, gridX, gridZ)
-			return mockTiles[tostring(gridX) .. ":" .. tostring(gridZ)]
-		end,
+		GetTile = function(_, gridX, gridZ) return mockTiles[tostring(gridX) .. ":" .. tostring(gridZ)] end,
 		MarkTile = function(_, tile)
-			if tile.broken then
-				return nil
-			end
+			if tile.broken then return nil end
 			markCount += 1
 			tile.token += 1
 			tile.warning = true
 			return tile.token
 		end,
-		IsStrikeCurrent = function(_, tile, token)
-			return tile.token == token
-		end,
-		CreateStrikeBeam = function()
-			beamCount += 1
-		end,
+		IsStrikeCurrent = function(_, tile, token) return tile.token == token end,
+		CreateStrikeBeam = function() beamCount += 1 end,
 		BreakTile = function(_, tile, token)
 			if tile.token == token then
 				tile.warning = false
@@ -213,55 +255,40 @@ runTest("Human laser requests validate role, coordinates, active phase, and cool
 				breakCount += 1
 			end
 		end,
-		ClearWarning = function(_, tile)
-			tile.warning = false
-		end,
+		ClearWarning = function(_, tile) tile.warning = false end,
 	}
-
 	local mockRounds = {
-		IsHumanController = function(_, player)
-			return canControl and player == controller
-		end,
-		IsActive = function()
-			return isActive
-		end,
-		GetAlivePositions = function()
-			return {}
-		end,
+		IsHumanController = function(_, candidate) return canControl and candidate == controller end,
+		IsActive = function() return isActive end,
+		GetAlivePositions = function() return {} end,
 	}
-
-	local mockBotService = {
-		GetAlivePositions = function()
-			return {}
-		end,
-	}
-
+	local mockBotService = {GetAlivePositions = function() return {} end}
 	local strikeService = StrikeService.new(mockArena, mockRounds, mockBotService, {})
 	strikeService.lastHumanStrikeAt[controller.UserId] =
 		os.clock() - Config.HUMAN_STRIKE_COOLDOWN_SECONDS - 1
 
 	canControl = true
 	isActive = false
-	strikeService:_handleHumanTarget(controller, 5, 5)
+	strikeService:_handleHumanTarget(controller, 8, 8)
 	assert(markCount == 0, "Laser request should be rejected outside an active round")
 
 	isActive = true
-	strikeService:_handleHumanTarget({UserId = 111}, 5, 5)
-	strikeService:_handleHumanTarget(controller, 0, 5)
-	strikeService:_handleHumanTarget(controller, 5.5, 5)
-	strikeService:_handleHumanTarget(controller, 5, 5.5)
+	strikeService:_handleHumanTarget({UserId = 111}, 8, 8)
+	strikeService:_handleHumanTarget(controller, 0, 8)
+	strikeService:_handleHumanTarget(controller, 8.5, 8)
+	strikeService:_handleHumanTarget(controller, 8, 8.5)
 	assert(markCount == 0, "Invalid controller or grid coordinates must not mark a tile")
 
-	strikeService:_handleHumanTarget(controller, 5, 5)
+	strikeService:_handleHumanTarget(controller, 8, 8)
 	assert(markCount == 1, "A valid controller target should mark exactly one tile")
-	strikeService:_handleHumanTarget(controller, 6, 5)
+	strikeService:_handleHumanTarget(controller, 9, 8)
 	assert(markCount == 1, "A second request inside the cooldown should be rejected")
 
 	task.wait(Config.WARNING_SECONDS + 0.25)
 	assert(beamCount == 1, "A valid strike should create one laser beam")
 	assert(breakCount == 1, "A valid strike should break one tile")
-	assert(mockTiles["5:5"].broken == true, "The targeted tile should be broken")
-	assert(mockTiles["6:5"].broken == false, "A cooldown-rejected tile must remain intact")
+	assert(mockTiles["8:8"].broken == true, "The targeted tile should be broken")
+	assert(mockTiles["9:8"].broken == false, "A cooldown-rejected tile must remain intact")
 end)
 
 if arena and arena.aircraftModel then
@@ -272,13 +299,9 @@ if arena and arena.root then
 end
 
 print("SKYFALL_CLOUD_TESTS_SUMMARY | passed=" .. tostring(passed) .. " | failed=" .. tostring(failed))
-
 if failed > 0 then
 	error("Skyfall cloud smoke tests failed: " .. table.concat(failureMessages, " || "))
 end
 
 print("SKYFALL_CLOUD_TESTS_OK")
-return {
-	passed = passed,
-	failed = failed,
-}
+return {passed = passed, failed = failed}

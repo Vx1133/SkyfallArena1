@@ -11,6 +11,7 @@ BotService.__index = BotService
 local BOT_PROFILES = {
 	{
 		name = "Atlas",
+		bodyColor = Color3.fromRGB(84, 166, 255),
 		walkSpeed = 15,
 		jumpPower = 48,
 		reactionDelay = 0.7,
@@ -19,6 +20,7 @@ local BOT_PROFILES = {
 	},
 	{
 		name = "Nova",
+		bodyColor = Color3.fromRGB(67, 224, 192),
 		walkSpeed = 17,
 		jumpPower = 54,
 		reactionDelay = 0.4,
@@ -27,6 +29,7 @@ local BOT_PROFILES = {
 	},
 	{
 		name = "Rook",
+		bodyColor = Color3.fromRGB(255, 172, 84),
 		walkSpeed = 16,
 		jumpPower = 51,
 		reactionDelay = 0.55,
@@ -81,6 +84,13 @@ function BotService:_buildRig(bot)
 	end
 
 	local description = Instance.new("HumanoidDescription")
+	description.HeadColor = bot.bodyColor
+	description.TorsoColor = bot.bodyColor
+	description.LeftArmColor = bot.bodyColor
+	description.RightArmColor = bot.bodyColor
+	description.LeftLegColor = bot.bodyColor
+	description.RightLegColor = bot.bodyColor
+
 	local success, modelOrError = pcall(function()
 		return Players:CreateHumanoidModelFromDescriptionAsync(
 			description,
@@ -132,7 +142,7 @@ function BotService:_buildRig(bot)
 	nameLabel.BackgroundTransparency = 1
 	nameLabel.Font = Enum.Font.GothamBold
 	nameLabel.Text = bot.name .. "  •  AI"
-	nameLabel.TextColor3 = Color3.fromRGB(215, 235, 255)
+	nameLabel.TextColor3 = bot.bodyColor
 	nameLabel.TextStrokeTransparency = 0.35
 	nameLabel.TextScaled = true
 	nameLabel.Parent = nameplate
@@ -179,6 +189,18 @@ function BotService:GetAlivePositions()
 		end
 	end
 	return positions
+end
+
+function BotService:SetWinner(winnerName)
+	for _, bot in ipairs(self.bots) do
+		if bot.model and bot.model.Parent then
+			if bot.name == winnerName then
+				bot.model:SetAttribute("SkyfallRole", "Winner")
+			elseif not bot.alive then
+				bot.model:SetAttribute("SkyfallRole", "Spectator")
+			end
+		end
+	end
 end
 
 function BotService:_nearestTile(position)
@@ -428,6 +450,8 @@ function BotService:EliminateFallenRunners(outOfBoundsY)
 			if bot.model and bot.model.Parent then
 				bot.model:SetAttribute("SkyfallRole", "Spectator")
 				bot.humanoid.WalkSpeed = 0
+				bot.humanoid.JumpPower = 0
+				bot.humanoid:MoveTo(bot.root.Position)
 				local lobbySpawn = self.arena:GetLobbySpawnCFrame(index, #self.bots)
 				bot.model:PivotTo(lobbySpawn)
 				bot.root.AssemblyLinearVelocity = Vector3.zero

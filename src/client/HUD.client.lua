@@ -1,20 +1,28 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
-local stateRemote = ReplicatedStorage:WaitForChild("SkyfallRemotes"):WaitForChild("RoundState")
+local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
+local stateRemote = remotes:WaitForChild("RoundState")
+local targetRemote = remotes:WaitForChild("TargetTile")
+local tileFolder = Workspace:WaitForChild("SkyfallArena"):WaitForChild("Tiles")
 
 local state = {
 	phase = "Waiting",
 	elapsedSeconds = 0,
+	countdownSeconds = 0,
 	aliveRunners = 0,
-	botCount = Config.BOT_COUNT,
 	winner = "",
+	controllerName = "",
+	controllerKind = "",
 	roundNumber = 0,
 	overtime = false,
+	mapName = "NEXUS SKYGRID",
 }
 
 local screenGui = Instance.new("ScreenGui")
@@ -27,10 +35,9 @@ screenGui.Parent = playerGui
 local panel = Instance.new("Frame")
 panel.Name = "StatusPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 8)
+panel.Position = UDim2.new(0.5, 0, 0, 2)
 panel.Size = UDim2.new(0.94, 0, 0, Config.HUD_HEIGHT)
-panel.BackgroundColor3 = Color3.fromRGB(11, 18, 32)
-panel.BackgroundTransparency = 0.08
+panel.BackgroundTransparency = 1
 panel.BorderSizePixel = 0
 panel.Parent = screenGui
 
@@ -38,29 +45,21 @@ local sizeConstraint = Instance.new("UISizeConstraint")
 sizeConstraint.MaxSize = Vector2.new(Config.HUD_MAX_WIDTH, Config.HUD_HEIGHT)
 sizeConstraint.Parent = panel
 
-local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 10)
-corner.Parent = panel
-
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(56, 159, 194)
-stroke.Transparency = 0.2
-stroke.Thickness = 1
-stroke.Parent = panel
-
-local function makeLabel(name, position, size, text, textSize, color)
+local function makeLabel(name, position, size, text, textSize, color, font)
 	local label = Instance.new("TextLabel")
 	label.Name = name
 	label.Position = position
 	label.Size = size
 	label.BackgroundTransparency = 1
-	label.Font = Enum.Font.GothamBold
+	label.Font = font or Enum.Font.GothamBold
 	label.Text = text
 	label.TextColor3 = color
 	label.TextSize = textSize
 	label.TextTruncate = Enum.TextTruncate.AtEnd
-	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
+	label.TextStrokeColor3 = Color3.fromRGB(7, 12, 22)
+	label.TextStrokeTransparency = 0.28
 	label.Parent = panel
 
 	local constraint = Instance.new("UITextSizeConstraint")
@@ -73,81 +72,41 @@ end
 
 makeLabel(
 	"Title",
-	UDim2.fromOffset(12, 4),
-	UDim2.new(1, -24, 0, 17),
+	UDim2.fromOffset(0, 0),
+	UDim2.new(1, 0, 0, 16),
 	"SKYFALL ARENA",
-	14,
-	Color3.fromRGB(232, 241, 255)
+	13,
+	Color3.fromRGB(244, 248, 255),
+	Enum.Font.GothamBlack
 )
 
 local statusLabel = makeLabel(
 	"Status",
-	UDim2.fromOffset(12, 22),
-	UDim2.new(1, -24, 0, 18),
-	"LOBBY  •  NEXT ROUND SOON",
+	UDim2.fromOffset(0, 17),
+	UDim2.new(1, 0, 0, 18),
+	"WAITING BAY",
 	12,
-	Color3.fromRGB(255, 207, 115)
+	Color3.fromRGB(255, 218, 147)
 )
 
 local roleLabel = makeLabel(
 	"Role",
-	UDim2.fromOffset(12, 42),
-	UDim2.new(1, -24, 0, 15),
-	"STATUS: WAITING",
+	UDim2.fromOffset(0, 35),
+	UDim2.new(1, 0, 0, 15),
+	"WAITING  •  NEXUS SKYGRID",
 	10,
-	Color3.fromRGB(128, 213, 255)
+	Color3.fromRGB(142, 220, 255)
 )
 
 local hintLabel = makeLabel(
 	"Hint",
-	UDim2.fromOffset(12, 59),
-	UDim2.new(1, -24, 0, 17),
-	"Red tiles are dangerous. Keep moving.",
+	UDim2.fromOffset(0, 50),
+	UDim2.new(1, 0, 0, 16),
+	"Be the last runner standing.",
 	10,
-	Color3.fromRGB(214, 224, 239)
+	Color3.fromRGB(237, 242, 250),
+	Enum.Font.GothamMedium
 )
-
-local notice = Instance.new("TextLabel")
-notice.Name = "TemporaryPlaytestNotice"
-notice.AnchorPoint = Vector2.new(0.5, 0)
-notice.Position = UDim2.new(0.5, 0, 0, Config.HUD_HEIGHT + 17)
-notice.Size = UDim2.new(0.86, 0, 0, 23)
-notice.BackgroundColor3 = Color3.fromRGB(21, 35, 54)
-notice.BackgroundTransparency = 0.08
-notice.BorderSizePixel = 0
-notice.Font = Enum.Font.GothamBold
-notice.Text = "AUTOMATIC LASER  •  LAST SURVIVOR WINS"
-notice.TextColor3 = Color3.fromRGB(196, 226, 255)
-notice.TextSize = 10
-notice.Parent = screenGui
-
-local noticeCorner = Instance.new("UICorner")
-noticeCorner.CornerRadius = UDim.new(0, 8)
-noticeCorner.Parent = notice
-
-local noticeConstraint = Instance.new("UISizeConstraint")
-noticeConstraint.MaxSize = Vector2.new(320, 23)
-noticeConstraint.Parent = notice
-
-task.delay(7, function()
-	if not notice.Parent then
-		return
-	end
-
-	local fade = TweenService:Create(
-		notice,
-		TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{
-			BackgroundTransparency = 1,
-			TextTransparency = 1,
-		}
-	)
-	fade:Play()
-	fade.Completed:Wait()
-	if notice.Parent then
-		notice:Destroy()
-	end
-end)
 
 local function formatTime(totalSeconds)
 	local seconds = math.max(0, math.floor(totalSeconds or 0))
@@ -156,41 +115,87 @@ local function formatTime(totalSeconds)
 	return string.format("%d:%02d", minutes, remainder)
 end
 
+local function getRole()
+	return player:GetAttribute("SkyfallRole") or "Waiting"
+end
+
 local function updateHud()
 	local phase = state.phase or "Waiting"
-	local role = player:GetAttribute("SkyfallRole") or "Waiting"
+	local role = getRole()
+	local mapName = state.mapName or "SKYFALL ARENA"
 
 	if phase == "Waiting" then
-		statusLabel.Text = "LOBBY  •  NEXT ROUND SOON"
+		statusLabel.Text = "WAITING BAY"
 	elseif phase == "Intermission" then
-		statusLabel.Text = "ROUND STARTS IN  " .. tostring(math.max(0, math.floor(state.countdownSeconds or 0)))
+		statusLabel.Text = "NEXT ROUND IN  " .. tostring(math.max(0, math.floor(state.countdownSeconds or 0)))
 	elseif phase == "Active" then
 		statusLabel.Text = "ROUND " .. tostring(state.roundNumber or 1)
-			.. "  •  ALIVE " .. tostring(state.aliveRunners or 0)
-			.. "  •  " .. formatTime(state.elapsedSeconds)
+			.. "   •   ALIVE " .. tostring(state.aliveRunners or 0)
+			.. "   •   " .. formatTime(state.elapsedSeconds)
 	elseif phase == "Results" then
 		statusLabel.Text = "WINNER  •  " .. tostring(state.winner or "NO SURVIVORS")
-			.. "  •  NEXT IN " .. tostring(state.countdownSeconds or 0)
+			.. "   •   NEXT " .. tostring(state.countdownSeconds or 0)
 	else
 		statusLabel.Text = string.upper(phase)
 	end
 
-	roleLabel.Text = "STATUS: " .. string.upper(role)
+	roleLabel.Text = string.upper(role) .. "  •  " .. string.upper(mapName)
 
-	if phase == "Active" and state.overtime then
-		hintLabel.Text = "OVERTIME: the laser is attacking faster!"
+	if phase == "Active" and role == "Controller" then
+		hintLabel.Text = "PILOT: TAP A FLOOR TILE TO FIRE THE LASER"
+	elseif phase == "Active" and state.overtime then
+		hintLabel.Text = "OVERTIME: LASER STRIKES ARE FASTER"
 	elseif phase == "Active" then
-		hintLabel.Text = "Watch glowing tiles. Move before the laser hits."
+		hintLabel.Text = "MOVE AWAY WHEN A TILE GLOWS"
 	elseif role == "Winner" then
-		hintLabel.Text = "Victory! The next round will start soon."
+		hintLabel.Text = "VICTORY. YOU CONTROL THE LASER NEXT ROUND."
 	elseif role == "Spectator" then
-		hintLabel.Text = "You are out. Watch until the next round."
+		hintLabel.Text = "YOU ARE OUT. WATCH FROM THE WAITING BAY."
 	elseif phase == "Intermission" then
-		hintLabel.Text = "All contestants are waiting in the lobby."
+		hintLabel.Text = "THE NEXT ROUND IS ABOUT TO BEGIN"
 	else
-		hintLabel.Text = "Avoid the laser. Be the last one standing."
+		hintLabel.Text = "AVOID THE LASER. BE THE LAST SURVIVOR."
 	end
 end
+
+local function targetAt(screenPosition)
+	if getRole() ~= "Controller" or state.phase ~= "Active" then
+		return
+	end
+
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	local ray = camera:ScreenPointToRay(screenPosition.X, screenPosition.Y)
+	local parameters = RaycastParams.new()
+	parameters.FilterType = Enum.RaycastFilterType.Include
+	parameters.FilterDescendantsInstances = {tileFolder}
+	parameters.IgnoreWater = true
+
+	local result = Workspace:Raycast(ray.Origin, ray.Direction * 600, parameters)
+	if not result then
+		return
+	end
+
+	local gridX = result.Instance:GetAttribute("GridX")
+	local gridZ = result.Instance:GetAttribute("GridZ")
+	if typeof(gridX) == "number" and typeof(gridZ) == "number" then
+		targetRemote:FireServer(gridX, gridZ)
+	end
+end
+
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
+	end
+
+	local inputType = input.UserInputType
+	if inputType == Enum.UserInputType.MouseButton1 or inputType == Enum.UserInputType.Touch then
+		targetAt(Vector2.new(input.Position.X, input.Position.Y))
+	end
+end)
 
 stateRemote.OnClientEvent:Connect(function(newState)
 	if typeof(newState) ~= "table" then
@@ -202,4 +207,42 @@ stateRemote.OnClientEvent:Connect(function(newState)
 end)
 
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
+
+local controllerCameraActive = false
+RunService.RenderStepped:Connect(function()
+	local camera = Workspace.CurrentCamera
+	if not camera then
+		return
+	end
+
+	local shouldUseControllerCamera = getRole() == "Controller" and state.phase == "Active"
+	if shouldUseControllerCamera then
+		controllerCameraActive = true
+		camera.CameraType = Enum.CameraType.Scriptable
+		camera.FieldOfView = 62
+		camera.CFrame = CFrame.lookAt(
+			Vector3.new(0, 171, -68),
+			Config.ARENA_CENTER
+		)
+	elseif controllerCameraActive then
+		controllerCameraActive = false
+		camera.CameraType = Enum.CameraType.Custom
+		local character = player.Character
+		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+end)
+
+player.CharacterAdded:Connect(function(character)
+	if not controllerCameraActive then
+		local humanoid = character:WaitForChild("Humanoid", 10)
+		local camera = Workspace.CurrentCamera
+		if camera and humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+end)
+
 updateHud()

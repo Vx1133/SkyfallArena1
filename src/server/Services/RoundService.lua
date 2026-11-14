@@ -369,11 +369,12 @@ function RoundService:_eliminateFallenRunners()
 	end
 
 	if self.controller and self.controller.kind == "Player" then
-		local character = self.controller.value.Character
+		local controllerPlayer = self.controller.value
+		local character = controllerPlayer.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root or root.Position.Y < Config.OUT_OF_BOUNDS_Y then
 			self.controller = nil
-			self:_moveEliminatedPlayerToLobby(self.controller.value)
+			self:_moveEliminatedPlayerToLobby(controllerPlayer)
 		end
 	end
 end

@@ -51,9 +51,12 @@ runTest("Arena builds a 15x15 destructible grid for a 30-participant match", fun
 	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
 	assert(Config.MAP_COUNT == 5, "Expected five original map layouts")
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
-	assert(Config.CONTROLLER_CAMERA_HEIGHT == 170, "Controller camera must be close above the arena")
-	assert(Config.CONTROLLER_CAMERA_BACK == 24, "Controller camera must use a small rear offset")
-	assert(Config.CONTROLLER_CAMERA_FOV == 96, "Controller camera must frame the wide arena on mobile")
+	assert(Config.CONTROLLER_CAMERA_HEIGHT == 170, "Portrait controller camera height must fit the arena")
+	assert(Config.CONTROLLER_CAMERA_BACK == 24, "Portrait controller camera must use a small rear offset")
+	assert(Config.CONTROLLER_CAMERA_FOV == 96, "Portrait controller camera must frame the arena")
+	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT == 140, "Landscape controller camera height must bring the arena closer")
+	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_BACK == 110, "Landscape controller camera must use an angled overhead view")
+	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_FOV == 52, "Landscape controller camera must avoid the extreme wide view")
 
 	arena = ArenaService.new()
 	arena:Build()
@@ -74,6 +77,16 @@ runTest("Arena builds a 15x15 destructible grid for a 30-participant match", fun
 	assert(water and water.Material == Enum.Material.Water, "Medium lobby water feature is missing")
 	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Golden controller sphere is missing")
 	assert(arena.aircraftModel:FindFirstChild("ControllerLens"), "Red controller lens is missing")
+	for index = 1, 5 do
+		assert(arena.aircraftModel:FindFirstChild("ArmorPlate_Upper_" .. tostring(index)), "Upper sphere armor plate is missing")
+	end
+	for index = 1, 4 do
+		assert(arena.aircraftModel:FindFirstChild("ArmorPlate_Lower_" .. tostring(index)), "Lower sphere armor plate is missing")
+	end
+	assert(arena.aircraftModel:FindFirstChild("LensReticleRing_Outer_1"), "Outer lens reticle ring is missing")
+	assert(arena.aircraftModel:FindFirstChild("LensReticleRing_Inner_1"), "Inner lens reticle ring is missing")
+	local lensLight = arena.aircraftModel.ControllerLens:FindFirstChildOfClass("PointLight")
+	assert(not lensLight or lensLight.Range <= 5, "Red lens light must remain tightly contained")
 	assert(arena.mapFolder:FindFirstChild("MapNameSign"), "Map name sign is missing")
 
 	for index = 1, Config.MAX_PLAYER_CAPACITY do
@@ -93,6 +106,7 @@ runTest("All five maps are daytime, have no neon decoration, and contain no aren
 	for mapId, expectedName in ipairs(Config.MAP_NAMES) do
 		assert(arena:SetMap(mapId) == expectedName, "Map name does not match map " .. tostring(mapId))
 		assert(arena:GetMapName() == expectedName, "Active map name is incorrect")
+		assert(arena:GetTile(8, 8).Material == Enum.Material.SmoothPlastic, "Destructible floor must use a clean studded plastic surface")
 		assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
 
 		for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do

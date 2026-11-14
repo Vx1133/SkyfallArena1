@@ -54,6 +54,9 @@ for setting in (
     "Config.CONTROLLER_CAMERA_HEIGHT = 170",
     "Config.CONTROLLER_CAMERA_BACK = 24",
     "Config.CONTROLLER_CAMERA_FOV = 96",
+    "Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT = 140",
+    "Config.CONTROLLER_CAMERA_LANDSCAPE_BACK = 110",
+    "Config.CONTROLLER_CAMERA_LANDSCAPE_FOV = 52",
     "Config.OVERTIME_START_SECONDS",
     "Config.RESPAWN_TIME",
 ):
@@ -82,6 +85,9 @@ for feature in (
     "SquareStud_",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
+require(arena_source.count("tileMaterial = Enum.Material.SmoothPlastic") == 5, "All five destructible floors must use the same clean studded plastic material")
+for feature in ("ArmorPlate_Upper_", "ArmorPlate_Lower_", "LensReticleRing_Outer_", "LensReticleRing_Inner_"):
+    require(feature in arena_source, f"Golden sphere detail is missing: {feature}")
 for forbidden in ("Enum.Material.Neon", "addNeonBar", "NexusRingSegment", "ReactorRing"):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
@@ -119,8 +125,10 @@ for feature in (
     "PlayersLabel",
     "Config.CONTROLLER_CAMERA_HEIGHT",
     "Config.CONTROLLER_CAMERA_FOV",
+    "camera.ViewportSize.X < camera.ViewportSize.Y",
     "camera.CFrame = CFrame.lookAt(",
     "camera.Focus = CFrame.new(Config.ARENA_CENTER)",
+    "camera.FieldOfView = cameraFov",
     "previousFieldOfView = camera.FieldOfView",
     "camera.FieldOfView = previousFieldOfView",
     "targetRemote:FireServer(gridX, gridZ)",

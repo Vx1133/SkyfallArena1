@@ -418,12 +418,25 @@ end
 
 function BotService:SetWinner(winnerBot)
 	for _, bot in ipairs(self.bots) do
+		bot.alive = false
+		bot.targetTile = nil
+		bot.isController = false
+
 		if bot.model and bot.model.Parent then
 			if bot == winnerBot then
 				bot.model:SetAttribute("SkyfallRole", "Winner")
-			elseif not bot.alive then
+			elseif bot.model:GetAttribute("SkyfallRole") ~= "Spectator" then
 				bot.model:SetAttribute("SkyfallRole", "Spectator")
 			end
+
+			if bot.humanoid then
+				bot.humanoid.WalkSpeed = 0
+				bot.humanoid.JumpPower = 0
+			end
+			if bot.root then
+				bot.root.Anchored = true
+			end
+			self:_playAnimation(bot, "idle")
 		end
 	end
 end

@@ -53,10 +53,10 @@ for setting in (
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
     "Config.CONTROLLER_CAMERA_HEIGHT = 170",
     "Config.CONTROLLER_CAMERA_BACK = 24",
-    "Config.CONTROLLER_CAMERA_FOV = 96",
-    "Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT = 140",
-    "Config.CONTROLLER_CAMERA_LANDSCAPE_BACK = 110",
-    "Config.CONTROLLER_CAMERA_LANDSCAPE_FOV = 52",
+    "Config.CONTROLLER_CAMERA_FOV = 92",
+    "Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT = 130",
+    "Config.CONTROLLER_CAMERA_LANDSCAPE_BACK = 130",
+    "Config.CONTROLLER_CAMERA_LANDSCAPE_FOV = 44",
     "Config.OVERTIME_START_SECONDS",
     "Config.RESPAWN_TIME",
 ):
@@ -86,7 +86,13 @@ for feature in (
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
 require(arena_source.count("tileMaterial = Enum.Material.SmoothPlastic") == 5, "All five destructible floors must use the same clean studded plastic material")
-for feature in ("ArmorPlate_Upper_", "ArmorPlate_Lower_", "LensReticleRing_Outer_", "LensReticleRing_Inner_"):
+for feature in (
+    '"ArmorPlate_" .. group.name .. "_"',
+    'name = "Upper"',
+    'name = "Lower"',
+    'addLensReticleRing("LensReticleRing_Outer"',
+    'addLensReticleRing("LensReticleRing_Inner"',
+):
     require(feature in arena_source, f"Golden sphere detail is missing: {feature}")
 for forbidden in ("Enum.Material.Neon", "addNeonBar", "NexusRingSegment", "ReactorRing"):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")

@@ -44,6 +44,7 @@ required_files = [
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
     "src/client/HUD.client.lua",
+    "tests/cloud_smoke_tests.luau",
     "docs/CLOUD_PUBLISHING.md",
 ]
 
@@ -77,7 +78,7 @@ for feature in (
     require(feature in arena_source, f"Arena feature is missing: {feature}")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
-require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken tiles")
+require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")
 require("tile.CanCollide = true" in map_set_body, "The next map must restore floor collision")
 
 bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
@@ -125,6 +126,18 @@ for feature in (
 ):
     require(feature in hud_source, f"Mobile HUD feature is missing: {feature}")
 
+cloud_tests = (ROOT / "tests/cloud_smoke_tests.luau").read_text(encoding="utf-8")
+for feature in (
+    "Arena builds a complete 9x9 tile grid",
+    "Damaged tiles stay broken until the next map begins",
+    "A new map restores the full floor and invalidates old laser tokens",
+    "Round selection accepts a first controller and prioritizes the previous survivor",
+    "Sole survivor and grounded checks distinguish air from floor",
+    "Human laser requests validate role, coordinates, active phase, and cooldown",
+    "SKYFALL_CLOUD_TESTS_OK",
+):
+    require(feature in cloud_tests, f"Cloud smoke test is missing: {feature}")
+
 workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
 require("pull_request:" in workflow, "Pull request validation trigger is missing")
 require("selene src" in workflow, "Luau lint step is missing")
@@ -136,5 +149,7 @@ upload_workflow = (ROOT / ".github/workflows/upload-private-test.yml").read_text
 require('"7975091208"' in upload_workflow, "The original Universe ID must be preserved")
 require('"104752078056182"' in upload_workflow, "The original Start Place ID must be preserved")
 require("ROBLOX_API_KEY" in upload_workflow, "The private upload must use a GitHub Actions secret")
+require("luau-execution-session-tasks" in upload_workflow, "The private upload must run a cloud Luau task")
+require("tests/cloud_smoke_tests.luau" in upload_workflow, "The cloud test script must run after upload")
 
 print("Skyfall Arena structural and gameplay validation passed.")

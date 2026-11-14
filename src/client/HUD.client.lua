@@ -62,7 +62,7 @@ local function makeLabel(name, position, size, text, textSize, color)
 	return label
 end
 
-local titleLabel = makeLabel(
+makeLabel(
 	"Title",
 	UDim2.fromOffset(16, 8),
 	UDim2.new(1, -32, 0, 28),

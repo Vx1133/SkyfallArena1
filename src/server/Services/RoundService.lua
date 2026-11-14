@@ -342,6 +342,11 @@ function RoundService:_runRound()
 				self.winner = "NO SURVIVORS"
 			end
 			self:_awardWinner(self.winnerPlayer)
+			if self.winnerPlayer then
+				self.winnerPlayer:SetAttribute("SkyfallRole", "Winner")
+			elseif self.botService then
+				self.botService:SetWinner(self.winner)
+			end
 			break
 		end
 

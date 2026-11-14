@@ -1,38 +1,39 @@
 # Skyfall Arena
 
-Skyfall Arena is a Roblox survival round game. One human player controls the overhead laser system while runners move across a tiled arena and avoid marked floor tiles.
+Skyfall Arena is a Roblox last-survivor game. Every human player and three AI opponents start in the waiting lobby. When a round begins, everyone enters the arena while an automatic laser randomly targets floor tiles. The last contestant standing wins.
 
-## Current playtest foundation
+## Current foundation
 
-- 9 by 9 procedural arena with a lobby and elevated controller deck.
-- Waiting, intermission, active-round, and results phases.
-- Three AI runner NPCs are available, so one human can start a solo test.
-- The AI runners use Roblox pathfinding and reactive tile-risk checks to move toward safe floor tiles and escape marked tiles.
-- Human players can still join. One human is selected as controller, other humans and the three bots become runners.
-- Server-validated laser targeting, warning indicators, tile breaks, and automatic tile repairs.
-- Eliminated runners become spectators until the next round.
-- Compact, responsive HUD layout and touch controls for phones, plus mouse support for desktop.
+- Original experience and Start Place are kept. Updates publish new versions to the same Place ID.
+- A 9 by 9 arena with an expanded sci-fi lobby, spawn pads, illuminated borders, corner pylons, and an overhead laser rig.
+- Every player and three named AI runners are contestants. There is no player-controlled laser role.
+- The automatic laser randomly targets safe tiles, often favors tiles near active contestants to keep pressure on them, warns before striking, and breaks the tile.
+- The laser becomes faster and launches multiple strikes during overtime.
+- The round ends when one contestant remains. The winner receives a session win, and player best survival time is tracked in the server leaderboard.
+- After results, all players and bots return to the lobby and the next round begins automatically.
+- The mobile HUD is compact and displays the round, survivor count, elapsed time, and overtime state.
 
-The bots are scripted in-game NPC behavior, not external cloud AI services. The three bots have different movement speeds and reaction delays. Their behavior is intended for a first playtest and still needs live balance testing.
+The AI opponents use scripted Roblox NPC logic and PathfindingService, not an external cloud AI model. They have different movement speeds, reaction delays, and risk preferences. Their behavior needs live playtesting and balance tuning.
 
-## Cloud development
+## Development and release workflow
 
-- Luau source files are the editable project.
-- Rojo 7.7.1 maps the source files into a Roblox place.
-- Rokit pins the command-line tools.
-- GitHub Actions validates, lints, and builds the RBXLX place file.
-- No Roblox Studio installation on the phone is required for source changes or cloud builds.
+- Luau source files in this repository are the source of truth.
+- Rojo 7.7.1 maps the source into a Roblox place file.
+- Rokit pins the build tools.
+- Feature branches are used for individual updates. Pull requests run structural validation, Selene lint, and a Rojo build.
+- After review and merge, the upload workflow publishes a new version to the same existing Start Place. It does not create another Roblox experience or change the Audience setting.
+- Previous Roblox place versions remain available in version history.
 
-## Build and validation
+No Roblox Studio installation on the phone is required for source changes or cloud builds.
 
-Every push to a feature branch and every pull request to main runs the validation workflow. A successful run uploads an artifact named SkyfallArena-place containing SkyfallArena.rbxlx.
+## Validation
 
-Open the repository's Actions tab to view a run and download its artifact.
+Every push to a feature branch and every pull request to main runs the validation workflow. A successful run uploads an artifact named SkyfallArena-place containing SkyfallArena.rbxlx. This is a build artifact, not a Roblox publish.
 
 ## Publishing
 
-The separate private test upload workflow publishes a new version to the configured Roblox Start Place. It does not change the experience audience setting. The Roblox Open Cloud key is stored only as a GitHub Actions secret and must never be committed to source code or shared in chat.
+Use the separate manual workflow Upload Skyfall Arena private test to publish the merged main branch to the configured Start Place. Keep the experience private. The Roblox Open Cloud key is stored only as a GitHub Actions secret.
 
-## Project status
+## Status
 
-This is a playable foundation for testing, not a finished or publicly released experience. The latest build must still be tested in a live Roblox server for NPC movement, phone layout, round flow, and gameplay balance.
+This is the next playable foundation. Cloud checks can confirm code structure, lint, and place-file generation, but they cannot prove that NPC movement, live physics, mobile layout, or game balance behave correctly in a Roblox server. Those still require a private in-game playtest.

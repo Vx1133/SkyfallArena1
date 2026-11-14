@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
@@ -17,6 +18,7 @@ local state = {
 	timeLeft = 0,
 	aliveRunners = 0,
 	playerCount = 0,
+	botCount = Config.BOT_COUNT,
 	winner = "",
 }
 
@@ -30,15 +32,19 @@ screenGui.Parent = playerGui
 local panel = Instance.new("Frame")
 panel.Name = "StatusPanel"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 14)
-panel.Size = UDim2.new(1, -28, 0, 112)
+panel.Position = UDim2.new(0.5, 0, 0, 8)
+panel.Size = UDim2.new(0.94, 0, 0, 84)
 panel.BackgroundColor3 = Color3.fromRGB(13, 19, 32)
 panel.BackgroundTransparency = 0.12
 panel.BorderSizePixel = 0
 panel.Parent = screenGui
 
+local sizeConstraint = Instance.new("UISizeConstraint")
+sizeConstraint.MaxSize = Vector2.new(460, 84)
+sizeConstraint.Parent = panel
+
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 12)
+corner.CornerRadius = UDim.new(0, 10)
 corner.Parent = panel
 
 local stroke = Instance.new("UIStroke")
@@ -57,46 +63,92 @@ local function makeLabel(name, position, size, text, textSize, color)
 	label.Text = text
 	label.TextColor3 = color
 	label.TextSize = textSize
+	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.TextYAlignment = Enum.TextYAlignment.Center
 	label.Parent = panel
+
+	local textConstraint = Instance.new("UITextSizeConstraint")
+	textConstraint.MinTextSize = math.max(9, textSize - 1)
+	textConstraint.MaxTextSize = textSize
+	textConstraint.Parent = label
+
 	return label
 end
 
 makeLabel(
 	"Title",
-	UDim2.fromOffset(16, 8),
-	UDim2.new(1, -32, 0, 28),
+	UDim2.fromOffset(12, 4),
+	UDim2.new(1, -24, 0, 17),
 	"SKYFALL ARENA",
-	20,
+	14,
 	Color3.fromRGB(232, 241, 255)
 )
 
 local statusLabel = makeLabel(
 	"Status",
-	UDim2.fromOffset(16, 38),
-	UDim2.new(1, -32, 0, 26),
+	UDim2.fromOffset(12, 22),
+	UDim2.new(1, -24, 0, 18),
 	"WAITING FOR PLAYERS",
-	16,
+	12,
 	Color3.fromRGB(255, 205, 108)
 )
 
 local roleLabel = makeLabel(
 	"Role",
-	UDim2.fromOffset(16, 66),
-	UDim2.new(1, -32, 0, 20),
+	UDim2.fromOffset(12, 42),
+	UDim2.new(1, -24, 0, 15),
 	"ROLE: WAITING",
-	13,
+	10,
 	Color3.fromRGB(155, 196, 255)
 )
 
 local hintLabel = makeLabel(
 	"Hint",
-	UDim2.fromOffset(16, 87),
-	UDim2.new(1, -32, 0, 18),
-	"Waiting for more players.",
-	12,
+	UDim2.fromOffset(12, 59),
+	UDim2.new(1, -24, 0, 17),
+	"Waiting for a round to begin.",
+	10,
 	Color3.fromRGB(211, 219, 231)
 )
+
+local notice = Instance.new("TextLabel")
+notice.Name = "TemporaryPlaytestNotice"
+notice.AnchorPoint = Vector2.new(0.5, 0)
+notice.Position = UDim2.new(0.5, 0, 0, 99)
+notice.Size = UDim2.new(0.8, 0, 0, 23)
+notice.BackgroundColor3 = Color3.fromRGB(21, 35, 54)
+notice.BackgroundTransparency = 0.08
+notice.BorderSizePixel = 0
+notice.Font = Enum.Font.GothamBold
+notice.Text = "PLAYTEST BUILD  •  3 AI RUNNERS"
+notice.TextColor3 = Color3.fromRGB(196, 222, 255)
+notice.TextSize = 10
+notice.Parent = screenGui
+
+local noticeCorner = Instance.new("UICorner")
+noticeCorner.CornerRadius = UDim.new(0, 8)
+noticeCorner.Parent = notice
+
+local noticeConstraint = Instance.new("UISizeConstraint")
+noticeConstraint.MaxSize = Vector2.new(300, 23)
+noticeConstraint.Parent = notice
+
+task.delay(7, function()
+	if notice.Parent then
+		local fade = TweenService:Create(
+			notice,
+			TweenInfo.new(0.6, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+			{
+				BackgroundTransparency = 1,
+				TextTransparency = 1,
+			}
+		)
+		fade:Play()
+		fade.Completed:Wait()
+		notice:Destroy()
+	end
+end)
 
 local function getRole()
 	return player:GetAttribute("SkyfallRole") or "Waiting"
@@ -111,7 +163,7 @@ local function updateHud()
 	elseif phase == "Intermission" then
 		statusLabel.Text = "NEXT ROUND IN  " .. tostring(seconds)
 	elseif phase == "Active" then
-		statusLabel.Text = "ROUND  " .. tostring(state.roundNumber or 1) .. "  |  " .. tostring(seconds) .. "s  |  RUNNERS: " .. tostring(state.aliveRunners or 0)
+		statusLabel.Text = "ROUND " .. tostring(state.roundNumber or 1) .. "  |  " .. tostring(seconds) .. "s  |  RUNNERS: " .. tostring(state.aliveRunners or 0)
 	elseif phase == "Results" then
 		statusLabel.Text = "ROUND OVER  |  " .. tostring(state.winner or "")
 	else
@@ -122,13 +174,13 @@ local function updateHud()
 	roleLabel.Text = "ROLE: " .. string.upper(role)
 
 	if role == "Controller" then
-		hintLabel.Text = "Tap or click a floor tile to mark it for a laser strike."
+		hintLabel.Text = "Tap a floor tile to aim a laser strike."
 	elseif role == "Runner" then
-		hintLabel.Text = "Keep moving. A glowing tile is about to break."
+		hintLabel.Text = "Keep moving. Escape glowing tiles."
 	elseif role == "Spectator" then
-		hintLabel.Text = "You are out. Watch the arena until the next round."
+		hintLabel.Text = "Watch the arena until the next round."
 	else
-		hintLabel.Text = "Join the arena. A round starts when enough players are here."
+		hintLabel.Text = "Round starts when you are ready."
 	end
 end
 

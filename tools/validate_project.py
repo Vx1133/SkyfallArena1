@@ -140,7 +140,7 @@ for feature in (
 
 workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
 require("pull_request:" in workflow, "Pull request validation trigger is missing")
-require("selene src" in workflow, "Luau lint step is missing")
+require("selene src tests" in workflow, "Luau source and cloud test lint step is missing")
 require("rojo build default.project.json" in workflow, "Rojo build step is missing")
 require("upload-artifact" in workflow, "Build artifact upload step is missing")
 require("ROBLOX_API_KEY" not in workflow, "Publishing secret must not be used by validation workflow")

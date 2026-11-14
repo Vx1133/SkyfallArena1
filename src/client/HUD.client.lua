@@ -163,13 +163,14 @@ local function updateHud()
 	if phase == "Waiting" then
 		statusLabel.Text = "LOBBY  •  NEXT ROUND SOON"
 	elseif phase == "Intermission" then
-		statusLabel.Text = "ROUND STARTS IN  " .. tostring(math.max(0, math.floor(state.elapsedSeconds or 0)))
+		statusLabel.Text = "ROUND STARTS IN  " .. tostring(math.max(0, math.floor(state.countdownSeconds or 0)))
 	elseif phase == "Active" then
 		statusLabel.Text = "ROUND " .. tostring(state.roundNumber or 1)
 			.. "  •  ALIVE " .. tostring(state.aliveRunners or 0)
 			.. "  •  " .. formatTime(state.elapsedSeconds)
 	elseif phase == "Results" then
 		statusLabel.Text = "WINNER  •  " .. tostring(state.winner or "NO SURVIVORS")
+			.. "  •  NEXT IN " .. tostring(state.countdownSeconds or 0)
 	else
 		statusLabel.Text = string.upper(phase)
 	end

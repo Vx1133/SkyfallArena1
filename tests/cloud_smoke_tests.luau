@@ -148,7 +148,8 @@ runTest("Every new map restores the floor and invalidates stale laser tokens", f
 		assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New map did not restore the full grid")
 		assert(tile:GetAttribute("IsBroken") == false, "New map did not clear broken state")
 		assert(tile.CanCollide == true, "New map did not restore floor collision")
-		assert(arena:BreakTile(tile, staleToken) == nil, "Stale laser token should not break a tile after map reset")
+		arena:BreakTile(tile, staleToken)
+		assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after map reset")
 	end
 end)
 
@@ -289,6 +290,13 @@ runTest("Human laser requests validate the controller, coordinates, phase, and t
 	assert(breakCount == 1, "A valid strike should break one tile")
 	assert(mockTiles["8:8"].broken == true, "The targeted tile should be broken")
 	assert(mockTiles["9:8"].broken == false, "A cooldown-rejected tile must remain intact")
+
+	task.wait(Config.HUMAN_STRIKE_COOLDOWN_SECONDS - Config.WARNING_SECONDS + 0.15)
+	strikeService:_handleHumanTarget(controller, 9, 8)
+	assert(markCount == 2, "A new laser strike should be accepted after three seconds")
+	task.wait(Config.WARNING_SECONDS + 0.25)
+	assert(beamCount == 2 and breakCount == 2, "The second allowed strike should resolve normally")
+	assert(mockTiles["9:8"].broken == true, "The second allowed target should be destroyed")
 end)
 
 if arena and arena.aircraftModel then

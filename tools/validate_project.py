@@ -81,7 +81,7 @@ bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="u
 for feature in (
     "HairAccessory",
     "Animator:LoadAnimation",
-    "Humanoid.Running",
+    "humanoid.Running:Connect",
     "HumanoidStateType.Jumping",
     "function BotService:StartRound(",
     "function BotService:GetAliveBots(",

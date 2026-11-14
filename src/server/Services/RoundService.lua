@@ -6,10 +6,11 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ga
 local RoundService = {}
 RoundService.__index = RoundService
 
-function RoundService.new(arenaService, stateRemote)
+function RoundService.new(arenaService, stateRemote, botService)
 	local self = setmetatable({}, RoundService)
 	self.arena = arenaService
 	self.stateRemote = stateRemote
+	self.botService = botService
 	self.phase = "Waiting"
 	self.timeLeft = 0
 	self.controller = nil
@@ -91,6 +92,11 @@ function RoundService:_aliveRunnerCount()
 			count += 1
 		end
 	end
+
+	if self.botService then
+		count += self.botService:GetAliveCount()
+	end
+
 	return count
 end
 
@@ -102,6 +108,7 @@ function RoundService:_broadcast()
 		controllerName = self.controller and self.controller.Parent == Players and self.controller.DisplayName or "",
 		winner = self.winner or "",
 		playerCount = #Players:GetPlayers(),
+		botCount = self.botService and self.botService:GetBotCount() or 0,
 		roundNumber = self.roundNumber,
 	})
 end
@@ -159,6 +166,10 @@ function RoundService:_eliminateFallenRunners()
 	for _, player in ipairs(fallen) do
 		self:Eliminate(player)
 	end
+
+	if self.botService then
+		self.botService:EliminateFallenRunners(Config.OUT_OF_BOUNDS_Y)
+	end
 end
 
 function RoundService:_chooseController(playersInRound)
@@ -191,7 +202,9 @@ function RoundService:_runRound()
 	self.winner = nil
 	self.phase = "Active"
 
-	local runnerCount = #playersInRound - 1
+	local botCount = self.botService and self.botService:GetBotCount() or 0
+	local totalRunnerCount = #playersInRound - 1 + botCount
+
 	for _, player in ipairs(playersInRound) do
 		if player == self.controller then
 			player:SetAttribute("SkyfallRole", "Controller")
@@ -202,9 +215,22 @@ function RoundService:_runRound()
 			self.runnerSpawnIndex += 1
 			self:_placePlayer(
 				player,
-				self.arena:GetRunnerSpawnCFrame(self.runnerSpawnIndex, runnerCount)
+				self.arena:GetRunnerSpawnCFrame(self.runnerSpawnIndex, math.max(totalRunnerCount, 1))
 			)
 		end
+	end
+
+	local botSpawnCFrames = {}
+	for index = 1, botCount do
+		self.runnerSpawnIndex += 1
+		botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(
+			self.runnerSpawnIndex,
+			math.max(totalRunnerCount, 1)
+		)
+	end
+
+	if self.botService then
+		self.botService:StartRound(botSpawnCFrames)
 	end
 
 	local remaining = Config.ROUND_SECONDS
@@ -241,6 +267,10 @@ function RoundService:_runRound()
 	self.aliveRunners = {}
 	self.winner = nil
 	self.arena:ResetTiles()
+
+	if self.botService then
+		self.botService:SendToLobby()
+	end
 
 	for _, player in ipairs(Players:GetPlayers()) do
 		player:SetAttribute("SkyfallRole", "Waiting")

@@ -1,6 +1,7 @@
 local Config = {}
 
-Config.MIN_PLAYERS = 2
+Config.MIN_PLAYERS = 1
+Config.BOT_COUNT = 3
 Config.INTERMISSION_SECONDS = 15
 Config.ROUND_SECONDS = 100
 Config.RESULTS_SECONDS = 7

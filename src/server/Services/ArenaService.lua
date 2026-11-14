@@ -29,12 +29,12 @@ local function createPart(parent, name, size, position, color, material, canColl
 	return part
 end
 
-local function addNeonBorder(parent, name, center, width, depth, height, color)
+local function addNeonBorder(parent, name, size, position, color)
 	local border = createPart(
 		parent,
 		name,
-		Vector3.new(width, height, depth),
-		center,
+		size,
+		position,
 		color,
 		Enum.Material.Neon,
 		false
@@ -95,7 +95,7 @@ local function addSign(parent, name, position, size, title, subtitle)
 	local outline = Instance.new("UIStroke")
 	outline.Color = ACCENT_CYAN
 	outline.Thickness = 1.5
-	outline.Parent = board
+	outline.Parent = frame
 
 	return board
 end

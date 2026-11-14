@@ -430,7 +430,7 @@ function ArenaService:_buildAircraft()
 	)
 	cockpit.Transparency = 0.2
 
-	local wings = part(
+	part(
 		"AircraftWings",
 		Vector3.new(32, 1.5, 7),
 		Vector3.new(0, -0.8, 1),

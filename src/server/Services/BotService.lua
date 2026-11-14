@@ -453,7 +453,7 @@ function BotService:EliminateFallenRunners(outOfBoundsY)
 				bot.humanoid.WalkSpeed = 0
 				bot.humanoid.JumpPower = 0
 				bot.humanoid:MoveTo(bot.root.Position)
-				local lobbySpawn = self.arena:GetLobbySpawnCFrame(index, #self.bots)
+				local lobbySpawn = self.arena:GetLobbySpawnCFrame(index, #self.bots, true)
 				bot.model:PivotTo(lobbySpawn)
 				bot.root.AssemblyLinearVelocity = Vector3.zero
 				bot.root.AssemblyAngularVelocity = Vector3.zero
@@ -477,7 +477,7 @@ function BotService:SendToLobby()
 			bot.humanoid.JumpPower = 0
 			bot.humanoid:MoveTo(bot.root.Position)
 
-			bot.model:PivotTo(self.arena:GetLobbySpawnCFrame(index, #self.bots))
+			bot.model:PivotTo(self.arena:GetLobbySpawnCFrame(index, #self.bots, true))
 			bot.root.AssemblyLinearVelocity = Vector3.zero
 			bot.root.AssemblyAngularVelocity = Vector3.zero
 			pcall(function()

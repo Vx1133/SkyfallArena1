@@ -28,7 +28,7 @@ function StrikeService:_getNearRunnerTiles(safeTiles)
 
 	local candidates = {}
 	local spacing = Config.TILE_SIZE + Config.TILE_GAP
-	local centerOffset = (Config.GRID_SIZE - 1) / 2
+	local centerOffset = (Config.GRID_SIZE + 1) / 2
 
 	for _, tile in ipairs(safeTiles) do
 		local gridX = tile:GetAttribute("GridX")

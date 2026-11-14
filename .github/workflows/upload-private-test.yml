@@ -1,0 +1,134 @@
+name: Upload Skyfall Arena private test
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: "Type UPLOAD_PRIVATE_TEST to update the configured Roblox Start Place. This does not change its audience setting."
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: skyfall-private-test-upload
+  cancel-in-progress: false
+
+jobs:
+  upload-private-test:
+    name: Build and upload a private test version
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Require explicit manual confirmation
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRMATION" != "UPLOAD_PRIVATE_TEST" ]; then
+            echo "::error::Confirmation did not match. No Roblox upload was attempted."
+            exit 1
+          fi
+
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install pinned Roblox tools
+        uses: CompeyDev/setup-rokit@1d9390883f7ebce19d48f5b8d006e11d387c92ab
+        with:
+          version: v1.2.0
+          token: ${{ github.token }}
+          cache: true
+
+      - name: Verify tools and project structure
+        run: |
+          set -euo pipefail
+          rojo --version
+          selene --version
+          python tools/validate_project.py
+          selene src
+
+      - name: Build Roblox place file
+        run: |
+          set -euo pipefail
+          mkdir -p build
+          rojo build default.project.json -o build/SkyfallArena.rbxlx
+          test -s build/SkyfallArena.rbxlx
+
+      - name: Upload place to Roblox and verify completion
+        env:
+          ROBLOX_API_KEY: ${{ secrets.ROBLOX_API_KEY }}
+          ROBLOX_UNIVERSE_ID: ${{ vars.ROBLOX_UNIVERSE_ID }}
+          ROBLOX_PLACE_ID: ${{ vars.ROBLOX_PLACE_ID }}
+        run: |
+          set -euo pipefail
+
+          : "${ROBLOX_API_KEY:?Missing GitHub Actions secret ROBLOX_API_KEY}"
+          : "${ROBLOX_UNIVERSE_ID:?Missing GitHub Actions variable ROBLOX_UNIVERSE_ID}"
+          : "${ROBLOX_PLACE_ID:?Missing GitHub Actions variable ROBLOX_PLACE_ID}"
+
+          if [[ ! "$ROBLOX_UNIVERSE_ID" =~ ^[0-9]+$ || ! "$ROBLOX_PLACE_ID" =~ ^[0-9]+$ ]]; then
+            echo "::error::Roblox Universe ID and Place ID must contain digits only."
+            exit 1
+          fi
+
+          echo "Target experience: $ROBLOX_UNIVERSE_ID"
+          echo "Target place: $ROBLOX_PLACE_ID"
+          echo "Uploading a new place version. This workflow does not change the experience audience setting."
+
+          request_json="$(jq -cn --argjson assetId "$ROBLOX_PLACE_ID" \
+            '{assetId: $assetId, assetType: "Place", published: true}')"
+
+          upload_response="$(curl --fail-with-body --silent --show-error --location \
+            --request PATCH "https://apis.roblox.com/assets/v1/assets/$ROBLOX_PLACE_ID" \
+            --header "x-api-key: $ROBLOX_API_KEY" \
+            --form-string "request=$request_json" \
+            --form "fileContent=@build/SkyfallArena.rbxlx;type=application/xml")"
+
+          operation_path="$(jq -r '.path // empty' <<< "$upload_response")"
+          if [ -z "$operation_path" ]; then
+            echo "::error::Roblox did not return an operation path. Upload was not confirmed."
+            jq . <<< "$upload_response"
+            exit 1
+          fi
+
+          operation_id="${operation_path##*/}"
+          for attempt in $(seq 1 60); do
+            operation_status="$(curl --fail-with-body --silent --show-error --location \
+              "https://apis.roblox.com/assets/v1/operations/$operation_id" \
+              --header "x-api-key: $ROBLOX_API_KEY")"
+
+            done_value="$(jq -r '.done // false' <<< "$operation_status")"
+            if [ "$done_value" = "true" ]; then
+              if jq -e '.error != null' >/dev/null <<< "$operation_status"; then
+                echo "::error::Roblox reported an upload error:"
+                jq '.error' <<< "$operation_status"
+                exit 1
+              fi
+
+              is_published="$(jq -r '.response.isPublished // false' <<< "$operation_status")"
+              if [ "$is_published" != "true" ]; then
+                echo "::error::Roblox finished the operation but did not confirm isPublished=true."
+                jq . <<< "$operation_status"
+                exit 1
+              fi
+
+              revision_id="$(jq -r '.response.revisionId // "unknown"' <<< "$operation_status")"
+              {
+                echo "## Roblox private test upload"
+                echo "- Universe ID: $ROBLOX_UNIVERSE_ID"
+                echo "- Place ID: $ROBLOX_PLACE_ID"
+                echo "- Roblox version: $revision_id"
+                echo "- Roblox confirmed the place version is published."
+                echo "- The workflow did not change the experience audience setting."
+              } >> "$GITHUB_STEP_SUMMARY"
+              echo "::notice::Roblox confirmed the place update. Version: $revision_id"
+              exit 0
+            fi
+
+            sleep 5
+          done
+
+          echo "::error::Timed out waiting for Roblox to finish processing the place upload."
+          exit 1

@@ -1,75 +1,83 @@
-# Private Roblox test upload
+# Private Roblox test upload and cloud smoke tests
 
-The project has two separate operations:
+The project has two separate validation stages and one manually approved upload:
 
-1. **Build and validate:** GitHub Actions checks the Luau source and creates `SkyfallArena.rbxlx`. This does not contact or change Roblox.
-2. **Private test upload:** A separate manually triggered workflow uploads a new version to the selected Roblox place. It does not change the experience audience setting.
+1. **Repository validation:** GitHub Actions checks project structure, Luau lint, and the Rojo build. This does not contact Roblox.
+2. **Manual private upload:** A workflow uploads a new version to the existing Roblox Start Place. It does not change the experience audience setting.
+3. **Headless cloud smoke tests:** After Roblox confirms the upload, the same workflow runs a Luau test script against that exact place version and collects the task logs.
 
 ## Target IDs
-
-The IDs copied from the Creator Dashboard are:
 
 - Universe ID: `7975091208`
 - Start Place ID: `104752078056182`
 
-The Universe ID identifies the experience and is used when scoping the Roblox API key. The Start Place ID identifies the exact place that the upload workflow updates. Both numbers are already configured in the workflow, so you do not need to create GitHub variables for them. Every update should target this same Place ID. Roblox creates a new place version rather than a second experience.
+Every release must keep using this same Start Place. Do not create a replacement experience or Place for normal updates.
 
 ## Keep the experience private
 
-Before the first upload, open the experience in Creator Dashboard and confirm its Audience / Access Settings are set to **Private**. Do not switch it to Public or release it to everyone.
+Confirm the experience's Audience / Access Settings are set to **Private** in Creator Dashboard. The upload workflow updates the selected Place version but does not change its Audience setting.
 
-The upload request must set `published: true` so Roblox updates the selected place to a playable new version. This publishes a place version to the experience; it does **not** change the audience setting or make a Private experience public. The owner can access their private experience.
+The workflow requires a manual `workflow_dispatch` action and the exact confirmation text `UPLOAD_PRIVATE_TEST`. It does not run on pushes or pull requests.
 
-**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. All normal game updates should target this same Start Place and preserve the same Place ID. Roblox keeps place version history, which can be used to restore an earlier version. Do not create a new experience or replace the Place ID for normal updates.
+## GitHub secret
 
-## GitHub setting required
-
-Only one GitHub repository secret is required. Open **Settings > Secrets and variables > Actions > Secrets**, click **New repository secret**, then add:
+Keep one repository secret:
 
 | Name | Value |
 |---|---|
-| `ROBLOX_API_KEY` | Your Roblox Open Cloud API key |
+| `ROBLOX_API_KEY` | Dedicated Roblox Open Cloud API key |
 
-Do not paste the key into chat, commit it to the repository, or put it in a Luau file.
+Never paste the key into chat or commit it to the repository.
 
 ## Roblox API key permissions
 
-Create a dedicated key in Creator Dashboard for this upload workflow:
+Keep **Restrict by Experience** enabled and select only Universe ID `7975091208`. The same key needs these permissions:
 
-- Name: `SkyfallArena-PrivateTest`
-- Access permission: **Assets**
-- Experience restriction: keep **Restrict by Experience** enabled and select only Universe ID `7975091208`
-- Operations: **Read** and **Write**
-- IP restriction: leave it off unless you have a fixed runner IP. GitHub-hosted runner IP addresses are not fixed.
+- **Assets:** Read and Write, for updating the existing Place.
+- **Luau Execution:** Read and Write, for creating the cloud test task and reading its result and logs.
 
-These are the current permissions documented by Roblox for updating an existing place through the Assets API.
+The Luau Execution API scopes are `universe.place.luau-execution-session:write` and `universe.place.luau-execution-session:read`. Roblox requires the write scope to create a task and both read/write scopes to retrieve its status and logs.
 
-## Manual upload workflow
+Do not grant unrelated permissions such as monetization, player bans, or public release management.
 
-The workflow is `.github/workflows/upload-private-test.yml` and is on the repository's default `main` branch.
+## What the cloud tests cover
 
-To run it after the GitHub secret is configured and the latest code has been merged into the main branch:
+The test script at `tests/cloud_smoke_tests.luau` is passed directly to Roblox Open Cloud and runs against the exact version number returned by the upload operation. It is not inserted into the published game.
+
+Current checks:
+
+- The arena builds 81 tiles and required lobby / aircraft structures.
+- Four laser-damaged tiles remain broken while the cloud task waits, and the next map restores the full grid.
+- Old laser tokens cannot damage tiles after a map reset.
+- Controller selection returns a valid candidate and prioritizes the previous survivor when supplied.
+- Sole-survivor and grounded-state helpers distinguish floor contact from being airborne.
+- Human laser requests reject a non-controller, inactive round, invalid grid coordinates, and requests inside the cooldown. A valid request produces a delayed strike in the test harness.
+
+The test runner destroys the temporary arena it creates. Roblox documents that Luau Execution task changes to the DataModel are local to the task and cannot be persisted.
+
+## Important test limits
+
+This is a **headless DataModel and module test**, not a full live-server play session:
+
+- Physics simulation does not run.
+- Server and LocalScripts in the place do not start automatically.
+- It does not create real players or simulate actual phone touches, keyboard input, collisions, pathfinding movement, or animation playback.
+- The laser request test uses mock player / remote-side collaborators while exercising the real `StrikeService` validation method.
+- A successful cloud test therefore does not prove that the entire game plays correctly on a phone. A visual playtest in Roblox Studio is still required for that.
+
+If the cloud test fails, GitHub Actions marks the upload workflow as failed and prints the Luau task logs. The place version has already been uploaded at that point, so the experience must remain Private while the cause is reviewed. This workflow does not silently roll back or make additional uploads.
+
+## Run the workflow
 
 1. Open the repository's **Actions** tab.
 2. Select **Upload Skyfall Arena private test**.
-3. Click **Run workflow**.
-4. Enter exactly `UPLOAD_PRIVATE_TEST` in the confirmation field and start the workflow.
+3. Click **Run workflow** and choose `main`.
+4. Enter `UPLOAD_PRIVATE_TEST` exactly.
+5. Review both the Roblox upload result and the later **headless Roblox Luau smoke tests** section.
 
-The workflow:
-- Only starts through a manual `workflow_dispatch` action.
-- Requires the exact confirmation text `UPLOAD_PRIVATE_TEST`.
-- Checks out the selected branch (choose main after merging), rebuilds the place, and repeats the structural validation and Selene lint checks.
-- Uploads the RBXLX file using the current Roblox Assets API endpoint:
-  `PATCH https://apis.roblox.com/assets/v1/assets/{placeId}`
-- Polls the returned operation until Roblox reports completion and `isPublished: true`.
-- Does not run automatically when code is pushed, and does not change the experience's Audience setting.
+## Official references
 
-## What has and has not been tested
-
-The validation workflow checks project structure, Luau lint, and the Rojo build, and uploads a build artifact. These checks do not start a live Roblox server. After publishing, verify controller selection, bot animations and movement, phone touch aiming, respawns, permanent floor damage during a round, and alternating map appearance in a private in-game playtest.
-
-Official Roblox guide: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
-
-Official API key guide: https://create.roblox.com/docs/cloud/auth/api-keys
-
-GitHub secrets guide: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets
+- Roblox Luau Execution: https://create.roblox.com/docs/cloud/reference/features/luau-execution
+- Roblox place publishing: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
+- Roblox API key guide: https://create.roblox.com/docs/cloud/auth/api-keys
+- GitHub Actions secrets: https://docs.github.com/en/actions/how-tos/write-workflows/choose-what-workflows-do/use-secrets

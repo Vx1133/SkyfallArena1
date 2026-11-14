@@ -373,6 +373,7 @@ function RoundService:_eliminateFallenRunners()
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		if not root or root.Position.Y < Config.OUT_OF_BOUNDS_Y then
 			self.controller = nil
+			self:_moveEliminatedPlayerToLobby(self.controller.value)
 		end
 	end
 end
@@ -550,6 +551,11 @@ function RoundService:_runRound()
 		self.elapsedSeconds = math.floor(os.clock() - self.roundStartedAt)
 		self.overtime = self.elapsedSeconds >= Config.OVERTIME_START_SECONDS
 		self:_eliminateFallenRunners()
+
+		if self.controller and not self:_isCandidateValid(self.controller) then
+			self.controller = nil
+		end
+
 		self:_updateSurvivalRecords()
 		self:_broadcast()
 

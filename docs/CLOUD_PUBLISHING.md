@@ -1,32 +1,72 @@
-# Roblox cloud publishing setup
+# Private Roblox test upload
 
-Publishing is intentionally separate from source validation. A build artifact can be produced without a Roblox API key, but publishing it requires an existing Roblox place.
+The project has two separate operations:
 
-## What is needed
+1. **Build and validate:** GitHub Actions checks the Luau source and creates `SkyfallArena.rbxlx`. This does not contact or change Roblox.
+2. **Private test upload:** A separate manually triggered workflow uploads a new version to the selected Roblox place. It does not change the experience audience setting.
 
-1. An existing Roblox experience and the Place ID of the place to update.
-2. A Roblox Open Cloud API key created in Creator Dashboard.
-3. The key configured as a GitHub Actions repository secret named ROBLOX_API_KEY.
-4. The numeric Place ID configured as a GitHub Actions repository variable named ROBLOX_PLACE_ID.
+## Target IDs
 
-Do not paste the API key into chat, commit it to the repository, or put it in a Luau file.
+The IDs copied from the Creator Dashboard are:
 
-## Required Roblox key permissions
+- Universe ID: `7975091208`
+- Start Place ID: `104752078056182`
 
-Use the Assets API permissions for the intended experience and grant only the read and write operations needed for place publishing. Do not grant broad access to unrelated experiences.
+The Universe ID identifies the experience and is used when scoping the Roblox API key. The Start Place ID identifies the exact place that the upload workflow updates.
 
-## Publishing endpoint
+## Keep the experience private
 
-The current Roblox Creator Hub guide documents the Assets API update endpoint:
+Before the first upload, open the experience in Creator Dashboard and confirm its Audience / Access Settings are set to **Private**. Do not switch it to Public or release it to everyone.
 
-PATCH https://apis.roblox.com/assets/v1/assets/{placeId}
+The upload request must set `published: true` so Roblox updates the selected place to a playable new version. This publishes a place version to the experience; it does **not** change the audience setting or make a Private experience public. The owner can access their private experience.
 
-The API key is sent in the x-api-key header. The multipart request includes a request field with the Place asset ID, asset type Place, and published true, plus the generated RBXLX file as fileContent with application/xml content type.
+**Important:** The workflow updates the contents of the configured Start Place. It does not create a separate test place. Confirm that this automatically created place is okay to replace with the Skyfall Arena test build before running the upload. Roblox keeps place version history, which can be used to restore an earlier version.
 
-The API returns an operation ID. A publishing workflow must poll the Assets API operation endpoint until done is true and confirm that isPublished is true. It must fail visibly when the operation returns an error.
+## GitHub settings required
 
-## Not enabled in this foundation
+In the repository `Vx1133/SkyfallArena1`, add these repository variables under **Settings > Secrets and variables > Actions > Variables**:
 
-No publishing workflow is included yet. The repository does not currently have the target Place ID or a configured GitHub secret. The validation workflow only produces an artifact and cannot change a live Roblox experience.
+| Name | Value |
+|---|---|
+| `ROBLOX_UNIVERSE_ID` | `7975091208` |
+| `ROBLOX_PLACE_ID` | `104752078056182` |
 
-Official guide: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
+Add this repository secret under **Settings > Secrets and variables > Actions > Secrets**:
+
+| Name | Value |
+|---|---|
+| `ROBLOX_API_KEY` | Your Roblox Open Cloud API key |
+
+Never paste the key into chat, commit it to GitHub, or put it in a Luau file.
+
+## Roblox API key permissions
+
+Create the key in Creator Dashboard and scope it to the experience with Universe ID `7975091208`:
+
+- Access permission: **Assets**
+- Operations: **Read** and **Write**
+- Select only the intended experience, not unrelated experiences.
+
+These are the current permissions documented by Roblox for updating an existing place through the Assets API.
+
+## Manual upload workflow
+
+The workflow is `.github/workflows/upload-private-test.yml`.
+
+- It only starts through a manual `workflow_dispatch` action.
+- It requires the exact confirmation text `UPLOAD_PRIVATE_TEST`.
+- It rebuilds the place and repeats the structural validation and Selene lint checks.
+- It uploads the RBXLX file using the current Roblox Assets API endpoint:
+  `PATCH https://apis.roblox.com/assets/v1/assets/{placeId}`
+- It polls the returned operation until Roblox reports completion and `isPublished: true`.
+- It does not run automatically when code is pushed, and it does not change the experience's Audience setting.
+
+GitHub only allows the manual Run workflow control when the workflow file is present on the repository's default branch. This workflow is currently on the feature branch and draft PR, so it becomes manually runnable after the PR is reviewed and merged.
+
+## What has and has not been tested
+
+The validation workflow has successfully checked the project structure, Luau lint, and Rojo build, and uploaded a build artifact. The game has **not** yet been run in a live Roblox server. The private upload and in-app playtest are still pending.
+
+Official Roblox guide: https://create.roblox.com/docs/cloud/guides/usage-place-publishing
+
+GitHub manual workflow guide: https://docs.github.com/en/actions/how-tos/manage-workflow-runs/manually-run-a-workflow

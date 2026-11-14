@@ -263,7 +263,11 @@ runTest("Human laser requests validate the controller, coordinates, phase, and t
 		IsActive = function() return isActive end,
 		GetAlivePositions = function() return {} end,
 	}
-	local mockBotService = {GetAlivePositions = function() return {} end}
+	local mockBotService = {
+	GetAlivePositions = function()
+		return {}
+	end,
+}
 	local strikeService = StrikeService.new(mockArena, mockRounds, mockBotService, {})
 	strikeService.lastHumanStrikeAt[controller.UserId] =
 		os.clock() - Config.HUMAN_STRIKE_COOLDOWN_SECONDS - 1

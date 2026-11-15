@@ -371,6 +371,22 @@ function RoundService:_onCharacterAdded(player, character)
 		return
 	end
 
+	-- CharacterAdded can fire before LoadCharacterAsync parents the model to Workspace.
+	-- Wait for that final engine step before trying to pivot the character.
+	local parentDeadline = os.clock() + 10
+	while not character.Parent
+		and player.Parent == Players
+		and player.Character == character
+		and self.characterSerial[player] == serial
+		and os.clock() < parentDeadline
+	do
+		task.wait()
+	end
+	if not character.Parent then
+		warn("Skyfall character did not enter Workspace before placement timed out")
+		return
+	end
+
 	if player.Parent ~= Players
 		or player.Character ~= character
 		or self.characterSerial[player] ~= serial

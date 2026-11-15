@@ -196,8 +196,7 @@ runTest("The one map restores the floor only when a new round loads", function()
 	assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after reset")
 end)
 
-runTest("Random map selection never repeats the previous map", function()
-	local harnessrunTest("The next-round map remains the one fixed Sunspire arena", function()
+runTest("The next-round map remains the one fixed Sunspire arena", function()
 	local harness = setmetatable({
 		lastMapId = 1,
 		random = Random.new(73421),
@@ -208,6 +207,37 @@ runTest("Random map selection never repeats the previous map", function()
 	end
 end)
 
+runTest("The round state counts down from 180 seconds and reports runner eliminations", function()
+	local capturedState = nil
+	local harness = setmetatable({
+		phase = "Active",
+		elapsedSeconds = 75,
+		countdownSeconds = 0,
+		roundRunnerCount = 4,
+		aliveRunners = {},
+		controller = nil,
+		winner = "",
+		roundNumber = 1,
+		botService = {
+			GetBotCount = function() return 3 end,
+			GetAliveCount = function() return 0 end,
+		},
+		arena = {
+			GetMapName = function() return "SKYFALL SUNSPIRE" end,
+		},
+		stateRemote = {
+			FireAllClients = function(_, state)
+				capturedState = state
+			end,
+		},
+	}, RoundService)
+
+	harness:_broadcast()
+	assert(capturedState ~= nil, "Round state should be broadcast")
+	assert(capturedState.remainingSeconds == 105, "Remaining time should count down from three minutes")
+	assert(capturedState.eliminatedPlayers == 4, "Eliminated runner count should be reported")
+	assert(capturedState.playerCount == #game:GetService("Players"):GetPlayers() + 3, "Total player count should include all three bots")
+end)
 
 runTest("Controller drone and arena remain free of neon materials", function()
 	assert(arena ~= nil, "Arena setup did not complete")

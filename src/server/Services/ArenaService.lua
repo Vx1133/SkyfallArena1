@@ -320,35 +320,6 @@ local function addTree(parent, name, position, scale, trunkColor, leafColor)
 	end
 end
 
-local function addPalm(parent, name, position, scale, trunkColor, leafColor)
-	local trunk = createPart(
-		parent,
-		name .. "_Trunk",
-		Vector3.new(1.5 * scale, 13 * scale, 1.5 * scale),
-		position + Vector3.new(0, 6.5 * scale, 0),
-		trunkColor,
-		Enum.Material.Wood,
-		false
-	)
-	trunk.Shape = Enum.PartType.Cylinder
-	trunk.CFrame = CFrame.new(trunk.Position) * CFrame.Angles(0, 0, math.rad(-6))
-	trunk.CanQuery = false
-
-	for index = 1, 6 do
-		local angle = (index - 1) * math.pi / 3
-		local leaf = createPart(
-			parent,
-			name .. "_Leaf_" .. tostring(index),
-			Vector3.new(2.2 * scale, 0.5 * scale, 9 * scale),
-			position + Vector3.new(math.cos(angle) * 4.2 * scale, 13 * scale, math.sin(angle) * 4.2 * scale),
-			leafColor,
-			Enum.Material.Grass,
-			false
-		)
-		leaf.CFrame = CFrame.new(leaf.Position) * CFrame.Angles(0, -angle, math.rad(10))
-		leaf.CanQuery = false
-	end
-end
 
 local function addBench(parent, name, position, woodColor, stoneColor)
 	local seat = createPart(
@@ -953,7 +924,6 @@ function ArenaService:_buildMapDecoration(theme)
 	local stone = theme.structure
 	local roof = theme.roof
 	local gold = theme.accent
-	local teal = theme.secondary
 
 	-- Floating stone foundation sits far below the destructible floor.
 	local foundation = createPart(
@@ -1108,7 +1078,7 @@ function ArenaService:Build()
 	self:SetMap(1)
 end
 
-function ArenaService:SetMap(mapId)
+function ArenaService:SetMap(_mapId)
 	local selected = MAPS[1]
 	self.currentMapId = selected.id
 	self.theme = selected

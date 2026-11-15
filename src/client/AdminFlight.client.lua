@@ -52,7 +52,7 @@ end
 local flyButton = makeButton(
 	"AdminFlightToggle",
 	"FLY",
-	UDim2.new(0, 10, 0, 54),
+	UDim2.fromOffset(10, 54),
 	UDim2.fromOffset(68, 36),
 	Color3.fromRGB(36, 93, 160)
 )

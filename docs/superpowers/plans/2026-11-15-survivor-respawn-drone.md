@@ -33,9 +33,9 @@
 - Test: `tests/cloud_smoke_tests.luau`
 - Modify: `tools/validate_project.py`
 
-- [ ] Make active `playerCount` equal the live runner count, which includes alive human runners and BotService's alive non-controller bots.
-- [ ] Make the HUD prefer `remainingPlayers` and then `aliveRunners` for the active display.
-- [ ] Add a cloud smoke test with two human runners and three living bots, then remove one of each and assert the count drops from 5 to 3.
+- [x] Make active `playerCount` equal the live runner count, which includes alive human runners and BotService's alive non-controller bots.
+- [x] Make the HUD prefer `remainingPlayers` and then `aliveRunners` for the active display.
+- [x] Add a cloud smoke test with two human runners and three living bots, then remove one of each and assert the count drops from 5 to 3.
 
 ### Task 2: Deterministic player respawn
 
@@ -44,11 +44,11 @@
 - Test: `tests/cloud_smoke_tests.luau`
 - Modify: `tools/validate_project.py`
 
-- [ ] Allow placement helpers to accept the exact Character model being processed.
-- [ ] Guard delayed CharacterAdded handling so an older character cannot overwrite a newer character's position.
-- [ ] On death, clear role/controller/runner state and replication focus without treating the dead body as the respawned character.
-- [ ] If Roblox does not supply a new living character after the configured respawn window, request one with a protected LoadCharacterAsync call.
-- [ ] Add a smoke check that explicit-character placement moves the supplied model, not another model held by Player.Character.
+- [x] Allow placement helpers to accept the exact Character model being processed.
+- [x] Guard delayed CharacterAdded handling so an older character cannot overwrite a newer character's position.
+- [x] On death, clear role/controller/runner state and replication focus without treating the dead body as the respawned character.
+- [x] If Roblox does not supply a new living character after the configured respawn window, request one with a protected LoadCharacterAsync call.
+- [x] Add a smoke check that explicit-character placement moves the supplied model, not another model held by Player.Character.
 
 ### Task 3: Thin foundation and fall handling
 
@@ -57,8 +57,8 @@
 - Modify: `tests/cloud_smoke_tests.luau`
 - Modify: `tools/validate_project.py`
 
-- [ ] Change ClassicArenaSupport to 2 studs thick and non-collidable/non-touchable/non-queryable.
-- [ ] Keep OUT_OF_BOUNDS_Y as the authoritative fall threshold and ensure a falling player is removed from the active roster before the next broadcast.
+- [x] Change ClassicArenaSupport to 2 studs thick and non-collidable/non-touchable/non-queryable.
+- [x] Keep OUT_OF_BOUNDS_Y as the authoritative fall threshold and ensure a falling player is removed from the active roster before the next broadcast.
 
 ### Task 4: Drone movement, aiming, and laser visuals
 
@@ -68,17 +68,24 @@
 - Modify: `tests/cloud_smoke_tests.luau`
 - Modify: `tools/validate_project.py`
 
-- [ ] Weld the drone shell to its anchored root and build a separate lens subassembly on a Motor6D.
-- [ ] Move LaserOrigin onto the lens pivot so the beam follows the aiming direction.
-- [ ] Add a subtle looping hover tween to the body.
-- [ ] Add token-guarded aim and return-home methods for human and bot strikes.
-- [ ] Add layered blue laser beams, impact particles, a short shock ring, and a contained light flash. Keep effect lifetime bounded with Debris.
-- [ ] Test gimbal existence, target aim, return-home behavior, beam origin, and visual effect creation.
+- [x] Weld the drone shell to its anchored root and build a separate lens subassembly on a Motor6D.
+- [x] Move LaserOrigin onto the lens pivot so the beam follows the aiming direction.
+- [x] Add a subtle looping hover tween to the body.
+- [x] Add token-guarded aim and return-home methods for human and bot strikes.
+- [x] Add layered blue laser beams, impact particles, a short shock ring, and a contained light flash. Keep effect lifetime bounded with Debris.
+- [x] Test gimbal existence, target aim, return-home behavior, beam origin, and visual effect creation.
 
 ### Task 5: Verification
 
-- [ ] Run the project structural validator.
-- [ ] Run Selene over source and tests.
-- [ ] Run Rojo build.
-- [ ] Review the final diff and PR checks.
+- [x] Run the project structural validator.
+- [x] Run Selene over source and tests.
+- [x] Run Rojo build.
+- [x] Review the final diff and PR checks.
 - [ ] Report that live Roblox Studio physics/play testing still requires the user's private test upload; do not run publishing automatically.
+
+
+## CI Result
+- Structural validator: passed.
+- Selene Luau lint: passed.
+- Rojo 7.7.1 build: passed. Artifact: `SkyfallArena-place.zip`.
+- Live Roblox character physics, respawn behavior, and visual inspection remain pending a private in-game test.

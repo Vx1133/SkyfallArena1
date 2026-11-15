@@ -162,7 +162,11 @@ require("AircraftMotionAnchor" in arena_source and "AircraftBodyJoint" in arena_
 require("AircraftUnifiedWeld" in arena_source, "All aircraft parts must be welded to the fuselage")
 require("ControllerLensGimbal" not in arena_source, "An independently moving lens gimbal must not remain")
 require("function ArenaService:AimAircraftAt(tile)" in arena_source, "Whole-aircraft aiming method is missing")
+require("local opticalUp = -direction" in arena_source, "Aircraft aiming must align the lens local -Y optical axis with the target")
+require("local right = opticalUp:Cross(back).Unit" in arena_source, "Aircraft aim basis must remain orthonormal for all cardinal directions")
 require("function ArenaService:ReturnAircraftLensHome(token)" in arena_source, "Whole-aircraft return-home method is missing")
+require('energyFlow.Texture = "rbxasset://textures/particles/sparkles_main.dds"' in arena_source, "Animated native laser texture is missing")
+require("energyFlow.TextureSpeed = -5.5" in arena_source, "Laser texture must move toward the target")
 require("TweenService:Create" in arena_source and "aircraftHoverTween" in arena_source, "Drone body hover animation is missing")
 require("ParticleEmitter" in arena_source and "LaserImpactAttachment" in arena_source, "Laser impact sparks are missing")
 require("LaserAtmosphereGlow" in arena_source, "Layered laser atmosphere glow is missing")
@@ -364,6 +368,8 @@ for feature in (
     "A fallen bot is removed before the round broadcasts its survivor count",
     "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",
+    "Four-cardinal lens aim tests",
+    "animated energy texture pass",
     "SKYFALL_CLOUD_TESTS_OK",
 ):
     require(feature in cloud_tests, f"Cloud smoke test is missing: {feature}")

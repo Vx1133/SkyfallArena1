@@ -10,6 +10,7 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ga
 local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
 local stateRemote = remotes:WaitForChild("RoundState")
 local targetRemote = remotes:WaitForChild("TargetTile")
+local playRemote = remotes:WaitForChild("PlayRequest")
 local tileFolder = Workspace:WaitForChild("SkyfallArena"):WaitForChild("Tiles")
 
 local state = {
@@ -32,10 +33,10 @@ screenGui.Parent = playerGui
 local panel = Instance.new("Frame")
 panel.Name = "RoundStatusBar"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 6)
+panel.Position = UDim2.new(0.5, 0, 0, 3)
 panel.Size = UDim2.new(0.96, 0, 0, Config.HUD_HEIGHT)
 panel.BackgroundColor3 = Color3.fromRGB(22, 35, 45)
-panel.BackgroundTransparency = 0.08
+panel.BackgroundTransparency = 0.46
 panel.BorderSizePixel = 0
 panel.Visible = false
 panel.Parent = screenGui
@@ -46,7 +47,7 @@ corner.Parent = panel
 
 local stroke = Instance.new("UIStroke")
 stroke.Color = Color3.fromRGB(218, 183, 113)
-stroke.Transparency = 0.42
+stroke.Transparency = 0.72
 stroke.Thickness = 1
 stroke.Parent = panel
 
@@ -61,7 +62,7 @@ gradient.Parent = panel
 
 local sizeConstraint = Instance.new("UISizeConstraint")
 sizeConstraint.MaxSize = Vector2.new(Config.HUD_MAX_WIDTH, Config.HUD_HEIGHT)
-sizeConstraint.MinSize = Vector2.new(260, Config.HUD_HEIGHT)
+sizeConstraint.MinSize = Vector2.new(240, Config.HUD_HEIGHT)
 sizeConstraint.Parent = panel
 
 local cellLabels = {}
@@ -82,7 +83,7 @@ for index, style in ipairs(cellStyles) do
 	label.Font = Enum.Font.GothamBold
 	label.Text = style.title .. "\n" .. style.value
 	label.TextColor3 = style.color
-	label.TextSize = 13
+	label.TextSize = 11
 	label.TextWrapped = true
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.TextXAlignment = Enum.TextXAlignment.Center
@@ -91,8 +92,8 @@ for index, style in ipairs(cellStyles) do
 	label.TextStrokeTransparency = 0.78
 	label.Parent = panel
 	local textConstraint = Instance.new("UITextSizeConstraint")
-	textConstraint.MinTextSize = 10
-	textConstraint.MaxTextSize = 13
+	textConstraint.MinTextSize = 9
+	textConstraint.MaxTextSize = 11
 	textConstraint.Parent = label
 	cellLabels[style.name] = label
 
@@ -101,13 +102,58 @@ for index, style in ipairs(cellStyles) do
 		divider.Name = "CellDivider_" .. tostring(index)
 		divider.AnchorPoint = Vector2.new(0.5, 0.5)
 		divider.Position = UDim2.fromScale(index * 0.25, 0.5)
-		divider.Size = UDim2.fromOffset(1, 30)
+		divider.Size = UDim2.fromOffset(1, 22)
 		divider.BackgroundColor3 = Color3.fromRGB(226, 214, 190)
 		divider.BackgroundTransparency = 0.76
 		divider.BorderSizePixel = 0
 		divider.Parent = panel
 	end
 end
+
+local playButton = Instance.new("TextButton")
+playButton.Name = "PlayButton"
+playButton.AnchorPoint = Vector2.new(0.5, 0)
+playButton.Position = UDim2.new(0.5, 0, 0, 53)
+playButton.Size = UDim2.fromOffset(154, 38)
+playButton.BackgroundColor3 = Color3.fromRGB(56, 150, 69)
+playButton.BackgroundTransparency = 0.18
+playButton.BorderSizePixel = 0
+playButton.Font = Enum.Font.GothamBold
+playButton.Text = "PLAY"
+playButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+playButton.TextSize = 15
+playButton.AutoButtonColor = true
+playButton.Visible = true
+playButton.Parent = screenGui
+
+local playCorner = Instance.new("UICorner")
+playCorner.CornerRadius = UDim.new(0, 10)
+playCorner.Parent = playButton
+
+local playStroke = Instance.new("UIStroke")
+playStroke.Color = Color3.fromRGB(224, 238, 208)
+playStroke.Transparency = 0.58
+playStroke.Thickness = 1
+playStroke.Parent = playButton
+
+local function updatePlayButton()
+	local waiting = state.phase == "Waiting"
+	playButton.Visible = waiting
+	if player:GetAttribute("SkyfallReady") == true then
+		playButton.Text = "READY"
+		playButton.BackgroundColor3 = Color3.fromRGB(53, 111, 161)
+	else
+		playButton.Text = "PLAY"
+		playButton.BackgroundColor3 = Color3.fromRGB(56, 150, 69)
+	end
+end
+
+playButton.Activated:Connect(function()
+	if state.phase == "Waiting" and player:GetAttribute("SkyfallReady") ~= true then
+		playButton.Text = "JOINING..."
+		playRemote:FireServer()
+	end
+end)
 
 local function formatTime(totalSeconds)
 	local seconds = math.max(0, math.floor(totalSeconds or 0))
@@ -123,6 +169,7 @@ end
 local function updateHud()
 	local active = state.phase == "Active"
 	panel.Visible = active
+	updatePlayButton()
 	if not active then
 		return
 	end
@@ -195,6 +242,7 @@ stateRemote.OnClientEvent:Connect(function(newState)
 end)
 
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
+player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
 
 local controllerCameraActive = false
 local previousFieldOfView = nil

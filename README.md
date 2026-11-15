@@ -1,55 +1,48 @@
 # Skyfall Arena
 
-Skyfall Arena is a round-based Roblox survival game. Three AI bots and human participants take part on one destructible arena while one participant controls a hovering golden laser sphere. The runner who survives the longest becomes the next round's controller.
+Skyfall Arena is a Roblox survival game built around a destructible 15 by 15 tile field, a golden downward-facing laser drone, and ten AI-controlled NPC participants.
 
-## Current game design
+## Current design
 
-- The existing Roblox experience and Start Place are retained. All releases target the same Start Place ID.
-- The source supports up to 30 human players, with three additional AI bots for testing. The active arena is one 15 by 15 grid of individually destructible floor tiles.
-- The only playable map is **Skyfall Sunspire**, a bright morning environment with pale stone, warm gold trim, soft teal details, garden trees, a floating foundation, and a custom six-face skybox.
-- The waiting garden is a separate area. Players and bots return there between rounds and after elimination. There is no bridge or shared floor between the lobby and the arena.
-- The controller drone is a detailed gold metal sphere with upper and lower armor plates, a double equatorial band, a red ruby targeting lens, fine reticle details, and a downward laser origin. No pilot platform or visible pilot avatar is placed beside the sphere.
-- The target tile flashes red. The strike is a blue outer Beam with a pale blue-white core, visibly connected from the underside of the gold sphere to the selected tile.
-- Each active round lasts at most 180 seconds. The HUD counts down from 03:00 and ends early when only one grounded runner remains.
-- On the first round with one human player, one bot controls the drone so the human can test the runner role. On later rounds, the previous round's longest-surviving runner becomes the next controller. At the 180-second limit, the highest recorded runner survival time decides the winner.
-- The compact mobile HUD appears only during an active round. Its four top-bar values are TIME, PLAYERS, LEFT, and OUT. It respects the device's top safe area.
-- The controller camera switches between a close angled landscape view and a near-overhead portrait view. Touch targeting uses a ray from the active camera, and the player's regular camera is restored when the controller role ends.
-- Human laser requests are validated by the server and limited to one successful strike every three seconds. A red warning appears before each strike. Destroyed tiles remain broken until the next round begins.
-- The three AI bots keep different movement speeds, reaction delays, caution levels, and path choices. They use Roblox PathfindingService, not an external AI service. Their floating nameplates are removed to reduce screen clutter.
+- The existing Roblox experience and Start Place are retained. Updates target Universe ID `7975091208` and Start Place ID `104752078056182`. The experience remains Private.
+- The only playable map is **Skyfall Classic Arena**. Its floor uses classic green Plastic tiles, zero designed gaps, and a regular raised-stud pattern.
+- The arena has a continuous island foundation below the out-of-bounds elimination line, classic block towers, a colorful gate, and block-built trees.
+- Players spawn in a separate Classic Roblox waiting lobby. Its 12 by 12 panels meet edge-to-edge, with a blue fountain, simple benches, block trees, colored pillars, and a waiting sign. There is no bridge to the active arena.
+- The environment restores neutral Roblox lighting values and removes the custom Sky, Atmosphere, Clouds, ColorCorrection, Bloom, and SunRays effects added by earlier versions. The default Roblox sky is not replaced.
+- The gold spherical drone keeps its armor plates, bands, bronze details, and red lens. The lens axis points vertically down toward the arena, and the laser still travels from the orb to a red-marked tile as a blue beam with a pale-blue core.
+- Ten bot NPCs are created using Roblox's built-in `HumanoidDescription` and `Players:CreateHumanoidModelFromDescriptionAsync` rig generator. No procedural hair, Creator Store model package, external character rig, or custom avatar asset import is used.
+- The ten bots cycle through three distinct survival behavior profiles, with different movement speed, reaction delay, jump power, caution, and path preferences. They use Roblox `PathfindingService`.
+- A player must explicitly press **PLAY** in the lobby. Joining the server by itself never starts an intermission or round. Players who do not press Play remain in the lobby.
+- The first solo round assigns a bot to control the drone so the human can learn as a runner. Later, the longest-surviving runner becomes the next controller.
+- Each active round lasts at most 180 seconds. A sole grounded survivor can end the round early. The next round resets the broken tiles.
+- The round HUD is a small translucent top bar inside the phone safe area. It displays TIME, PLAYERS, LEFT, and OUT during active rounds only. The lobby Play control is positioned near the top of the screen rather than over the movement joystick or jump button.
+- A separate **FLY** inspection control is shown only to the personal creator account of a user-owned experience. The server checks `game.CreatorType == Enum.CreatorType.User` and exact equality with `game.CreatorId`. Group-owned experiences do not automatically grant flight to group owners or members. Flight is speed-limited and forcibly disabled when the player requests Play, the round phase changes, or their character respawns.
 
-## Asset safety and environment
+## Asset and permission safety
 
-The arena, lobby, golden drone, laser, and bot fallback hair are generated from Luau Parts and Roblox Instances. No third-party map, vehicle, or character model package is imported, and no scripts are brought in from a Creator Store model.
+The arena, lobby, studs, towers, trees, drone, laser, HUD, and flight constraints are generated by the repository's own Luau scripts. No unreviewed Creator Store model packages or executable imported scripts are inserted.
 
-The sky uses six texture IDs documented in Roblox's official lighting tutorial. Those IDs are image textures only, not inserted models or executable packages. Roblox warns that Creator Store models can contain malicious backdoor scripts, so uninspected model imports are intentionally excluded from this update.
+Bot rigs use Roblox's supported HumanoidDescription system, rather than downloaded model assets. Roblox's official documentation explains how the built-in player service generates a character model from a HumanoidDescription. The server remains authoritative for bot creation, player readiness, laser targeting, and admin flight.
+
+If the experience is group-owned, owner-only flight stays disabled by design. Do not hard-code an assumed UserId. To allow inspection flight for a group-owned experience, the personal UserId must be explicitly provided and reviewed first.
 
 ## Development and release workflow
 
 - Luau source files in this repository are the source of truth.
 - Rojo 7.7.1 maps the source into a Roblox place file.
 - Rokit pins the build tools.
-- Feature branches and pull requests keep each update isolated. Pull requests run structure validation, Selene lint, and a Rojo build.
-- After review and merge, the separate manual upload workflow can publish to the same existing Start Place. It does not create another Roblox experience or change the Audience setting.
+- Feature branches and pull requests keep each update isolated. Pull requests run project structure validation, Selene Luau lint, and a Rojo build.
+- This update does not publish automatically. After review and merge, the separate manual upload workflow may publish to the same existing Start Place. It does not create another Roblox experience, change the Audience setting, or make the game public.
 - Previous Roblox place versions remain available in version history.
 
-No Roblox Studio installation on the phone is required for source changes or cloud builds.
+## Validation limits
 
-## Important place setting
+CI can check source structure, Luau syntax/lint, and whether Rojo can build the place file. Cloud smoke tests cover the 15 by 15 grid, zero tile gap, connected waiting lobby, neutral lighting settings, downward drone lens, ten NPC rigs, readiness/Play flow, round timer, longest-survivor selection, and creator-only flight authorization.
 
-The source code and arena layout support 30 human players. Roblox's actual maximum-player setting is a place configuration, not a Luau runtime setting. It must be set to 30 in the existing place's Creator Dashboard settings before a 30-human-player test. This update does not create a new place or change the experience's privacy.
-
-## Validation
-
-The validation workflow runs repository structure checks, Selene lint, and a Rojo build. A successful run uploads an artifact named `SkyfallArena-place` containing `SkyfallArena.rbxlx`. This is a build artifact, not a Roblox publish.
-
-The cloud smoke tests validate the 15 by 15 grid, one-map design, six-face skybox, separated lobby, golden sphere, blue laser, red target warning, broken-tile persistence, 180-second countdown, and server-side laser cooldown. These are headless checks. They do not simulate Roblox rendering, actual physics, player movement, or real touch input.
+These checks cannot replace a private in-game playtest. Camera framing, visual quality, collision behavior, mobile touch movement, ten-NPC navigation load, and admin flight physics still need a real Roblox server test on a phone.
 
 ## Publishing
 
-The separate manual workflow `Upload Skyfall Arena private test` requires the exact confirmation `UPLOAD_PRIVATE_TEST`. It targets Universe ID `7975091208` and Start Place ID `104752078056182`. Keep the experience private. Roblox publishing and cloud test credentials are stored only as GitHub Actions secrets.
+The separate manual workflow `Upload Skyfall Arena private test` requires the exact confirmation `UPLOAD_PRIVATE_TEST`. It targets the existing Universe ID `7975091208` and Start Place ID `104752078056182`. Keep the experience private. Publishing and cloud test credentials are stored only as GitHub Actions secrets.
 
-For cloud execution tests, add the separate repository secret `ROBLOX_LUAU_TEST_API_KEY` using a Roblox API key restricted to this universe and the Luau Execution Read and Write permissions. Keep `ROBLOX_API_KEY` for the existing Assets upload only.
-
-## What still needs an in-game playtest
-
-A private in-game test is still required to confirm camera framing on real phone aspect ratios, blue laser rendering and targeting precision, tile collision and falling, NPC navigation across the full floor, spawn spacing at 25 to 30 players, cloud rendering, and overall mobile performance. GitHub validation and cloud smoke tests cannot prove those visual and physics behaviors.
+The cloud Luau execution test uses the separate `ROBLOX_LUAU_TEST_API_KEY` secret when configured. The existing `ROBLOX_API_KEY` remains reserved for the place upload flow.

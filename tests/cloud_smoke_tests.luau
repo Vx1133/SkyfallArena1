@@ -27,7 +27,6 @@ end
 local ArenaService = requireService("ArenaService")
 local RoundService = requireService("RoundService")
 local StrikeService = requireService("StrikeService")
-local BotService = requireService("BotService")
 local AdminFlightService = requireService("AdminFlightService")
 
 local passed = 0
@@ -228,6 +227,8 @@ runTest("The round state counts down from 180 seconds and reports runner elimina
 	local capturedState = nil
 	local harness = setmetatable({
 		phase = "Active",
+		roundHumanCount = #Players:GetPlayers(),
+		readyPlayers = {},
 		elapsedSeconds = 75,
 		countdownSeconds = 0,
 		roundRunnerCount = 4,
@@ -236,7 +237,7 @@ runTest("The round state counts down from 180 seconds and reports runner elimina
 		winner = "",
 		roundNumber = 1,
 		botService = {
-			GetBotCount = function() return 3 end,
+			GetBotCount = function() return Config.BOT_COUNT end,
 			GetAliveCount = function() return 0 end,
 		},
 		arena = {
@@ -253,7 +254,7 @@ runTest("The round state counts down from 180 seconds and reports runner elimina
 	assert(capturedState ~= nil, "Round state should be broadcast")
 	assert(capturedState.remainingSeconds == 105, "Remaining time should count down from three minutes")
 	assert(capturedState.eliminatedPlayers == 4, "Eliminated runner count should be reported")
-	assert(capturedState.playerCount == #game:GetService("Players"):GetPlayers() + 3, "Total player count should include all three bots")
+	assert(capturedState.playerCount == #game:GetService("Players"):GetPlayers() + Config.BOT_COUNT, "Total player count should include all ten bots")
 end)
 
 runTest("Controller drone and arena remain free of neon materials", function()
@@ -311,6 +312,8 @@ runTest("Controller selection accepts a first controller and prioritizes the pre
 		botService = testBotService,
 		random = Random.new(12345),
 		nextController = nil,
+		roundNumber = 2,
+		readyPlayers = {},
 		aliveRunners = {},
 	}, RoundService)
 

@@ -133,6 +133,17 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	end
 end)
 
+runTest("Ten native Roblox bot rigs are created for solo testing", function()
+	local botFolder = Workspace:FindFirstChild("SkyfallBots")
+	assert(botFolder ~= nil, "The bot folder should be created at server startup")
+	assert(#botFolder:GetChildren() == Config.BOT_COUNT, "Exactly ten bot rigs should exist")
+	for _, botModel in ipairs(botFolder:GetChildren()) do
+		assert(botModel:IsA("Model"), "Every bot entry should be a Model")
+		assert(botModel:FindFirstChildOfClass("Humanoid") ~= nil, "Every bot rig should contain a Humanoid")
+		assert(botModel:FindFirstChild("HumanoidRootPart") ~= nil, "Every bot rig should contain a root part")
+	end
+end)
+
 runTest("The Classic arena uses neutral lighting and connected stud geometry", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 	assert(Config.MAP_COUNT == 1, "Map rotation must be disabled")

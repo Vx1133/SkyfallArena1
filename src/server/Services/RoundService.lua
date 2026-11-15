@@ -428,6 +428,10 @@ function RoundService:IsActive()
 	return self.phase == "Active"
 end
 
+function RoundService:IsWaiting()
+	return self.phase == "Waiting"
+end
+
 function RoundService:_broadcast()
 	local botCount = self.botService and self.botService:GetBotCount() or 0
 	local allHumanCount = #Players:GetPlayers()

@@ -490,8 +490,6 @@ function ArenaService:AimAircraftAt(tile)
 		local direction = targetPosition - body.Position
 		if direction.Magnitude > 0.01 then
 			direction = direction.Unit
-			-- The lens optical axis is local +X (the right vector of lensFrameAt).
-			-- Aim that same axis toward the selected tile so the body and emitter agree.
 			-- The optical axis is local -Y: lensFrameAt() uses lensNormal as its local X axis,
 			-- and the laser attachment is placed along the same downward local axis.
 			-- CFrame.fromMatrix() receives the body's local X, Y and Z axes in world space.

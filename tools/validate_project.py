@@ -37,6 +37,8 @@ required_files = [
     "src/client/HUD.client.lua",
     "tests/cloud_smoke_tests.luau",
     "docs/CLOUD_PUBLISHING.md",
+    "src/server/Services/AdminFlightService.lua",
+    "src/client/AdminFlight.client.lua",
 ]
 for relative_path in required_files:
     path = ROOT / relative_path
@@ -46,7 +48,10 @@ for relative_path in required_files:
 config_source = (ROOT / "src/shared/GameConfig.lua").read_text(encoding="utf-8")
 for setting in (
     "Config.MIN_PLAYERS = 1",
-    "Config.BOT_COUNT = 3",
+    "Config.BOT_COUNT = 10",
+    "Config.TILE_GAP = 0",
+    "Config.HUD_MAX_WIDTH = 440",
+    "Config.HUD_HEIGHT = 42",
     "Config.GRID_SIZE = 15",
     "Config.MAX_PLAYER_CAPACITY = 30",
     "Config.MAP_COUNT = 1",
@@ -65,7 +70,7 @@ require("TILE_REPAIR_SECONDS" not in config_source, "Broken floor tiles must not
 require("OVERTIME_" not in config_source, "The three-minute round must not use overtime modifiers")
 
 arena_source = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
-for map_name in ("SKYFALL SUNSPIRE",):
+for map_name in ("SKYFALL CLASSIC ARENA",):
     require(map_name in arena_source, f"Map design is missing: {map_name}")
 for feature in (
     "function ArenaService:_buildLobby(",
@@ -77,10 +82,12 @@ for feature in (
     "SkyfallLaserAircraft",
     "ControllerLens",
     "LobbyWater",
+    "ClassicArenaSupport",
+    "ClassicArenaGate",
     "SquareStud_",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
-require(arena_source.count("tileMaterial = Enum.Material.SmoothPlastic") == 1, "The single destructible floor must use a clean studded plastic material")
+require(arena_source.count("tileMaterial = Enum.Material.Plastic") == 1, "The Classic floor must use Plastic")
 for feature in (
     '"ArmorPlate_" .. group.name .. "_"',
     'name = "Upper"',
@@ -104,18 +111,29 @@ for forbidden in (
     "AZURE HARBOR FORTRESS",
 ):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
-for sky_face in (
-    'sky.SkyboxBk = "rbxassetid://162001887"',
-    'sky.SkyboxDn = "rbxassetid://161998893"',
-    'sky.SkyboxFt = "rbxassetid://162001897"',
-    'sky.SkyboxLf = "rbxassetid://162001904"',
-    'sky.SkyboxRt = "rbxassetid://162001919"',
-    'sky.SkyboxUp = "rbxassetid://162001926"',
+for forbidden_lighting in (
+    'Instance.new("Sky")',
+    'Instance.new("Atmosphere")',
+    'Instance.new("BloomEffect")',
+    'Instance.new("ColorCorrectionEffect")',
+    'Instance.new("SunRaysEffect")',
+    'Instance.new("Clouds")',
 ):
-    require(sky_face in arena_source, f"Custom six-face skybox setting is missing: {sky_face}")
+    require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
+for neutral_setting in (
+    "Lighting.Brightness = 2",
+    "Lighting.ClockTime = 14",
+    "Lighting.Ambient = Color3.fromRGB(0, 0, 0)",
+    "Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)",
+    "Lighting.ExposureCompensation = 0",
+    "Lighting.EnvironmentDiffuseScale = 0",
+    "Lighting.EnvironmentSpecularScale = 0",
+):
+    require(neutral_setting in arena_source, f"Neutral lighting setting is missing: {neutral_setting}")
 require('outerBeam.Name = "BlueLaserOuter"' in arena_source, "The drone blue beam is missing")
 require('innerBeam.Name = "BlueLaserCore"' in arena_source, "The drone blue-white core beam is missing")
 require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
+require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Sunspire map decoration builder is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
@@ -133,6 +151,10 @@ for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "Ma
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
 for feature in (
     "function RoundService:_chooseController(",
+    "function RoundService:RequestPlay(",
+    "function RoundService:_readyPlayerCount(",
+    "self.playRemote.OnServerEvent",
+    "function RoundService:_getReadyPlayers(",
     "function RoundService:_chooseNextMapId(",
     "function RoundService:_getSoleSurvivor(",
     "function RoundService:_getLongestSurvivor(",
@@ -150,6 +172,19 @@ for feature in (
     "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",
 ):
     require(feature in round_source, f"Round feature is missing: {feature}")
+
+admin_source = (ROOT / "src/server/Services/AdminFlightService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function AdminFlightService.IsAuthorizedUserId(",
+    "Enum.CreatorType.User",
+    "player.UserId == self.creatorId",
+    "LinearVelocity",
+    "AlignOrientation",
+    "Config.ADMIN_FLIGHT_SPEED",
+):
+    require(feature in admin_source, f"Admin flight feature is missing: {feature}")
+for forbidden in ("MarketplaceService", "InsertService"):
+    require(forbidden not in admin_source, f"Admin flight must not import external assets: {forbidden}")
 
 laser_source = (ROOT / "src/server/Services/StrikeService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -199,8 +234,10 @@ require("ROBLOX_LUAU_TEST_API_KEY" in upload_workflow, "Cloud smoke tests must u
 
 cloud_tests = (ROOT / "tests/cloud_smoke_tests.luau").read_text(encoding="utf-8")
 for feature in (
-    "Arena builds one 15x15 destructible Sunspire map",
-    "The single Sunspire map uses daytime lighting",
+    "Arena builds one 15x15 destructible Classic arena",
+    "The Classic arena uses neutral lighting and connected stud geometry",
+    "Players remain in the lobby until they request Play",
+    "Creator flight authorization only grants the personal experience owner",
     "Broken tiles remain broken",
     "The one map restores the floor only when a new round loads",
     "The next-round map remains the one fixed Sunspire arena",

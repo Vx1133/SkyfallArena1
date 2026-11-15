@@ -49,7 +49,8 @@ for setting in (
     "Config.BOT_COUNT = 3",
     "Config.GRID_SIZE = 15",
     "Config.MAX_PLAYER_CAPACITY = 30",
-    "Config.MAP_COUNT = 5",
+    "Config.MAP_COUNT = 1",
+    "Config.ROUND_SECONDS = 180",
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
     "Config.CONTROLLER_CAMERA_HEIGHT = 145",
     "Config.CONTROLLER_CAMERA_BACK = 8",
@@ -64,13 +65,7 @@ for setting in (
 require("TILE_REPAIR_SECONDS" not in config_source, "Broken floor tiles must not have a repair timer")
 
 arena_source = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
-for map_name in (
-    "SUNCREST CASTLE",
-    "CLOUDSPIRE KINGDOM",
-    "GOLDEN DUNES TEMPLE",
-    "EMERALD GROVE SANCTUARY",
-    "AZURE HARBOR FORTRESS",
-):
+for map_name in ("SKYFALL SUNSPIRE",):
     require(map_name in arena_source, f"Map design is missing: {map_name}")
 for feature in (
     "function ArenaService:_buildLobby(",
@@ -94,8 +89,34 @@ for feature in (
     'addLensReticleRing("LensReticleRing_Inner"',
 ):
     require(feature in arena_source, f"Golden sphere detail is missing: {feature}")
-for forbidden in ("Enum.Material.Neon", "addNeonBar", "NexusRingSegment", "ReactorRing"):
+for forbidden in (
+    "Enum.Material.Neon",
+    "addNeonBar",
+    "NexusRingSegment",
+    "ReactorRing",
+    "LobbyToArenaWalkway",
+    "PilotPlatform",
+    "PilotRail",
+    "PilotStationSign",
+    "CLOUDSPIRE KINGDOM",
+    "GOLDEN DUNES TEMPLE",
+    "EMERALD GROVE SANCTUARY",
+    "AZURE HARBOR FORTRESS",
+):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
+for sky_face in (
+    'sky.SkyboxBk = "rbxassetid://162001887"',
+    'sky.SkyboxDn = "rbxassetid://161998893"',
+    'sky.SkyboxFt = "rbxassetid://162001897"',
+    'sky.SkyboxLf = "rbxassetid://162001904"',
+    'sky.SkyboxRt = "rbxassetid://162001919"',
+    'sky.SkyboxUp = "rbxassetid://162001926"',
+):
+    require(sky_face in arena_source, f"Custom six-face skybox setting is missing: {sky_face}")
+require('outerBeam.Name = "BlueLaserOuter"' in arena_source, "The drone blue beam is missing")
+require('innerBeam.Name = "BlueLaserCore"' in arena_source, "The drone blue-white core beam is missing")
+require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
+require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Sunspire map decoration builder is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
 require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")
@@ -106,12 +127,18 @@ for feature in (
     "function RoundService:_chooseController(",
     "function RoundService:_chooseNextMapId(",
     "function RoundService:_getSoleSurvivor(",
+    "function RoundService:_getLongestSurvivor(",
+    "function RoundService:_recordSurvival(",
     "function RoundService:_isGrounded(",
     "function RoundService:IsHumanController(",
     "function RoundService:IsBotController(",
+    "function RoundService:_setPlayerControllerHidden(",
+    "self.roundNumber == 1 and #Players:GetPlayers() == 1",
     "self.nextController = self.winnerCandidate",
     "self:_moveEliminatedPlayerToLobby(player)",
-    "remainingPlayers = self:_aliveRunnerCount()",
+    "remainingPlayers = remainingPlayers",
+    "remainingSeconds = remainingSeconds",
+    "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",
 ):
     require(feature in round_source, f"Round feature is missing: {feature}")
 
@@ -129,6 +156,11 @@ hud_source = (ROOT / "src/client/HUD.client.lua").read_text(encoding="utf-8")
 for feature in (
     "TimeLabel",
     "PlayersLabel",
+    "RemainingLabel",
+    "EliminatedLabel",
+    "OUT\\n",
+    "state.remainingSeconds",
+    "panel.Visible = active",
     "Config.CONTROLLER_CAMERA_HEIGHT",
     "Config.CONTROLLER_CAMERA_FOV",
     "camera.ViewportSize.X < camera.ViewportSize.Y",
@@ -158,11 +190,11 @@ require("ROBLOX_LUAU_TEST_API_KEY" in upload_workflow, "Cloud smoke tests must u
 
 cloud_tests = (ROOT / "tests/cloud_smoke_tests.luau").read_text(encoding="utf-8")
 for feature in (
-    "Arena builds a 15x15 destructible grid",
-    "All five maps are daytime",
+    "Arena builds one 15x15 destructible Sunspire map",
+    "The single Sunspire map uses daytime lighting",
     "Broken tiles remain broken",
-    "Every new map restores the floor",
-    "Random map selection never repeats the previous map",
+    "The one map restores the floor only when a new round loads",
+    "The next-round map remains the one fixed Sunspire arena",
     "three-second cooldown",
     "SKYFALL_CLOUD_TESTS_OK",
 ):

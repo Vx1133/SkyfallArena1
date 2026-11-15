@@ -430,7 +430,9 @@ end
 
 function RoundService:_broadcast()
 	local botCount = self.botService and self.botService:GetBotCount() or 0
-	local totalPlayers = #Players:GetPlayers() + botCount
+	local allHumanCount = #Players:GetPlayers()
+	local activeHumanCount = self.phase == "Active" and self.roundHumanCount or self:_readyPlayerCount()
+	local totalPlayers = activeHumanCount + botCount
 	local remainingPlayers = self:_aliveRunnerCount()
 	local remainingSeconds = self.phase == "Active"
 		and math.max(0, Config.ROUND_SECONDS - self.elapsedSeconds)
@@ -443,8 +445,9 @@ function RoundService:_broadcast()
 		countdownSeconds = self.countdownSeconds,
 		aliveRunners = remainingPlayers,
 		remainingPlayers = remainingPlayers,
-		playerCount = totalPlayers,
+		playerCount = self.phase == "Active" and totalPlayers or allHumanCount + botCount,
 		botCount = botCount,
+		readyCount = self:_readyPlayerCount(),
 		eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers),
 		winner = self.winner,
 		controllerName = self:_candidateName(self.controller),
@@ -673,7 +676,7 @@ function RoundService:_placeAllPlayersInLobby()
 end
 
 function RoundService:_runRound()
-	local playersInRound = Players:GetPlayers()
+	local playersInRound = self:_getReadyPlayers()
 	if #playersInRound < Config.MIN_PLAYERS then
 		return
 	end
@@ -700,6 +703,7 @@ function RoundService:_runRound()
 	local controllerPlayer = self.controller.kind == "Player" and self.controller.value or nil
 	local controllerBot = self.controller.kind == "Bot" and self.controller.value or nil
 	local botList = self.botService:GetBots()
+	self.roundHumanCount = #playersInRound
 	local totalContestants = #playersInRound + #botList
 	local runnerCount = math.max(0, totalContestants - 1)
 	self.roundRunnerCount = runnerCount
@@ -823,6 +827,7 @@ function RoundService:_runRound()
 	self.roundRunnerCount = 0
 	self.controller = nil
 	self:_placeAllPlayersInLobby()
+	self:_clearReadyPlayers()
 	self:_broadcast()
 end
 
@@ -833,7 +838,7 @@ function RoundService:_runLoop()
 		self.countdownSeconds = 0
 		self:_broadcast()
 
-		while self.running and #Players:GetPlayers() < Config.MIN_PLAYERS do
+		while self.running and self:_readyPlayerCount() == 0 do
 			self:_broadcast()
 			task.wait(1)
 		end
@@ -845,7 +850,7 @@ function RoundService:_runLoop()
 		self.phase = "Intermission"
 		local canceled = false
 		for seconds = Config.INTERMISSION_SECONDS, 1, -1 do
-			if #Players:GetPlayers() < Config.MIN_PLAYERS then
+			if self:_readyPlayerCount() == 0 then
 				canceled = true
 				break
 			end
@@ -855,8 +860,12 @@ function RoundService:_runLoop()
 			task.wait(1)
 		end
 
-		if not canceled and #Players:GetPlayers() >= Config.MIN_PLAYERS then
+		if not canceled and self:_readyPlayerCount() >= Config.MIN_PLAYERS then
 			self:_runRound()
+		else
+			self.phase = "Waiting"
+			self.countdownSeconds = 0
+			self:_broadcast()
 		end
 
 		task.wait(0.5)

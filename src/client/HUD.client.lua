@@ -172,7 +172,11 @@ local function updateHud()
 		return
 	end
 
-	local totalPlayers = typeof(state.playerCount) == "number"
+	local totalPlayers = typeof(state.remainingPlayers) == "number"
+		and state.remainingPlayers
+		or typeof(state.aliveRunners) == "number"
+		and state.aliveRunners
+		or typeof(state.playerCount) == "number"
 		and state.playerCount
 		or #Players:GetPlayers()
 	local remainingSeconds = typeof(state.remainingSeconds) == "number"

@@ -107,18 +107,34 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(not lensLight or lensLight.Range <= 5, "Red lens light must remain tightly contained")
 	assert(arena.mapFolder:FindFirstChild("ClassicArenaNameSign") == nil, "Old floating arena sign should not remain")
 	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "The waiting garden must stay separate from the arena")
-	local lensGimbal = arena.aircraftModel:FindFirstChild("ControllerLensGimbal", true)
-	assert(lensGimbal and lensGimbal:IsA("Motor6D"), "Golden drone lens must have a motorized aiming joint")
+	local aircraftAnchor = arena.aircraftModel:FindFirstChild("AircraftMotionAnchor")
+	local fuselage = arena.aircraftModel:FindFirstChild("AircraftFuselage")
+	assert(aircraftAnchor and fuselage, "Unified aircraft root and fuselage are required")
+	local bodyJoint = aircraftAnchor:FindFirstChild("AircraftBodyJoint")
+	assert(bodyJoint and bodyJoint:IsA("Motor6D"), "The complete aircraft must use one body motion joint")
+	assert(bodyJoint.Part0 == aircraftAnchor and bodyJoint.Part1 == fuselage, "The motion joint must connect the hidden anchor to the fuselage")
+	assert(fuselage.Material == Enum.Material.Metal, "The golden fuselage must use Roblox's PBR Metal material")
+	assert(fuselage.Reflectance >= 0.08, "The golden fuselage needs a controlled metallic reflection")
+	local lens = arena.aircraftModel:FindFirstChild("ControllerLens")
+	local lensWeld = nil
+	for _, joint in ipairs(fuselage:GetChildren()) do
+		if joint:IsA("WeldConstraint") and joint.Part1 == lens then
+			lensWeld = joint
+			break
+		end
+	end
+	assert(lensWeld and lens.Anchored == false, "The red lens must be rigidly welded to the fuselage")
 	local laserOrigin = arena.aircraftModel:FindFirstChild("LaserOrigin", true)
-	assert(laserOrigin and laserOrigin.Parent == lensGimbal.Part1, "Laser origin must move with the aiming lens")
-	local homeLensC0 = lensGimbal.C0
+	assert(laserOrigin and laserOrigin.Parent == fuselage, "Laser origin must be attached directly to the unified fuselage")
+	assert(arena.aircraftModel:FindFirstChild("ControllerLensGimbal", true) == nil, "An independently moving lens gimbal must not remain")
+	local homeBodyC0 = bodyJoint.C0
 	local aimToken = arena:AimAircraftAt(arena:GetTile(5, 8))
-	assert(typeof(aimToken) == "number", "A valid target must start a tokenized lens aim")
+	assert(typeof(aimToken) == "number", "A valid target must start a tokenized aircraft aim")
 	task.wait(0.55)
-	assert(lensGimbal.C0.RightVector:Dot(homeLensC0.RightVector) < 0.999, "Lens should visibly rotate toward an off-center target")
+	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) < 0.999, "The whole aircraft body should rotate toward an off-center target")
 	arena:ReturnAircraftLensHome(aimToken)
 	task.wait(0.55)
-	assert(lensGimbal.C0.RightVector:Dot(homeLensC0.RightVector) > 0.999, "Lens should return to its home orientation")
+	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) > 0.999, "The complete aircraft should return to its home orientation")
 	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "Custom skybox must be removed")
 	assert(Lighting:FindFirstChild("SkyfallAtmosphere") == nil, "Custom Atmosphere must be removed")
@@ -137,19 +153,27 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Lighting.Ambient == Color3.fromRGB(0, 0, 0), "Ambient light should be neutral")
 	assert(Lighting.OutdoorAmbient == Color3.fromRGB(127, 127, 127), "Outdoor ambient should be neutral")
 	assert(Lighting.ExposureCompensation == 0, "Exposure compensation should be neutral")
-	assert(Lighting.EnvironmentDiffuseScale == 0 and Lighting.EnvironmentSpecularScale == 0, "Environment reflection boost must be disabled")
+	assert(Lighting.EnvironmentDiffuseScale == 1 and Lighting.EnvironmentSpecularScale == 1, "PBR reflection and diffuse environment scales must be enabled")
 	assert(arena.mapDecorBuilt == true, "The single map decoration should be built once")
 	local separation = (Config.ARENA_CENTER - Config.LOBBY_CENTER).Magnitude
 	assert(separation > Config.ARENA_HALF_WIDTH + Config.LOBBY_SIZE / 2 + 10, "Lobby must be physically separated from the arena")
 
 	arena:CreateStrikeBeam(centerTile)
-	local blueOuter = arena.root:FindFirstChild("BlueLaserOuter")
-	local blueCore = arena.root:FindFirstChild("BlueLaserCore")
-	assert(blueOuter and blueOuter:IsA("Beam"), "The drone must create an outer blue Beam")
-	assert(blueCore and blueCore:IsA("Beam"), "The drone must create a blue-white core Beam")
-	assert(blueOuter.Attachment0 == arena.laserOrigin, "The visible laser must originate from the golden sphere")
-	local impact = arena.root:FindFirstChild("BlueLaserImpact")
-	assert(impact and impact:FindFirstChild("LaserImpactSound"), "A light spatial laser sound should play on impact")
+	local atmosphereGlow = arena.root:FindFirstChild("LaserAtmosphereGlow")
+	local energyShell = arena.root:FindFirstChild("LaserEnergyShell")
+	local hotCore = arena.root:FindFirstChild("LaserHotCore")
+	local filament = arena.root:FindFirstChild("LaserFilament")
+	assert(atmosphereGlow and atmosphereGlow:IsA("Beam"), "The soft laser atmosphere pass is missing")
+	assert(energyShell and energyShell:IsA("Beam"), "The main laser energy shell is missing")
+	assert(hotCore and hotCore:IsA("Beam"), "The bright laser core is missing")
+	assert(filament and filament:IsA("Beam"), "The fine laser filament is missing")
+	assert(energyShell.Attachment0 == arena.laserOrigin, "The laser must originate from the golden fuselage")
+	local impact = centerTile:FindFirstChild("LaserImpactAttachment")
+	assert(impact and impact:FindFirstChild("LaserImpactParticles"), "The hit should use a short spark burst, not a solid impact disc")
+	assert(impact:FindFirstChild("LaserImpactFlash"), "The hit should include a brief local light pulse")
+	assert(centerTile:FindFirstChild("LaserImpactSound"), "A spatial laser impact sound should play")
+	assert(arena.root:FindFirstChild("BlueLaserImpact") == nil, "Legacy blue impact discs must not be created")
+	assert(arena.root:FindFirstChild("ImpactShockwave") == nil, "Legacy blue shockwave rings must not be created")
 
 	for index = 1, Config.MAX_PLAYER_CAPACITY do
 		local runnerPosition = arena:GetRunnerSpawnCFrame(index, Config.MAX_PLAYER_CAPACITY).Position

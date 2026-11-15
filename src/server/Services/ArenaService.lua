@@ -862,7 +862,12 @@ function ArenaService:GetLobbySpawnCFrame(index, total, isBot)
 		5,
 		math.sin(angle) * radius
 	)
-	return CFrame.lookAt(position, Config.ARENA_CENTER)
+	local horizontalViewTarget = Vector3.new(
+		Config.ARENA_CENTER.X,
+		position.Y,
+		Config.ARENA_CENTER.Z
+	)
+	return CFrame.lookAt(position, horizontalViewTarget)
 end
 
 function ArenaService:GetRunnerSpawnCFrame(index, total)

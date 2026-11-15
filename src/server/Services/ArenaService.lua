@@ -785,21 +785,39 @@ function ArenaService:CreateStrikeBeam(tile)
 	target.Position = Vector3.new(0, 0.65, 0)
 	target.Parent = tile
 
+	local haloBeam = Instance.new("Beam")
+	haloBeam.Name = "BlueLaserHalo"
+	haloBeam.Attachment0 = self.laserOrigin
+	haloBeam.Attachment1 = target
+	haloBeam.FaceCamera = true
+	haloBeam.Width0 = 5.2
+	haloBeam.Width1 = 3.6
+	haloBeam.Segments = 12
+	haloBeam.LightEmission = 0.75
+	haloBeam.LightInfluence = 0
+	haloBeam.Color = ColorSequence.new(
+		Color3.fromRGB(28, 89, 255),
+		Color3.fromRGB(70, 189, 255)
+	)
+	haloBeam.Transparency = NumberSequence.new(0.68)
+	haloBeam.Parent = self.root
+
 	local outerBeam = Instance.new("Beam")
 	outerBeam.Name = "BlueLaserOuter"
 	outerBeam.Attachment0 = self.laserOrigin
 	outerBeam.Attachment1 = target
 	outerBeam.FaceCamera = true
-	outerBeam.Width0 = 3.2
-	outerBeam.Width1 = 2.4
-	outerBeam.Segments = 1
-	outerBeam.LightEmission = 0.9
+	outerBeam.Width0 = 2.55
+	outerBeam.Width1 = 1.85
+	outerBeam.Segments = 12
+	outerBeam.LightEmission = 0.95
 	outerBeam.LightInfluence = 0
-	outerBeam.Color = ColorSequence.new(
-		Color3.fromRGB(44, 117, 255),
-		Color3.fromRGB(54, 195, 255)
-	)
-	outerBeam.Transparency = NumberSequence.new(0.24)
+	outerBeam.Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(36, 108, 255)),
+		ColorSequenceKeypoint.new(0.55, Color3.fromRGB(55, 183, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(108, 224, 255)),
+	})
+	outerBeam.Transparency = NumberSequence.new(0.22)
 	outerBeam.Parent = self.root
 
 	local innerBeam = Instance.new("Beam")
@@ -807,32 +825,92 @@ function ArenaService:CreateStrikeBeam(tile)
 	innerBeam.Attachment0 = self.laserOrigin
 	innerBeam.Attachment1 = target
 	innerBeam.FaceCamera = true
-	innerBeam.Width0 = 0.95
-	innerBeam.Width1 = 0.72
-	innerBeam.Segments = 1
+	innerBeam.Width0 = 0.72
+	innerBeam.Width1 = 0.48
+	innerBeam.Segments = 12
 	innerBeam.LightEmission = 1
 	innerBeam.LightInfluence = 0
 	innerBeam.Color = ColorSequence.new(
-		Color3.fromRGB(198, 239, 255),
+		Color3.fromRGB(205, 243, 255),
 		Color3.fromRGB(255, 255, 255)
 	)
-	innerBeam.Transparency = NumberSequence.new(0.08)
+	innerBeam.Transparency = NumberSequence.new(0.05)
 	innerBeam.Parent = self.root
 
 	local impact = createPart(
 		self.root,
 		"BlueLaserImpact",
-		Vector3.new(0.22, 6.2, 6.2),
+		Vector3.new(0.22, 7, 7),
 		tile.Position + Vector3.new(0, 0.78, 0),
-		Color3.fromRGB(77, 190, 255),
+		Color3.fromRGB(91, 204, 255),
 		Enum.Material.Glass,
 		false
 	)
 	impact.Shape = Enum.PartType.Cylinder
 	impact.CFrame = CFrame.new(impact.Position) * CFrame.Angles(0, 0, math.rad(90))
-	impact.Transparency = 0.28
+	impact.Transparency = 0.18
 	impact.CanTouch = false
 	impact.CanQuery = false
+
+	local impactLight = Instance.new("PointLight")
+	impactLight.Color = Color3.fromRGB(80, 195, 255)
+	impactLight.Brightness = 2.4
+	impactLight.Range = 18
+	impactLight.Shadows = false
+	impactLight.Parent = impact
+	TweenService:Create(
+		impactLight,
+		TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{Brightness = 0}
+	):Play()
+
+	local impactParticles = Instance.new("ParticleEmitter")
+	impactParticles.Name = "LaserImpactParticles"
+	impactParticles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	impactParticles.Rate = 0
+	impactParticles.Lifetime = NumberRange.new(0.18, 0.46)
+	impactParticles.Speed = NumberRange.new(15, 25)
+	impactParticles.Drag = 5
+	impactParticles.SpreadAngle = Vector2.new(180, 180)
+	impactParticles.Rotation = NumberRange.new(0, 360)
+	impactParticles.RotSpeed = NumberRange.new(-150, 150)
+	impactParticles.LightEmission = 0.85
+	impactParticles.LightInfluence = 0
+	impactParticles.Color = ColorSequence.new(
+		Color3.fromRGB(154, 227, 255),
+		Color3.fromRGB(255, 255, 255)
+	)
+	impactParticles.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.56),
+		NumberSequenceKeypoint.new(0.35, 0.3),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	impactParticles.Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0.06),
+		NumberSequenceKeypoint.new(1, 1),
+	})
+	impactParticles.Parent = target
+	impactParticles:Emit(26)
+
+	local shockwave = createPart(
+		self.root,
+		"ImpactShockwave",
+		Vector3.new(0.16, 5.4, 5.4),
+		tile.Position + Vector3.new(0, 0.84, 0),
+		Color3.fromRGB(116, 220, 255),
+		Enum.Material.Glass,
+		false
+	)
+	shockwave.Shape = Enum.PartType.Cylinder
+	shockwave.CFrame = CFrame.new(shockwave.Position) * CFrame.Angles(0, 0, math.rad(90))
+	shockwave.Transparency = 0.18
+	shockwave.CanTouch = false
+	shockwave.CanQuery = false
+	TweenService:Create(
+		shockwave,
+		TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{Size = Vector3.new(0.16, 15, 15), Transparency = 1}
+	):Play()
 
 	local impactSound = Instance.new("Sound")
 	impactSound.Name = "LaserImpactSound"
@@ -845,10 +923,12 @@ function ArenaService:CreateStrikeBeam(tile)
 	impactSound.Parent = impact
 	impactSound:Play()
 
+	Debris:AddItem(haloBeam, 0.48)
 	Debris:AddItem(outerBeam, 0.48)
 	Debris:AddItem(innerBeam, 0.48)
-	Debris:AddItem(target, 0.48)
-	Debris:AddItem(impact, 2.55)
+	Debris:AddItem(target, 0.65)
+	Debris:AddItem(impact, 1)
+	Debris:AddItem(shockwave, 0.4)
 end
 
 function ArenaService:BreakTile(tile, token)

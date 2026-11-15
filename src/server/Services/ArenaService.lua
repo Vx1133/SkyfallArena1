@@ -303,7 +303,7 @@ function ArenaService:_buildLobby()
 	)
 	platform.CanQuery = false
 
-	-- The eight-by-eight panels meet edge-to-edge to form one connected baseplate.
+	-- The twelve-by-twelve panels meet edge-to-edge to form one connected baseplate.
 	local panelCount = 12
 	local panelSize = size / panelCount
 	for gridX = 1, panelCount do
@@ -774,8 +774,8 @@ function ArenaService:_buildMapDecoration(theme)
 				center + Vector3.new(sideX * (half + 12), -1, sideZ * (half + 12)),
 				7,
 				26,
-				sideX == sideZ and Color3.fromRGB(54, 115, 203) or Color3.fromRGB(43, 153, 66),
-				Color3.fromRGB(255, 207, 56)
+				sideX == sideZ and theme.structure or theme.secondary,
+				theme.accent
 			)
 		end
 	end
@@ -788,8 +788,8 @@ function ArenaService:_buildMapDecoration(theme)
 			Vector3.new(center.X + side * 18, center.Y - 1, gateZ),
 			6,
 			21,
-			Color3.fromRGB(55, 119, 205),
-			Color3.fromRGB(255, 208, 61)
+			theme.structure,
+			theme.accent
 		)
 	end
 	local gateHeader = createPart(
@@ -797,11 +797,11 @@ function ArenaService:_buildMapDecoration(theme)
 		"ClassicArenaGate",
 		Vector3.new(42, 4, 5),
 		Vector3.new(center.X, center.Y + 22, gateZ),
-		Color3.fromRGB(226, 61, 61),
+		theme.roof,
 		Enum.Material.Plastic,
 		false
 	)
-	addSquareStuds(gateHeader, Color3.fromRGB(255, 211, 68), 1.2, 0.28)
+	addSquareStuds(gateHeader, theme.accent, 1.2, 0.28)
 	gateHeader.CanQuery = false
 
 	for side = -1, 1, 2 do
@@ -823,7 +823,7 @@ function ArenaService:_buildMapDecoration(theme)
 		"SKYFALL CLASSIC ARENA",
 		"LAST RUNNER STANDING",
 		center,
-		Color3.fromRGB(47, 105, 190)
+		theme.structure
 	)
 end
 

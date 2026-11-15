@@ -657,6 +657,7 @@ function ArenaService:ClearWarning(tile, token)
 		warningLight:Destroy()
 	end
 	tile.Color = self.theme.tileColor
+	tile.Material = self.theme.tileMaterial
 end
 
 function ArenaService:CreateStrikeBeam(tile)

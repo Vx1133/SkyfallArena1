@@ -144,12 +144,13 @@ for neutral_setting in (
     "Lighting.Ambient = Color3.fromRGB(0, 0, 0)",
     "Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)",
     "Lighting.ExposureCompensation = 0",
-    "Lighting.EnvironmentDiffuseScale = 0",
-    "Lighting.EnvironmentSpecularScale = 0",
+    "Lighting.EnvironmentDiffuseScale = 1",
+    "Lighting.EnvironmentSpecularScale = 1",
 ):
     require(neutral_setting in arena_source, f"Neutral lighting setting is missing: {neutral_setting}")
-require('outerBeam.Name = "BlueLaserOuter"' in arena_source, "The drone blue beam is missing")
-require('innerBeam.Name = "BlueLaserCore"' in arena_source, "The drone blue-white core beam is missing")
+require('"LaserEnergyShell"' in arena_source, "The layered laser energy shell is missing")
+require('"LaserHotCore"' in arena_source, "The high-intensity laser core is missing")
+require('"LaserFilament"' in arena_source, "The laser filament pass is missing")
 require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
 require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
 require("\t\t\t\t0.34," in arena_source, "Drone reticle must be placed on the outward underside of the lens")
@@ -157,12 +158,15 @@ require("\t\t\t\t-0.34," not in arena_source, "Drone reticle must not be hidden 
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
 require("Vector3.new(width + 26, 2, width + 26)" in arena_source, "The arena foundation must be thin")
 require("support.CanCollide = false" in arena_source, "The foundation must not catch falling players")
-require("ControllerLensGimbal" in arena_source and "Motor6D" in arena_source, "Drone lens needs a motorized aiming joint")
-require("function ArenaService:AimAircraftAt(tile)" in arena_source, "Drone lens aiming method is missing")
-require("function ArenaService:ReturnAircraftLensHome(token)" in arena_source, "Drone lens return-home method is missing")
+require("AircraftMotionAnchor" in arena_source and "AircraftBodyJoint" in arena_source, "The aircraft needs one central body-motion joint")
+require("AircraftUnifiedWeld" in arena_source, "All aircraft parts must be welded to the fuselage")
+require("ControllerLensGimbal" not in arena_source, "An independently moving lens gimbal must not remain")
+require("function ArenaService:AimAircraftAt(tile)" in arena_source, "Whole-aircraft aiming method is missing")
+require("function ArenaService:ReturnAircraftLensHome(token)" in arena_source, "Whole-aircraft return-home method is missing")
 require("TweenService:Create" in arena_source and "aircraftHoverTween" in arena_source, "Drone body hover animation is missing")
-require("ParticleEmitter" in arena_source and "ImpactShockwave" in arena_source, "Laser impact particle and shockwave effects are missing")
-require("BlueLaserHalo" in arena_source, "Layered laser outer glow is missing")
+require("ParticleEmitter" in arena_source and "LaserImpactAttachment" in arena_source, "Laser impact sparks are missing")
+require("LaserAtmosphereGlow" in arena_source, "Layered laser atmosphere glow is missing")
+require("ImpactShockwave" in arena_source, "Legacy impact-ring cleanup is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
 require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")

@@ -344,6 +344,13 @@ function RoundService:_chooseController()
 		end
 	end
 
+	if self.nextController
+		and self.nextController.kind == "Player"
+		and not self.readyPlayers[self.nextController.value]
+	then
+		self.nextController = nil
+	end
+
 	if self:_isCandidateValid(self.nextController) then
 		local selected = self.nextController
 		self.nextController = nil

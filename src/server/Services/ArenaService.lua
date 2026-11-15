@@ -37,6 +37,8 @@ local function createPart(parent, name, size, position, color, material, canColl
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.CanCollide = canCollide ~= false
+	part.CanTouch = false
+	part.CastShadow = false
 	part.Parent = parent
 	return part
 end
@@ -48,212 +50,23 @@ local function createFolder(parent, name)
 	return folder
 end
 
-local function addSquareStuds(basePart, color, studWidth, studHeight)
-	local width = studWidth or 1.2
-	local height = studHeight or 0.28
-	local xSpacing = basePart.Size.X / 3
-	local zSpacing = basePart.Size.Z / 3
-	local index = 0
-
-	for row = -1, 1 do
-		for column = -1, 1 do
-			index += 1
-			local offset = Vector3.new(column * xSpacing, 0, row * zSpacing)
-			local stud = createPart(
-				basePart,
-				"SquareStud_" .. tostring(index),
-				Vector3.new(width, height, width),
-				basePart.Position + Vector3.new(0, basePart.Size.Y / 2 + height / 2, 0) + offset,
-				color,
-				Enum.Material.Plastic,
-				false
-			)
-			stud.CanTouch = false
-			stud.CanQuery = false
-			stud.CastShadow = false
-		end
-	end
+-- Native Roblox retro surfaces render studs without thousands of child Parts.
+-- SurfaceType is deprecated for automatic joining, but its Studs/Inlet visuals remain.
+local function applyClassicStudSurface(basePart)
+	basePart.TopSurface = Enum.SurfaceType.Studs
+	basePart.BottomSurface = Enum.SurfaceType.Inlet
 end
 
-local function setTileStudState(tile, hidden, color)
-	for _, child in ipairs(tile:GetChildren()) do
-		if string.sub(child.Name, 1, 11) == "SquareStud_" and child:IsA("BasePart") then
-			child.Transparency = hidden and 1 or 0
-			if color then
-				child.Color = color
-			end
-		end
-	end
-end
-
-local function addSign(parent, name, position, size, title, subtitle, facePosition, accent)
-	local board = createPart(
-		parent,
-		name,
-		size,
-		position,
-		Color3.fromRGB(236, 229, 211),
-		Enum.Material.Plastic,
-		false
-	)
-	if facePosition then
-		board.CFrame = CFrame.lookAt(position, facePosition)
-	end
-	board.CanQuery = false
-	board.CanTouch = false
-
-	local gui = Instance.new("SurfaceGui")
-	gui.Name = "SignSurface"
-	gui.Face = Enum.NormalId.Front
-	gui.LightInfluence = 0
-	gui.PixelsPerStud = 45
-	gui.Parent = board
-
-	local frame = Instance.new("Frame")
-	frame.Size = UDim2.fromScale(1, 1)
-	frame.BackgroundColor3 = Color3.fromRGB(236, 229, 211)
-	frame.BackgroundTransparency = 0.04
-	frame.BorderSizePixel = 0
-	frame.Parent = gui
-
-	local heading = Instance.new("TextLabel")
-	heading.Name = "Heading"
-	heading.Size = UDim2.new(1, -14, 0.58, 0)
-	heading.Position = UDim2.fromOffset(7, 2)
-	heading.BackgroundTransparency = 1
-	heading.Font = Enum.Font.GothamBlack
-	heading.Text = title
-	heading.TextColor3 = Color3.fromRGB(64, 54, 43)
-	heading.TextScaled = true
-	heading.Parent = frame
-
-	local detail = Instance.new("TextLabel")
-	detail.Name = "Subtitle"
-	detail.Size = UDim2.new(1, -16, 0.3, 0)
-	detail.Position = UDim2.new(0, 8, 0.64, 0)
-	detail.BackgroundTransparency = 1
-	detail.Font = Enum.Font.GothamMedium
-	detail.Text = subtitle
-	detail.TextColor3 = accent
-	detail.TextScaled = true
-	detail.Parent = frame
-
-	local outline = Instance.new("UIStroke")
-	outline.Color = accent
-	outline.Thickness = 1.4
-	outline.Parent = frame
-	return board
+local function setTileStudState(tile, hidden, ...)
+	tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs
+	tile.BottomSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Inlet
 end
 
 local function tileKey(gridX, gridZ)
 	return tostring(gridX) .. ":" .. tostring(gridZ)
 end
 
-local function addSquareColumn(parent, name, position, width, height, bodyColor, capColor)
-	local body = createPart(
-		parent,
-		name,
-		Vector3.new(width, height, width),
-		position + Vector3.new(0, height / 2, 0),
-		bodyColor,
-		Enum.Material.Plastic,
-		false
-	)
-	local base = createPart(
-		parent,
-		name .. "_Base",
-		Vector3.new(width + 2, 1.2, width + 2),
-		position + Vector3.new(0, 0.6, 0),
-		capColor,
-		Enum.Material.Plastic,
-		false
-	)
-	local cap = createPart(
-		parent,
-		name .. "_Cap",
-		Vector3.new(width + 2.2, 1.2, width + 2.2),
-		position + Vector3.new(0, height + 0.6, 0),
-		capColor,
-		Enum.Material.Plastic,
-		false
-	)
-	addSquareStuds(cap, bodyColor, 0.72, 0.2)
-	body.CanQuery = false
-	base.CanQuery = false
-	cap.CanQuery = false
-	return body
-end
 
-local function addTree(parent, name, position, scale, trunkColor, leafColor)
-	local trunkHeight = 10 * scale
-	local trunk = createPart(
-		parent,
-		name .. "_Trunk",
-		Vector3.new(2.2 * scale, trunkHeight, 2.2 * scale),
-		position + Vector3.new(0, trunkHeight / 2, 0),
-		trunkColor,
-		Enum.Material.Wood,
-		false
-	)
-	local lowerLeaves = createPart(
-		parent,
-		name .. "_LowerLeaves",
-		Vector3.new(8 * scale, 5 * scale, 8 * scale),
-		position + Vector3.new(0, trunkHeight + 1.8 * scale, 0),
-		leafColor,
-		Enum.Material.Plastic,
-		false
-	)
-	local upperLeaves = createPart(
-		parent,
-		name .. "_UpperLeaves",
-		Vector3.new(5.5 * scale, 5 * scale, 5.5 * scale),
-		position + Vector3.new(0, trunkHeight + 5.2 * scale, 0),
-		leafColor:Lerp(Color3.new(1, 1, 1), 0.08),
-		Enum.Material.Plastic,
-		false
-	)
-	for _, part in ipairs({trunk, lowerLeaves, upperLeaves}) do
-		part.CanCollide = false
-		part.CanQuery = false
-		part.CanTouch = false
-	end
-end
-
-
-local function addBench(parent, name, position, woodColor, stoneColor)
-	local seat = createPart(
-		parent,
-		name .. "_Seat",
-		Vector3.new(10, 0.8, 2.8),
-		position + Vector3.new(0, 2.2, 0),
-		woodColor,
-		Enum.Material.Wood,
-		true
-	)
-	local back = createPart(
-		parent,
-		name .. "_Back",
-		Vector3.new(10, 2.8, 0.8),
-		position + Vector3.new(0, 3.7, 1),
-		woodColor,
-		Enum.Material.Wood,
-		false
-	)
-	for side = -1, 1, 2 do
-		createPart(
-			parent,
-			name .. "_Support_" .. tostring(side),
-			Vector3.new(1.1, 2.1, 2.1),
-			position + Vector3.new(side * 3.8, 1.05, 0),
-			stoneColor,
-			Enum.Material.Plastic,
-			false
-		)
-	end
-	seat.CanQuery = false
-	back.CanQuery = false
-end
 
 function ArenaService.new()
 	local self = setmetatable({}, ArenaService)
@@ -286,13 +99,10 @@ function ArenaService.new()
 end
 
 function ArenaService:_buildLobby()
-	local decor = self.lobbyFolder
 	local center = Config.LOBBY_CENTER
 	local size = Config.LOBBY_SIZE
-	local half = size / 2
-
 	local platform = createPart(
-		decor,
+		self.lobbyFolder,
 		"WaitingPlatform",
 		Vector3.new(size, 3, size),
 		center,
@@ -300,105 +110,8 @@ function ArenaService:_buildLobby()
 		Enum.Material.Plastic,
 		true
 	)
+	applyClassicStudSurface(platform)
 	platform.CanQuery = false
-
-	-- The twelve-by-twelve panels meet edge-to-edge to form one connected baseplate.
-	local panelCount = 12
-	local panelSize = size / panelCount
-	for gridX = 1, panelCount do
-		for gridZ = 1, panelCount do
-			local offsetX = (gridX - (panelCount + 1) / 2) * panelSize
-			local offsetZ = (gridZ - (panelCount + 1) / 2) * panelSize
-			local panel = createPart(
-				decor,
-				"LobbyFloorPanel_" .. tostring(gridX) .. "_" .. tostring(gridZ),
-				Vector3.new(panelSize, 0.2, panelSize),
-				center + Vector3.new(offsetX, 1.61, offsetZ),
-				(gridX + gridZ) % 2 == 0 and Color3.fromRGB(73, 160, 65) or Color3.fromRGB(64, 148, 58),
-				Enum.Material.Plastic,
-				false
-			)
-			addSquareStuds(panel, Color3.fromRGB(112, 204, 83), 1.15, 0.26)
-			panel.CanQuery = false
-		end
-	end
-
-	local poolCenter = center + Vector3.new(0, 1.76, 0)
-	local pool = createPart(
-		decor,
-		"LobbyWater",
-		Vector3.new(18, 0.24, 12),
-		poolCenter,
-		Color3.fromRGB(44, 145, 220),
-		Enum.Material.Water,
-		false
-	)
-	pool.Transparency = 0.08
-	pool.CanTouch = false
-	pool.CanQuery = false
-
-	local poolRimColor = Color3.fromRGB(185, 185, 185)
-	local poolNorth = createPart(decor, "PoolNorthRim", Vector3.new(21, 1.2, 1.2), poolCenter + Vector3.new(0, 0.55, -6.6), poolRimColor, Enum.Material.Plastic, false)
-	local poolSouth = createPart(decor, "PoolSouthRim", Vector3.new(21, 1.2, 1.2), poolCenter + Vector3.new(0, 0.55, 6.6), poolRimColor, Enum.Material.Plastic, false)
-	local poolEast = createPart(decor, "PoolEastRim", Vector3.new(1.2, 1.2, 12), poolCenter + Vector3.new(9.6, 0.55, 0), poolRimColor, Enum.Material.Plastic, false)
-	local poolWest = createPart(decor, "PoolWestRim", Vector3.new(1.2, 1.2, 12), poolCenter + Vector3.new(-9.6, 0.55, 0), poolRimColor, Enum.Material.Plastic, false)
-	for _, rim in ipairs({poolNorth, poolSouth, poolEast, poolWest}) do
-		rim.CanQuery = false
-		rim.CanTouch = false
-	end
-
-	for side = -1, 1, 2 do
-		addBench(
-			decor,
-			"LobbyBench_" .. tostring(side),
-			center + Vector3.new(side * (half - 17), 0, half - 20),
-			Color3.fromRGB(124, 82, 43),
-			poolRimColor
-		)
-		addTree(
-			decor,
-			"LobbyTree_" .. tostring(side),
-			center + Vector3.new(side * (half - 17), 0, -half + 20),
-			0.85,
-			Color3.fromRGB(111, 72, 41),
-			Color3.fromRGB(42, 153, 58)
-		)
-	end
-
-	local gateZ = center.Z - half + 3
-	for side = -1, 1, 2 do
-		addSquareColumn(
-			decor,
-			"LobbyEntranceColumn_" .. tostring(side),
-			Vector3.new(center.X + side * 16, center.Y + 1.5, gateZ),
-			5,
-			13,
-			Color3.fromRGB(54, 115, 203),
-			Color3.fromRGB(255, 207, 56)
-		)
-	end
-	local gateTop = createPart(
-		decor,
-		"LobbyEntranceHeader",
-		Vector3.new(38, 4, 5),
-		Vector3.new(center.X, center.Y + 18, gateZ),
-		Color3.fromRGB(232, 60, 60),
-		Enum.Material.Plastic,
-		false
-	)
-	addSquareStuds(gateTop, Color3.fromRGB(255, 207, 56), 1.1, 0.25)
-	gateTop.CanQuery = false
-
-	addSign(
-		decor,
-		"LobbyWelcomeSign",
-		center + Vector3.new(0, 10, half - 2),
-		Vector3.new(30, 7, 1.2),
-		"WAITING LOBBY",
-		"PRESS PLAY WHEN READY",
-		center,
-		Color3.fromRGB(47, 105, 190)
-	)
 end
 
 function ArenaService:_buildAircraft()
@@ -739,91 +452,78 @@ function ArenaService:_buildMapDecoration(theme)
 	local half = Config.ARENA_HALF_WIDTH
 	local width = Config.ARENA_WIDTH
 
-	-- The island support is well below the out-of-bounds line, so it never rescues falling players.
+	-- This support foundation stays below the fall-elimination threshold.
 	local support = createPart(
 		folder,
 		"ClassicArenaSupport",
 		Vector3.new(width + 26, 20, width + 26),
 		center + Vector3.new(0, -60, 0),
-		Color3.fromRGB(93, 74, 54),
+		Color3.fromRGB(82, 68, 52),
 		Enum.Material.Plastic,
 		true
 	)
-	addSquareStuds(support, Color3.fromRGB(119, 91, 62), 1.35, 0.3)
 	support.CanQuery = false
 
+	-- The trim touches the tile grid underside but remains non-collidable.
 	local trim = createPart(
 		folder,
 		"ClassicArenaOuterTrim",
-		Vector3.new(width + 18, 2, width + 18),
-		center + Vector3.new(0, -1.8, 0),
-		Color3.fromRGB(55, 105, 182),
+		Vector3.new(width + 6, 1, width + 6),
+		center + Vector3.new(0, -1, 0),
+		Color3.fromRGB(49, 103, 54),
 		Enum.Material.Plastic,
 		false
 	)
 	trim.CanQuery = false
-	trim.CanTouch = false
 
-	-- Four block towers frame the play area, without creating holes or gaps in the tiles.
+	-- Edge beams overlap at all corners and meet the outer tile edges.
+	local frameY = center.Y + 0.65
+	for _, side in ipairs({-1, 1}) do
+		local northSouth = createPart(
+			folder,
+			"ClassicPerimeterNorthSouth_" .. tostring(side),
+			Vector3.new(width + 4, 2.3, 3),
+			Vector3.new(center.X, frameY, center.Z + side * (half + 1)),
+			theme.tileColor:Lerp(Color3.fromRGB(30, 80, 40), 0.45),
+			Enum.Material.Plastic,
+			false
+		)
+		applyClassicStudSurface(northSouth)
+		northSouth.CanQuery = false
+
+		local eastWest = createPart(
+			folder,
+			"ClassicPerimeterEastWest_" .. tostring(side),
+			Vector3.new(3, 2.3, width + 4),
+			Vector3.new(center.X + side * (half + 1), frameY, center.Z),
+			theme.tileColor:Lerp(Color3.fromRGB(30, 80, 40), 0.45),
+			Enum.Material.Plastic,
+			false
+		)
+		applyClassicStudSurface(eastWest)
+		eastWest.CanQuery = false
+	end
+
+	-- Corner supports overlap both edge beams, making one connected perimeter frame.
 	for sideX = -1, 1, 2 do
 		for sideZ = -1, 1, 2 do
-			addSquareColumn(
+			local post = createPart(
 				folder,
-				"ClassicCornerTower_" .. tostring(sideX) .. "_" .. tostring(sideZ),
-				center + Vector3.new(sideX * (half + 12), -1, sideZ * (half + 12)),
-				7,
-				26,
-				sideX == sideZ and theme.structure or theme.secondary,
-				theme.accent
+				"ClassicPerimeterCornerPost_" .. tostring(sideX) .. "_" .. tostring(sideZ),
+				Vector3.new(4, 9, 4),
+				center + Vector3.new(
+					sideX * (half + 1),
+					4.5,
+					sideZ * (half + 1)
+				),
+				Color3.fromRGB(60, 112, 61),
+				Enum.Material.Plastic,
+				false
 			)
+			applyClassicStudSurface(post)
+			post.CanQuery = false
 		end
 	end
-
-	local gateZ = center.Z - half - 7
-	for side = -1, 1, 2 do
-		addSquareColumn(
-			folder,
-			"ClassicGatePillar_" .. tostring(side),
-			Vector3.new(center.X + side * 18, center.Y - 1, gateZ),
-			6,
-			21,
-			theme.structure,
-			theme.accent
-		)
-	end
-	local gateHeader = createPart(
-		folder,
-		"ClassicArenaGate",
-		Vector3.new(42, 4, 5),
-		Vector3.new(center.X, center.Y + 22, gateZ),
-		theme.roof,
-		Enum.Material.Plastic,
-		false
-	)
-	addSquareStuds(gateHeader, theme.accent, 1.2, 0.28)
-	gateHeader.CanQuery = false
-
-	for side = -1, 1, 2 do
-		addTree(
-			folder,
-			"ClassicArenaTree_" .. tostring(side),
-			center + Vector3.new(side * (half + 14), -1, 22),
-			1.05,
-			Color3.fromRGB(111, 72, 41),
-			side < 0 and Color3.fromRGB(46, 158, 62) or Color3.fromRGB(59, 174, 70)
-		)
-	end
-
-	addSign(
-		folder,
-		"ClassicArenaNameSign",
-		gateHeader.Position + Vector3.new(0, 11, 3.4),
-		Vector3.new(38, 7, 1.2),
-		"SKYFALL CLASSIC ARENA",
-		"LAST RUNNER STANDING",
-		center,
-		theme.structure
-	)
 end
 
 function ArenaService:Build()
@@ -862,7 +562,7 @@ function ArenaService:Build()
 			tile:SetAttribute("IsBroken", false)
 			tile:SetAttribute("IsWarning", false)
 			tile:SetAttribute("StrikeToken", 0)
-			addSquareStuds(tile, MAPS[1].studColor, 0.86, 0.24)
+			applyClassicStudSurface(tile, MAPS[1].studColor, 0.86, 0.24)
 			self.tiles[tileKey(gridX, gridZ)] = tile
 		end
 	end
@@ -937,12 +637,7 @@ function ArenaService:MarkTile(tile)
 	tile.Color = Color3.fromRGB(255, 55, 75)
 	tile.Material = Enum.Material.SmoothPlastic
 
-	local warningLight = Instance.new("PointLight")
-	warningLight.Name = "TargetWarningLight"
-	warningLight.Color = Color3.fromRGB(255, 52, 72)
-	warningLight.Brightness = 1.25
-	warningLight.Range = 10
-	warningLight.Parent = tile
+	-- The red tile itself communicates the warning without a per-tile dynamic light.
 	return token
 end
 
@@ -1023,16 +718,21 @@ function ArenaService:CreateStrikeBeam(tile)
 	impact.CanTouch = false
 	impact.CanQuery = false
 
-	local beamLight = Instance.new("PointLight")
-	beamLight.Color = Color3.fromRGB(64, 168, 255)
-	beamLight.Brightness = 2
-	beamLight.Range = 18
-	beamLight.Parent = impact
+	local impactSound = Instance.new("Sound")
+	impactSound.Name = "LaserImpactSound"
+	impactSound.SoundId = "rbxassetid://" .. Config.LASER_SOUND_ID
+	impactSound.Volume = Config.AUDIO_LASER_VOLUME
+	impactSound.RollOffMode = Enum.RollOffMode.Linear
+	impactSound.RollOffMinDistance = 10
+	impactSound.RollOffMaxDistance = 180
+	impactSound.EmitterSize = 8
+	impactSound.Parent = impact
+	impactSound:Play()
 
 	Debris:AddItem(outerBeam, 0.48)
 	Debris:AddItem(innerBeam, 0.48)
 	Debris:AddItem(target, 0.48)
-	Debris:AddItem(impact, 0.32)
+	Debris:AddItem(impact, 2.55)
 end
 
 function ArenaService:BreakTile(tile, token)

@@ -267,6 +267,36 @@ runTest("Controller drone and arena remain free of neon materials", function()
 	end
 end)
 
+runTest("Players remain in the lobby until they request Play", function()
+	local harness = setmetatable({
+		phase = "Waiting",
+		readyPlayers = {},
+	}, RoundService)
+	assert(harness:_readyPlayerCount() == 0, "A new server must have no ready players")
+	local fakePlayer = {
+		Parent = Players,
+		attributes = {},
+		SetAttribute = function(self, name, value)
+			self.attributes[name] = value
+		end,
+	}
+	assert(harness:RequestPlay(fakePlayer) == true, "A waiting player should be able to request Play")
+	assert(fakePlayer.attributes.SkyfallReady == true, "The server should record the ready state")
+	assert(harness:_readyPlayerCount() == 1, "A Play request should add exactly one ready player")
+	harness.phase = "Active"
+	local latePlayer = {
+		Parent = Players,
+		SetAttribute = function() end,
+	}
+	assert(harness:RequestPlay(latePlayer) == false, "A player must not join after the round starts")
+end)
+
+runTest("Creator flight authorization only grants the personal experience owner", function()
+	assert(AdminFlightService.IsAuthorizedUserId(12345, Enum.CreatorType.User, 12345), "Personal creator should be authorized")
+	assert(not AdminFlightService.IsAuthorizedUserId(54321, Enum.CreatorType.User, 12345), "A different user must not be authorized")
+	assert(not AdminFlightService.IsAuthorizedUserId(12345, Enum.CreatorType.Group, 12345), "Group-owned experiences must not implicitly authorize a group member")
+end)
+
 runTest("Controller selection accepts a first controller and prioritizes the previous survivor", function()
 	local testBot = {
 		name = "CloudTestBot",

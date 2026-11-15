@@ -1,4 +1,7 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+Players.CharacterAutoLoads = false
 
 local function getOrCreateFolder(parent, name)
 	local folder = parent:FindFirstChild(name)

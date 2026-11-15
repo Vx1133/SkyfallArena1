@@ -304,7 +304,7 @@ function ArenaService:_buildLobby()
 	platform.CanQuery = false
 
 	-- The eight-by-eight panels meet edge-to-edge to form one connected baseplate.
-	local panelCount = 8
+	local panelCount = 12
 	local panelSize = size / panelCount
 	for gridX = 1, panelCount do
 		for gridZ = 1, panelCount do

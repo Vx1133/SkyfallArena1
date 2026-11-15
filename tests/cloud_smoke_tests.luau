@@ -151,7 +151,7 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Lighting.Brightness == 2, "Lighting brightness should be neutral")
 	assert(Lighting.ClockTime == 14, "Lighting time should be the neutral daytime default")
 	assert(Lighting.Ambient == Color3.fromRGB(0, 0, 0), "Ambient light should be neutral")
-	assert(Lighting.OutdoorAmbient == Color3.fromRGB(127, 127, 127), "Outdoor ambient should be neutral")
+	assert(Lighting.OutdoorAmbient == Color3.fromRGB(0, 0, 0), "Outdoor ambient should be black for metallic environment reflections")
 	assert(Lighting.ExposureCompensation == 0, "Exposure compensation should be neutral")
 	assert(Lighting.EnvironmentDiffuseScale == 1 and Lighting.EnvironmentSpecularScale == 1, "PBR reflection and diffuse environment scales must be enabled")
 	assert(arena.mapDecorBuilt == true, "The single map decoration should be built once")

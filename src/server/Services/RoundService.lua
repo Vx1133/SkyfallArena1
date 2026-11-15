@@ -711,15 +711,15 @@ function RoundService:_runRound()
 		self:_broadcast()
 
 		local aliveCount = self:_aliveRunnerCount()
-		if aliveCount == 1 then
+		if self.elapsedSeconds >= Config.ROUND_SECONDS then
+			break
+		elseif aliveCount == 0 or not self.controller then
+			break
+		elseif aliveCount == 1 then
 			local soleSurvivor = self:_getSoleSurvivor()
 			if self:_isGrounded(soleSurvivor) then
 				break
 			end
-		elseif aliveCount == 0 or not self.controller then
-			break
-		elseif self.elapsedSeconds >= Config.ROUND_SECONDS then
-			break
 		end
 
 		task.wait(1)

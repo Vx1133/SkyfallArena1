@@ -160,7 +160,7 @@ require("support.CanCollide = false" in arena_source, "The foundation must not c
 require("ControllerLensGimbal" in arena_source and "Motor6D" in arena_source, "Drone lens needs a motorized aiming joint")
 require("function ArenaService:AimAircraftAt(tile)" in arena_source, "Drone lens aiming method is missing")
 require("function ArenaService:ReturnAircraftLensHome(token)" in arena_source, "Drone lens return-home method is missing")
-require("TweenService:Create" in arena_source and "AircraftHoverTween" in arena_source, "Drone body hover animation is missing")
+require("TweenService:Create" in arena_source and "aircraftHoverTween" in arena_source, "Drone body hover animation is missing")
 require("ParticleEmitter" in arena_source and "ImpactShockwave" in arena_source, "Laser impact particle and shockwave effects are missing")
 require("BlueLaserHalo" in arena_source, "Layered laser outer glow is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")

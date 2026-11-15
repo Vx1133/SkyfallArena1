@@ -134,7 +134,7 @@ require('outerBeam.Name = "BlueLaserOuter"' in arena_source, "The drone blue bea
 require('innerBeam.Name = "BlueLaserCore"' in arena_source, "The drone blue-white core beam is missing")
 require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
 require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
-require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Sunspire map decoration builder is missing")
+require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
 require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")
@@ -143,6 +143,9 @@ require("tile.CanCollide = true" in map_set_body, "The next map must restore flo
 bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
 for bot_name in ("Atlas", "Nova", "Rook"):
     require(f'name = "{bot_name}"' in bot_source, f"AI bot profile is missing: {bot_name}")
+require("for botIndex = 1, Config.BOT_COUNT do" in bot_source, "BotService must construct all configured NPCs")
+require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NPCs must use Roblox's built-in HumanoidDescription rig generator")
+require("createFallbackHair" not in bot_source, "Procedural custom bot hair must not be used")
 for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
 for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "MarketplaceService"):
@@ -163,7 +166,8 @@ for feature in (
     "function RoundService:IsHumanController(",
     "function RoundService:IsBotController(",
     "function RoundService:_setPlayerControllerHidden(",
-    "self.roundNumber == 1 and #Players:GetPlayers() == 1",
+    "self.roundNumber == 1 and #self:_getReadyPlayers() == 1",
+    "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
     "self.nextController = self.winnerCandidate",
     "self:_moveEliminatedPlayerToLobby(player)",
@@ -216,8 +220,23 @@ for feature in (
     "targetRemote:FireServer(gridX, gridZ)",
 ):
     require(feature in hud_source, f"Mobile HUD or controller camera feature is missing: {feature}")
+require('remotes:WaitForChild("PlayRequest")' in hud_source, "Lobby Play remote is missing from mobile HUD")
+require('playButton.Name = "PlayButton"' in hud_source, "Lobby Play button is missing")
+require("playRemote:FireServer()" in hud_source, "Lobby Play button does not request a round")
+require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile round HUD must be translucent")
 for forbidden in ('"Title"', '"Role"', '"Hint"', '"Status"'):
     require(forbidden not in hud_source, f"Unwanted HUD label remains: {forbidden}")
+
+admin_client_source = (ROOT / "src/client/AdminFlight.client.lua").read_text(encoding="utf-8")
+for feature in (
+    'remotes:WaitForChild("AdminFlight")',
+    'flightRemote:FireServer("Enable")',
+    'flightRemote:FireServer("Disable")',
+    'flightRemote:FireServer("Move", direction, camera.CFrame.LookVector)',
+    'player:GetAttribute("SkyfallIsAdmin") == true',
+    'state.phase == "Waiting"',
+):
+    require(feature in admin_client_source, f"Admin mobile flight control is missing: {feature}")
 
 workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
 require("pull_request:" in workflow, "Pull request validation trigger is missing")
@@ -240,7 +259,7 @@ for feature in (
     "Creator flight authorization only grants the personal experience owner",
     "Broken tiles remain broken",
     "The one map restores the floor only when a new round loads",
-    "The next-round map remains the one fixed Sunspire arena",
+    "The next-round map remains the one fixed Classic arena",
     "The round state counts down from 180 seconds",
     "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",

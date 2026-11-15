@@ -93,7 +93,7 @@ local function addSign(parent, name, position, size, title, subtitle, facePositi
 		size,
 		position,
 		Color3.fromRGB(236, 229, 211),
-		Enum.Material.Marble,
+		Enum.Material.Plastic,
 		false
 	)
 	if facePosition then
@@ -297,110 +297,108 @@ function ArenaService:_buildLobby()
 		"WaitingPlatform",
 		Vector3.new(size, 3, size),
 		center,
-		Color3.fromRGB(221, 215, 198),
-		Enum.Material.Marble,
+		Color3.fromRGB(49, 139, 56),
+		Enum.Material.Plastic,
 		true
 	)
 	platform.CanQuery = false
 
-	local panelCount = 7
-	local panelSize = (size - 12) / panelCount
-	local spacing = size / panelCount
+	-- The eight-by-eight panels meet edge-to-edge to form one connected baseplate.
+	local panelCount = 8
+	local panelSize = size / panelCount
 	for gridX = 1, panelCount do
 		for gridZ = 1, panelCount do
-			local offsetX = (gridX - (panelCount + 1) / 2) * spacing
-			local offsetZ = (gridZ - (panelCount + 1) / 2) * spacing
+			local offsetX = (gridX - (panelCount + 1) / 2) * panelSize
+			local offsetZ = (gridZ - (panelCount + 1) / 2) * panelSize
 			local panel = createPart(
 				decor,
 				"LobbyFloorPanel_" .. tostring(gridX) .. "_" .. tostring(gridZ),
 				Vector3.new(panelSize, 0.2, panelSize),
 				center + Vector3.new(offsetX, 1.61, offsetZ),
-				gridX % 2 == gridZ % 2 and Color3.fromRGB(232, 225, 207) or Color3.fromRGB(216, 209, 192),
-				Enum.Material.Marble,
+				(gridX + gridZ) % 2 == 0 and Color3.fromRGB(73, 160, 65) or Color3.fromRGB(64, 148, 58),
+				Enum.Material.Plastic,
 				false
 			)
-			addSquareStuds(panel, theme.studColor, 0.8, 0.2)
+			addSquareStuds(panel, Color3.fromRGB(112, 204, 83), 1.15, 0.26)
 			panel.CanQuery = false
 		end
 	end
 
-	local poolCenter = center + Vector3.new(0, 1.76, -1)
+	local poolCenter = center + Vector3.new(0, 1.76, 0)
 	local pool = createPart(
 		decor,
 		"LobbyWater",
-		Vector3.new(22, 0.24, 14),
+		Vector3.new(18, 0.24, 12),
 		poolCenter,
-		Color3.fromRGB(72, 157, 177),
+		Color3.fromRGB(44, 145, 220),
 		Enum.Material.Water,
 		false
 	)
-	pool.Transparency = 0.12
+	pool.Transparency = 0.08
 	pool.CanTouch = false
 	pool.CanQuery = false
 
-	local poolRimColor = Color3.fromRGB(196, 185, 160)
-	local poolNorth = createPart(decor, "PoolNorthRim", Vector3.new(25, 1.1, 1.2), poolCenter + Vector3.new(0, 0.5, -7.5), poolRimColor, Enum.Material.Marble, false)
-	local poolSouth = createPart(decor, "PoolSouthRim", Vector3.new(25, 1.1, 1.2), poolCenter + Vector3.new(0, 0.5, 7.5), poolRimColor, Enum.Material.Marble, false)
-	local poolEast = createPart(decor, "PoolEastRim", Vector3.new(1.2, 1.1, 14), poolCenter + Vector3.new(12, 0.5, 0), poolRimColor, Enum.Material.Marble, false)
-	local poolWest = createPart(decor, "PoolWestRim", Vector3.new(1.2, 1.1, 14), poolCenter + Vector3.new(-12, 0.5, 0), poolRimColor, Enum.Material.Marble, false)
+	local poolRimColor = Color3.fromRGB(185, 185, 185)
+	local poolNorth = createPart(decor, "PoolNorthRim", Vector3.new(21, 1.2, 1.2), poolCenter + Vector3.new(0, 0.55, -6.6), poolRimColor, Enum.Material.Plastic, false)
+	local poolSouth = createPart(decor, "PoolSouthRim", Vector3.new(21, 1.2, 1.2), poolCenter + Vector3.new(0, 0.55, 6.6), poolRimColor, Enum.Material.Plastic, false)
+	local poolEast = createPart(decor, "PoolEastRim", Vector3.new(1.2, 1.2, 12), poolCenter + Vector3.new(9.6, 0.55, 0), poolRimColor, Enum.Material.Plastic, false)
+	local poolWest = createPart(decor, "PoolWestRim", Vector3.new(1.2, 1.2, 12), poolCenter + Vector3.new(-9.6, 0.55, 0), poolRimColor, Enum.Material.Plastic, false)
 	for _, rim in ipairs({poolNorth, poolSouth, poolEast, poolWest}) do
 		rim.CanQuery = false
+		rim.CanTouch = false
 	end
 
-	local waterfall = createPart(
-		decor,
-		"LobbyWaterfall",
-		Vector3.new(0.7, 3.2, 9),
-		poolCenter + Vector3.new(0, 1.3, -7.2),
-		Color3.fromRGB(116, 190, 204),
-		Enum.Material.Water,
-		false
-	)
-	waterfall.Transparency = 0.28
-	waterfall.CanTouch = false
-	waterfall.CanQuery = false
-
-	for xSign = -1, 1, 2 do
-		for zSign = -1, 1, 2 do
-			local corner = center + Vector3.new(xSign * (half - 12), 0, zSign * (half - 12))
-			addBench(decor, "LobbyBench_" .. tostring(xSign) .. "_" .. tostring(zSign), corner, Color3.fromRGB(122, 88, 57), poolRimColor)
-			addPlanter(decor, "LobbyPlanter_" .. tostring(xSign) .. "_" .. tostring(zSign), corner + Vector3.new(-xSign * 5, 0, -zSign * 5), poolRimColor, Color3.fromRGB(83, 133, 83))
-		end
+	for side = -1, 1, 2 do
+		addBench(
+			decor,
+			"LobbyBench_" .. tostring(side),
+			center + Vector3.new(side * (half - 12), 0, 0),
+			Color3.fromRGB(124, 82, 43),
+			poolRimColor
+		)
+		addTree(
+			decor,
+			"LobbyTree_" .. tostring(side),
+			center + Vector3.new(side * (half - 17), 0, -half + 20),
+			0.85,
+			Color3.fromRGB(111, 72, 41),
+			Color3.fromRGB(42, 153, 58)
+		)
 	end
 
-	local gateX = center.X + half - 8
+	local gateZ = center.Z - half + 3
 	for side = -1, 1, 2 do
 		addSquareColumn(
 			decor,
 			"LobbyEntranceColumn_" .. tostring(side),
-			Vector3.new(gateX, center.Y + 1.5, center.Z + side * 14),
-			4,
-			12,
-			Color3.fromRGB(217, 207, 184),
-			Color3.fromRGB(177, 143, 88)
+			Vector3.new(center.X + side * 16, center.Y + 1.5, gateZ),
+			5,
+			13,
+			Color3.fromRGB(54, 115, 203),
+			Color3.fromRGB(255, 207, 56)
 		)
 	end
 	local gateTop = createPart(
 		decor,
 		"LobbyEntranceHeader",
-		Vector3.new(5, 2.5, 31),
-		Vector3.new(gateX, center.Y + 15, center.Z),
-		Color3.fromRGB(177, 143, 88),
-		Enum.Material.Marble,
+		Vector3.new(38, 4, 5),
+		Vector3.new(center.X, center.Y + 18, gateZ),
+		Color3.fromRGB(232, 60, 60),
+		Enum.Material.Plastic,
 		false
 	)
-	addSquareStuds(gateTop, Color3.fromRGB(232, 219, 190), 0.8, 0.22)
+	addSquareStuds(gateTop, Color3.fromRGB(255, 207, 56), 1.1, 0.25)
 	gateTop.CanQuery = false
 
 	addSign(
 		decor,
 		"LobbyWelcomeSign",
-		center + Vector3.new(0, 12, -half + 3),
-		Vector3.new(32, 7, 1.2),
-		"WAITING GARDEN",
-		"SKYFALL ARENA",
+		center + Vector3.new(0, 10, half - 2),
+		Vector3.new(30, 7, 1.2),
+		"WAITING LOBBY",
+		"PRESS PLAY WHEN READY",
 		center,
-		Color3.fromRGB(156, 119, 66)
+		Color3.fromRGB(47, 105, 190)
 	)
 end
 
@@ -423,7 +421,7 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	orb.Shape = Enum.PartType.Ball
-	orb.Reflectance = 0.08
+	orb.Reflectance = 0
 	orb.CastShadow = false
 	model.PrimaryPart = orb
 
@@ -529,10 +527,10 @@ function ArenaService:_buildAircraft()
 	end
 
 	-- The lens sits slightly left of center on the sphere's equator and faces the arena.
-	local lensCenter = base + Vector3.new(-1.1, 0, -7.05)
-	local lensNormal = Vector3.new(0, -0.08, -0.997).Unit
+	local lensNormal = Vector3.new(0, -1, 0)
+	local lensCenter = base + lensNormal * 7.05
 	local function lensFrameAt(position)
-		return CFrame.lookAt(position, position + lensNormal) * CFrame.Angles(0, math.rad(90), 0)
+		return CFrame.fromMatrix(position, lensNormal, Vector3.new(0, 0, -1), Vector3.new(1, 0, 0))
 	end
 
 	local function lensDisc(name, thickness, diameter, position, color, material)
@@ -594,7 +592,7 @@ function ArenaService:_buildAircraft()
 	lens.Shape = Enum.PartType.Ball
 	lens.CFrame = lensFrameAt(lensPosition)
 	lens.Transparency = 0.08
-	lens.Reflectance = 0.16
+	lens.Reflectance = 0
 	lens.CastShadow = false
 	lens.CanQuery = false
 	lens.CanTouch = false
@@ -703,209 +701,130 @@ function ArenaService:_buildAircraft()
 	self.aircraftModel = model
 end
 
-function ArenaService:_setLighting(theme)
-	Lighting.ClockTime = 10.5
-	Lighting.Brightness = 2.8
-	Lighting.ExposureCompensation = 0.03
-	Lighting.Ambient = theme.ambient
-	Lighting.OutdoorAmbient = theme.ambient:Lerp(Color3.fromRGB(244, 246, 240), 0.55)
-	Lighting.FogColor = theme.fogColor
-	Lighting.FogStart = 420
-	Lighting.FogEnd = 100000
+function ArenaService:_setLighting(_theme)
+	-- Return to neutral Roblox daytime lighting without custom sky or post-processing.
+	Lighting.Brightness = 2
+	Lighting.ClockTime = 14
+	Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+	Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+	Lighting.ExposureCompensation = 0
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
 	Lighting.GlobalShadows = true
-	Lighting.EnvironmentDiffuseScale = 0.78
-	Lighting.EnvironmentSpecularScale = 0.62
+	Lighting.FogColor = Color3.fromRGB(192, 192, 192)
+	Lighting.FogStart = 0
+	Lighting.FogEnd = 100000
 
-	-- Remove any untouched default Sky and use the six-face Sunspire skybox.
-	for _, child in ipairs(Lighting:GetChildren()) do
-		if child:IsA("Sky") and child.Name ~= "SkyfallSunriseSky" then
-			child:Destroy()
+	for _, name in ipairs({
+		"SkyfallSunriseSky",
+		"SkyfallAtmosphere",
+		"SkyfallColorCorrection",
+		"SkyfallBloom",
+		"SkyfallSunRays",
+	}) do
+		local effect = Lighting:FindFirstChild(name)
+		if effect then
+			effect:Destroy()
 		end
 	end
-	local sky = Lighting:FindFirstChild("SkyfallSunriseSky")
-	if not sky then
-		sky = Instance.new("Sky")
-		sky.Name = "SkyfallSunriseSky"
-		sky.Parent = Lighting
-	end
-	sky.SkyboxBk = "rbxassetid://162001887"
-	sky.SkyboxDn = "rbxassetid://161998893"
-	sky.SkyboxFt = "rbxassetid://162001897"
-	sky.SkyboxLf = "rbxassetid://162001904"
-	sky.SkyboxRt = "rbxassetid://162001919"
-	sky.SkyboxUp = "rbxassetid://162001926"
-	sky.CelestialBodiesShown = true
-	sky.SunAngularSize = 12
-	sky.MoonAngularSize = 0
-	sky.StarCount = 0
-
-	local atmosphere = Lighting:FindFirstChild("SkyfallAtmosphere")
-	if not atmosphere then
-		atmosphere = Instance.new("Atmosphere")
-		atmosphere.Name = "SkyfallAtmosphere"
-		atmosphere.Parent = Lighting
-	end
-	atmosphere.Color = Color3.fromRGB(206, 225, 235)
-	atmosphere.Decay = theme.fogColor
-	atmosphere.Density = 0.095
-	atmosphere.Glare = 0.12
-	atmosphere.Haze = 0.42
-	atmosphere.Offset = 0.12
 
 	local clouds = Workspace.Terrain:FindFirstChild("SkyfallClouds")
-	if not clouds then
-		clouds = Instance.new("Clouds")
-		clouds.Name = "SkyfallClouds"
-		clouds.Parent = Workspace.Terrain
+	if clouds then
+		clouds:Destroy()
 	end
-	clouds.Cover = 0.22
-	clouds.Density = 0.24
-	clouds.Color = Color3.fromRGB(245, 249, 250)
-
-	local colorCorrection = Lighting:FindFirstChild("SkyfallColorCorrection")
-	if not colorCorrection then
-		colorCorrection = Instance.new("ColorCorrectionEffect")
-		colorCorrection.Name = "SkyfallColorCorrection"
-		colorCorrection.Parent = Lighting
-	end
-	colorCorrection.Brightness = 0.015
-	colorCorrection.Contrast = 0.045
-	colorCorrection.Saturation = 0.04
-	colorCorrection.TintColor = Color3.fromRGB(255, 251, 242)
-
-	local bloom = Lighting:FindFirstChild("SkyfallBloom")
-	if not bloom then
-		bloom = Instance.new("BloomEffect")
-		bloom.Name = "SkyfallBloom"
-		bloom.Parent = Lighting
-	end
-	bloom.Intensity = 0.075
-	bloom.Size = 12
-	bloom.Threshold = 1.85
-
-	local sunRays = Lighting:FindFirstChild("SkyfallSunRays")
-	if not sunRays then
-		sunRays = Instance.new("SunRaysEffect")
-		sunRays.Name = "SkyfallSunRays"
-		sunRays.Parent = Lighting
-	end
-	sunRays.Intensity = 0.025
-	sunRays.Spread = 0.72
 end
 
 function ArenaService:_buildMapDecoration(theme)
 	local folder = self.mapFolder
 	local center = Config.ARENA_CENTER
 	local half = Config.ARENA_HALF_WIDTH
-	local stone = theme.structure
-	local roof = theme.roof
-	local gold = theme.accent
+	local width = Config.ARENA_WIDTH
 
-	-- Floating stone foundation sits far below the destructible floor.
-	local foundation = createPart(
+	-- The island support is well below the out-of-bounds line, so it never rescues falling players.
+	local support = createPart(
 		folder,
-		"SunspireFloatingFoundation",
-		Vector3.new(Config.ARENA_WIDTH + 82, 12, Config.ARENA_WIDTH + 82),
-		center + Vector3.new(0, -47, 0),
-		Color3.fromRGB(92, 105, 108),
-		Enum.Material.Rock,
+		"ClassicArenaSupport",
+		Vector3.new(width + 26, 20, width + 26),
+		center + Vector3.new(0, -60, 0),
+		Color3.fromRGB(93, 74, 54),
+		Enum.Material.Plastic,
+		true
+	)
+	addSquareStuds(support, Color3.fromRGB(119, 91, 62), 1.35, 0.3)
+	support.CanQuery = false
+
+	local trim = createPart(
+		folder,
+		"ClassicArenaOuterTrim",
+		Vector3.new(width + 18, 2, width + 18),
+		center + Vector3.new(0, -1.8, 0),
+		Color3.fromRGB(55, 105, 182),
+		Enum.Material.Plastic,
 		false
 	)
-	foundation.CanQuery = false
-	foundation.CanTouch = false
+	trim.CanQuery = false
+	trim.CanTouch = false
 
-	local lowerRim = createPart(
-		folder,
-		"SunspireFoundationTrim",
-		Vector3.new(Config.ARENA_WIDTH + 94, 2, Config.ARENA_WIDTH + 94),
-		center + Vector3.new(0, -38, 0),
-		gold,
-		Enum.Material.Metal,
-		false
-	)
-	lowerRim.CanQuery = false
-	lowerRim.CanTouch = false
-
-	-- The main gate and towers frame the arena from outside the playable grid.
-	local gateBase = center + Vector3.new(0, -1, -half - 43)
-	addHall(folder, "SunspireRoyalGate", gateBase, 82, 29, 18, stone, roof, gold)
-	addTower(folder, "SunspireWestTower", gateBase + Vector3.new(-53, 0, -3), 12, 43, stone, roof)
-	addTower(folder, "SunspireEastTower", gateBase + Vector3.new(53, 0, -3), 12, 43, stone, roof)
-
-	for side = -1, 1, 2 do
-		local x = side * (half + 29)
-		addSquareColumn(
-			folder,
-			"SunspireOuterPillar_" .. tostring(side),
-			center + Vector3.new(x, -1, 34),
-			6,
-			24,
-			stone,
-			gold
-		)
-		addTree(
-			folder,
-			"SunspireGardenTree_" .. tostring(side),
-			center + Vector3.new(x + side * 7, -1, 68),
-			1.15,
-			Color3.fromRGB(117, 83, 57),
-			side < 0 and Color3.fromRGB(74, 137, 85) or Color3.fromRGB(87, 151, 91)
-		)
-		addPlanter(
-			folder,
-			"SunspireGardenPlanter_" .. tostring(side),
-			center + Vector3.new(x, -1, -42),
-			stone,
-			Color3.fromRGB(91, 153, 107)
-		)
-	end
-
+	-- Four block towers frame the play area, without creating holes or gaps in the tiles.
 	for sideX = -1, 1, 2 do
 		for sideZ = -1, 1, 2 do
-			local corner = center + Vector3.new(
-				sideX * (half + 24),
-				-1,
-				sideZ * (half + 24)
-			)
-			local plinth = createPart(
+			addSquareColumn(
 				folder,
-				"SunspireCornerPlinth_" .. tostring(sideX) .. "_" .. tostring(sideZ),
-				Vector3.new(13, 2, 13),
-				corner,
-				roof,
-				Enum.Material.Marble,
-				false
+				"ClassicCornerTower_" .. tostring(sideX) .. "_" .. tostring(sideZ),
+				center + Vector3.new(sideX * (half + 12), -1, sideZ * (half + 12)),
+				7,
+				26,
+				sideX == sideZ and Color3.fromRGB(54, 115, 203) or Color3.fromRGB(43, 153, 66),
+				Color3.fromRGB(255, 207, 56)
 			)
-			addSquareStuds(plinth, Color3.fromRGB(235, 218, 180), 0.78, 0.2)
-			plinth.CanQuery = false
-			plinth.CanTouch = false
 		end
+	end
+
+	local gateZ = center.Z - half - 7
+	for side = -1, 1, 2 do
+		addSquareColumn(
+			folder,
+			"ClassicGatePillar_" .. tostring(side),
+			Vector3.new(center.X + side * 18, center.Y - 1, gateZ),
+			6,
+			21,
+			Color3.fromRGB(55, 119, 205),
+			Color3.fromRGB(255, 208, 61)
+		)
+	end
+	local gateHeader = createPart(
+		folder,
+		"ClassicArenaGate",
+		Vector3.new(42, 4, 5),
+		Vector3.new(center.X, center.Y + 22, gateZ),
+		Color3.fromRGB(226, 61, 61),
+		Enum.Material.Plastic,
+		false
+	)
+	addSquareStuds(gateHeader, Color3.fromRGB(255, 211, 68), 1.2, 0.28)
+	gateHeader.CanQuery = false
+
+	for side = -1, 1, 2 do
+		addTree(
+			folder,
+			"ClassicArenaTree_" .. tostring(side),
+			center + Vector3.new(side * (half + 14), -1, 22),
+			1.05,
+			Color3.fromRGB(111, 72, 41),
+			side < 0 and Color3.fromRGB(46, 158, 62) or Color3.fromRGB(59, 174, 70)
+		)
 	end
 
 	addSign(
 		folder,
-		"SunspireMapNameSign",
-		gateBase + Vector3.new(0, 37, 10.5),
-		Vector3.new(39, 7, 1.3),
-		"SKYFALL SUNSPIRE",
+		"ClassicArenaNameSign",
+		gateHeader.Position + Vector3.new(0, 11, 3.4),
+		Vector3.new(38, 7, 1.2),
+		"SKYFALL CLASSIC ARENA",
 		"LAST RUNNER STANDING",
 		center,
-		gold
+		Color3.fromRGB(47, 105, 190)
 	)
-
-	-- Soft water-colored accents sit outside the playable grid and do not connect to the lobby.
-	local reflectingPool = createPart(
-		folder,
-		"SunspireRearReflectingPool",
-		Vector3.new(34, 0.3, 13),
-		gateBase + Vector3.new(0, 0.2, 31),
-		Color3.fromRGB(98, 178, 190),
-		Enum.Material.Glass,
-		false
-	)
-	reflectingPool.Transparency = 0.28
-	reflectingPool.CanQuery = false
-	reflectingPool.CanTouch = false
 end
 
 function ArenaService:Build()

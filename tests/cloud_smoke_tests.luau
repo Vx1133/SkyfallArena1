@@ -2,6 +2,7 @@
 -- This validates the DataModel and service logic, not real physics or touch input.
 
 local Lighting = game:GetService("Lighting")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Workspace = game:GetService("Workspace")
@@ -26,6 +27,8 @@ end
 local ArenaService = requireService("ArenaService")
 local RoundService = requireService("RoundService")
 local StrikeService = requireService("StrikeService")
+local BotService = requireService("BotService")
+local AdminFlightService = requireService("AdminFlightService")
 
 local passed = 0
 local failed = 0
@@ -50,8 +53,9 @@ runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experi
 	assert(Config.GRID_SIZE == 15, "Expected a 15x15 tile grid")
 	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
 	assert(Config.MAP_COUNT == 1, "The experience must contain exactly one playable map")
-	assert(Config.MAP_NAMES[1] == "SKYFALL SUNSPIRE", "The only map should be Skyfall Sunspire")
-	assert(Config.BOT_COUNT == 3, "Exactly three AI bots must remain")
+	assert(Config.MAP_NAMES[1] == "SKYFALL CLASSIC ARENA", "The only map should be the Classic arena")
+	assert(Config.BOT_COUNT == 10, "Exactly ten AI bots must be configured")
+	assert(Config.TILE_GAP == 0, "Destructible floor tiles must have no designed gap")
 	assert(Config.ROUND_SECONDS == 180, "Each round must last three minutes")
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
 	assert(Config.CONTROLLER_CAMERA_HEIGHT == 145, "Portrait controller camera must stay close to the arena")
@@ -70,14 +74,15 @@ runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experi
 
 	local centerTile = arena:GetTile(8, 8)
 	assert(centerTile ~= nil, "Center tile is missing")
-	assert(centerTile:FindFirstChild("SquareStud_1"), "Square stud details are missing from floor tiles")
+	assert(centerTile:FindFirstChild("SquareStud_9"), "Each floor tile should contain a nine-stud classic pattern")
 	local stud = centerTile:FindFirstChild("SquareStud_1")
 	assert(stud:IsA("BasePart") and stud.Shape == Enum.PartType.Block, "Floor studs must be square blocks")
 	assert(math.abs(stud.Size.X - stud.Size.Z) < 0.001, "Floor studs must have square footprints")
 
-	assert(arena.lobbyFolder:FindFirstChild("WaitingPlatform"), "Waiting platform is missing")
+	assert(arena.lobbyFolder:FindFirstChild("WaitingPlatform"), "Classic waiting baseplate is missing")
+	assert(arena.lobbyFolder:FindFirstChild("LobbyFloorPanel_8_8"), "The connected lobby stud floor is missing")
 	local water = arena.lobbyFolder:FindFirstChild("LobbyWater")
-	assert(water and water.Material == Enum.Material.Water, "Medium lobby water feature is missing")
+	assert(water and water.Material == Enum.Material.Water, "Classic lobby fountain is missing")
 	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Golden controller sphere is missing")
 	assert(arena.aircraftModel:FindFirstChild("ControllerLens"), "Red controller lens is missing")
 	for index = 1, 5 do
@@ -90,15 +95,23 @@ runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experi
 	assert(arena.aircraftModel:FindFirstChild("LensReticleRing_Inner_1"), "Inner lens reticle ring is missing")
 	local lensLight = arena.aircraftModel.ControllerLens:FindFirstChildOfClass("PointLight")
 	assert(not lensLight or lensLight.Range <= 5, "Red lens light must remain tightly contained")
-	assert(arena.mapFolder:FindFirstChild("SunspireMapNameSign"), "Sunspire map name sign is missing")
+	assert(arena.mapFolder:FindFirstChild("ClassicArenaNameSign"), "Classic arena name sign is missing")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign"), "Waiting garden sign is missing")
 	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "The waiting garden must stay separate from the arena")
 	assert(arena.aircraftModel:FindFirstChild("LaserOrigin"), "The golden drone laser origin attachment is missing")
 	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
-	local sky = Lighting:FindFirstChild("SkyfallSunriseSky")
-	assert(sky and sky:IsA("Sky"), "The custom six-face daytime sky is missing")
-	assert(sky.SkyboxBk ~= "" and sky.SkyboxDn ~= "" and sky.SkyboxFt ~= "", "Custom skybox faces are not assigned")
-	assert(sky.SkyboxLf ~= "" and sky.SkyboxRt ~= "" and sky.SkyboxUp ~= "", "All six custom skybox faces must be assigned")
+	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "Custom skybox must be removed")
+	assert(Lighting:FindFirstChild("SkyfallAtmosphere") == nil, "Custom Atmosphere must be removed")
+	assert(Lighting:FindFirstChild("SkyfallColorCorrection") == nil, "Custom color correction must be removed")
+	assert(Lighting:FindFirstChild("SkyfallBloom") == nil, "Custom Bloom must be removed")
+	assert(Lighting:FindFirstChild("SkyfallSunRays") == nil, "Custom SunRays must be removed")
+	assert(Workspace.Terrain:FindFirstChild("SkyfallClouds") == nil, "Custom clouds must be removed")
+	assert(Lighting.Brightness == 2, "Lighting brightness should be neutral")
+	assert(Lighting.ClockTime == 14, "Lighting time should be the neutral daytime default")
+	assert(Lighting.Ambient == Color3.fromRGB(0, 0, 0), "Ambient light should be neutral")
+	assert(Lighting.OutdoorAmbient == Color3.fromRGB(127, 127, 127), "Outdoor ambient should be neutral")
+	assert(Lighting.ExposureCompensation == 0, "Exposure compensation should be neutral")
+	assert(Lighting.EnvironmentDiffuseScale == 0 and Lighting.EnvironmentSpecularScale == 0, "Environment reflection boost must be disabled")
 	assert(arena.mapDecorBuilt == true, "The single map decoration should be built once")
 	local separation = (Config.ARENA_CENTER - Config.LOBBY_CENTER).Magnitude
 	assert(separation > Config.ARENA_HALF_WIDTH + Config.LOBBY_SIZE / 2 + 10, "Lobby must be physically separated from the arena")
@@ -121,15 +134,19 @@ runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experi
 	end
 end)
 
-runTest("The single Sunspire map uses daytime lighting and contains no imported map clutter", function()
+runTest("The Classic arena uses neutral lighting and connected stud geometry", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 	assert(Config.MAP_COUNT == 1, "Map rotation must be disabled")
-	assert(arena:SetMap(1) == "SKYFALL SUNSPIRE", "The only playable map should be Sunspire")
-	assert(arena:GetMapName() == "SKYFALL SUNSPIRE", "Active map name is incorrect")
-	assert(arena:GetTile(8, 8).Material == Enum.Material.SmoothPlastic, "Destructible floor must use a clean studded plastic surface")
+	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "The only playable map should be Classic Arena")
+	assert(arena:GetMapName() == "SKYFALL CLASSIC ARENA", "Active map name is incorrect")
+	assert(arena:GetTile(8, 8).Material == Enum.Material.Plastic, "Destructible floor must use classic Plastic")
+	local leftTile = arena:GetTile(8, 8)
+	local rightTile = arena:GetTile(9, 8)
+	assert(math.abs((rightTile.Position.X - leftTile.Position.X) - Config.TILE_SIZE) < 0.001, "Neighboring floor tiles must touch with no gap")
+	assert(math.abs(leftTile.Size.X - Config.TILE_SIZE) < 0.001, "Tile width must match its grid spacing")
 	assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
-	assert(Lighting:FindFirstChild("SkyfallSunriseSky"), "The custom daytime sky was not retained")
-	assert(arena.mapFolder:FindFirstChild("SunspireRoyalGate"), "Sunspire gate architecture is missing")
+	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "No custom Sky instance should be retained")
+	assert(arena.mapFolder:FindFirstChild("ClassicArenaGate"), "Classic arena gate is missing")
 	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "A bridge to the lobby must not exist")
 
 	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
@@ -196,7 +213,7 @@ runTest("The one map restores the floor only when a new round loads", function()
 	assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after reset")
 end)
 
-runTest("The next-round map remains the one fixed Sunspire arena", function()
+runTest("The next-round map remains the one fixed Classic arena", function()
 	local harness = setmetatable({
 		lastMapId = 1,
 		random = Random.new(73421),

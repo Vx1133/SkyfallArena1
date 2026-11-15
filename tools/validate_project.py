@@ -142,7 +142,7 @@ for forbidden_lighting in (
 ):
     require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
 require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
-require("CFrame.lookAt(position, Config.ARENA_CENTER)" in arena_source, "Lobby spawns must face the arena observation view")
+require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
 require("tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs" in arena_source, "Broken tile surface reset is missing")
 require("part.CastShadow = false" in arena_source, "Static map part shadows should be disabled")
 require("warningLight.Brightness" not in arena_source, "Per-target dynamic warning lights should be removed")

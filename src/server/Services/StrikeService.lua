@@ -112,11 +112,28 @@ function StrikeService:_fireAtTile(tile)
 			return
 		end
 
-		self.arena:CreateStrikeBeam(tile)
-		self.arena:BreakTile(tile, token)
-		task.delay(0.72, function()
+		local effectStarted = self.arena:CreateStrikeBeam(tile)
+		if not effectStarted then
+			self.arena:ClearWarning(tile, token)
 			self.arena:ReturnAircraftLensHome(aimToken)
+			return
+		end
+
+		-- Damage lands only after the animated beam endpoint reaches the tile.
+		task.delay(Config.LASER_EXTENSION_SECONDS + Config.LASER_HOLD_SECONDS, function()
+			if self.arena:IsStrikeCurrent(tile, token) then
+				self.arena:BreakTile(tile, token)
+			end
 		end)
+		task.delay(
+			Config.LASER_EXTENSION_SECONDS
+				+ Config.LASER_HOLD_SECONDS
+				+ Config.LASER_FADE_SECONDS
+				+ 0.08,
+			function()
+				self.arena:ReturnAircraftLensHome(aimToken)
+			end
+		)
 	end)
 
 	return true
@@ -150,6 +167,10 @@ function StrikeService:_handleHumanTarget(player, gridX, gridZ)
 	local tile = self.arena:GetTile(gridX, gridZ)
 	if self:_fireAtTile(tile) then
 		self.lastHumanStrikeAt[player.UserId] = now
+		player:SetAttribute(
+			"SkyfallLaserReadyAt",
+			workspace:GetServerTimeNow() + Config.HUMAN_STRIKE_COOLDOWN_SECONDS
+		)
 	end
 end
 

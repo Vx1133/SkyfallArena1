@@ -49,7 +49,7 @@ end
 
 local arena
 
-runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experience", function()
+runTest("Arena builds one 15x15 destructible Classic arena for a 30-player experience", function()
 	assert(Config.GRID_SIZE == 15, "Expected a 15x15 tile grid")
 	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
 	assert(Config.MAP_COUNT == 1, "The experience must contain exactly one playable map")
@@ -205,7 +205,7 @@ runTest("The one map restores the floor only when a new round loads", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 	local tile = arena:GetTile(8, 8)
 	local staleToken = tile:GetAttribute("StrikeToken")
-	assert(arena:SetMap(1) == "SKYFALL SUNSPIRE", "The single map failed to reload")
+	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "The single map failed to reload")
 	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New round did not restore the full grid")
 	assert(tile:GetAttribute("IsBroken") == false, "New round did not clear broken state")
 	assert(tile.CanCollide == true, "New round did not restore floor collision")
@@ -240,7 +240,7 @@ runTest("The round state counts down from 180 seconds and reports runner elimina
 			GetAliveCount = function() return 0 end,
 		},
 		arena = {
-			GetMapName = function() return "SKYFALL SUNSPIRE" end,
+			GetMapName = function() return "SKYFALL CLASSIC ARENA" end,
 		},
 		stateRemote = {
 			FireAllClients = function(_, state)

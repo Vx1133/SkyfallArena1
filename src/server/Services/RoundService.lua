@@ -35,6 +35,7 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	if self.botService then
 		self.botService.onBotDied = function(diedBot)
 			self:_recordSurvival({kind = "Bot", value = diedBot})
+			self:_broadcast()
 		end
 	end
 	if self.playRemote then

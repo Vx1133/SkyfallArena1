@@ -727,7 +727,7 @@ function BotService:_setBotHidden(bot, hidden)
 	end
 end
 
-function BotService:StartRound(spawnCFrames, controllerBot, controllerSpawnCFrame)
+function BotService:StartRound(spawnCFrames, controllerBot)
 	for index, bot in ipairs(self.bots) do
 		if not bot.humanoid
 			or bot.humanoid.Health <= 0

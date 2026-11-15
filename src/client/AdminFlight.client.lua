@@ -82,7 +82,7 @@ local function isFlying()
 end
 
 local function updateControls()
-	local waiting = state.phase == "Waiting"
+	local waiting = state.phase == "Waiting" and player:GetAttribute("SkyfallReady") ~= true
 	local admin = isAdmin()
 	flyButton.Visible = admin and waiting
 	upButton.Visible = admin and waiting and isFlying()
@@ -163,6 +163,7 @@ end)
 player:GetAttributeChangedSignal("SkyfallIsAdmin"):Connect(updateControls)
 player:GetAttributeChangedSignal("SkyfallFlightEnabled"):Connect(updateControls)
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateControls)
+player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateControls)
 
 task.spawn(function()
 	while running do

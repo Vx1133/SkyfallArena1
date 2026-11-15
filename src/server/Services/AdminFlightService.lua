@@ -84,7 +84,7 @@ function AdminFlightService:_disable(player)
 end
 
 function AdminFlightService:_enable(player)
-	if not self:_isAuthorized(player) or not self.rounds:IsWaiting() then
+	if not self:_isAuthorized(player) or not self.rounds:IsWaiting() or player:GetAttribute("SkyfallReady") == true then
 		return false
 	end
 	if self.active[player] then
@@ -159,7 +159,7 @@ local function isFiniteVector(vector)
 end
 
 function AdminFlightService:_move(player, direction, lookVector)
-	if not self:_isAuthorized(player) or not self.rounds:IsWaiting() then
+	if not self:_isAuthorized(player) or not self.rounds:IsWaiting() or player:GetAttribute("SkyfallReady") == true then
 		self:_disable(player)
 		return
 	end
@@ -229,6 +229,7 @@ function AdminFlightService:Start()
 		for player, state in pairs(self.active) do
 			if not self:_isAuthorized(player)
 				or not self.rounds:IsWaiting()
+				or player:GetAttribute("SkyfallReady") == true
 				or not player.Character
 				or player.Character ~= state.character
 				or not state.root.Parent

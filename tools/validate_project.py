@@ -218,6 +218,7 @@ for feature in (
 require('playerCount = self.phase == "Active" and remainingPlayers or allHumanCount + botCount' in round_source, "Active HUD count must use living arena runners only")
 require("characterOverride or player.Character" in round_source, "Character placement must use the exact respawning character")
 require("LoadCharacterAsync" in round_source, "Player respawn recovery must request a fresh character when Roblox respawn is missing")
+require('if self.phase ~= "Active" then\n\t\tself:_scheduleRespawnRecovery(player, deadCharacter or player.Character)' in round_source, "Players also need respawn recovery while in the waiting lobby")
 require("characterSerial" in round_source, "CharacterAdded placement must ignore stale character callbacks")
 
 admin_source = (ROOT / "src/server/Services/AdminFlightService.lua").read_text(encoding="utf-8")

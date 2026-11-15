@@ -57,7 +57,7 @@ local function applyClassicStudSurface(basePart)
 	basePart.BottomSurface = Enum.SurfaceType.Inlet
 end
 
-local function setTileStudState(tile, hidden, ...)
+local function setTileStudState(tile, hidden)
 	tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs
 	tile.BottomSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Inlet
 end
@@ -562,7 +562,7 @@ function ArenaService:Build()
 			tile:SetAttribute("IsBroken", false)
 			tile:SetAttribute("IsWarning", false)
 			tile:SetAttribute("StrikeToken", 0)
-			applyClassicStudSurface(tile, MAPS[1].studColor, 0.86, 0.24)
+			applyClassicStudSurface(tile)
 			self.tiles[tileKey(gridX, gridZ)] = tile
 		end
 	end
@@ -764,7 +764,7 @@ function ArenaService:ResetTiles()
 		tile.Material = self.theme.tileMaterial
 		tile.CanCollide = true
 		tile.Transparency = 0
-		setTileStudState(tile, false, self.theme.studColor)
+		setTileStudState(tile, false)
 	end
 end
 

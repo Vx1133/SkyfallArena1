@@ -80,7 +80,7 @@ runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experi
 	assert(math.abs(stud.Size.X - stud.Size.Z) < 0.001, "Floor studs must have square footprints")
 
 	assert(arena.lobbyFolder:FindFirstChild("WaitingPlatform"), "Classic waiting baseplate is missing")
-	assert(arena.lobbyFolder:FindFirstChild("LobbyFloorPanel_8_8"), "The connected lobby stud floor is missing")
+	assert(arena.lobbyFolder:FindFirstChild("LobbyFloorPanel_12_12"), "The connected lobby stud floor is missing")
 	local water = arena.lobbyFolder:FindFirstChild("LobbyWater")
 	assert(water and water.Material == Enum.Material.Water, "Classic lobby fountain is missing")
 	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Golden controller sphere is missing")

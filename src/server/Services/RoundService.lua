@@ -6,11 +6,14 @@ local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("Ga
 local RoundService = {}
 RoundService.__index = RoundService
 
-function RoundService.new(arenaService, stateRemote, botService)
+function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	local self = setmetatable({}, RoundService)
 	self.arena = arenaService
 	self.stateRemote = stateRemote
 	self.botService = botService
+	self.playRemote = playRemote
+	self.readyPlayers = {}
+	self.roundHumanCount = 0
 	self.phase = "Waiting"
 	self.elapsedSeconds = 0
 	self.countdownSeconds = 0
@@ -33,6 +36,11 @@ function RoundService.new(arenaService, stateRemote, botService)
 			self:_recordSurvival({kind = "Bot", value = diedBot})
 		end
 	end
+	if self.playRemote then
+		self.playRemote.OnServerEvent:Connect(function(player)
+			self:RequestPlay(player)
+		end)
+	end
 	self.lastMapId = 0
 
 	Players.RespawnTime = Config.RESPAWN_TIME
@@ -44,6 +52,7 @@ function RoundService.new(arenaService, stateRemote, botService)
 	Players.PlayerRemoving:Connect(function(player)
 		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
+		self.readyPlayers[player] = nil
 		self.stats[player] = nil
 		self.roundRunners[player] = nil
 		self.survivalTimes[player] = nil
@@ -119,6 +128,7 @@ end
 function RoundService:_bindPlayer(player)
 	self:_setupStats(player)
 	player:SetAttribute("SkyfallRole", "Waiting")
+	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
 
 	player.CharacterAdded:Connect(function(character)
@@ -128,6 +138,49 @@ function RoundService:_bindPlayer(player)
 	if player.Character then
 		task.defer(self._onCharacterAdded, self, player, player.Character)
 	end
+end
+
+function RoundService:_readyPlayerCount()
+	local count = 0
+	for player in pairs(self.readyPlayers) do
+		if player.Parent == Players then
+			count += 1
+		end
+	end
+	return count
+end
+
+function RoundService:_getReadyPlayers()
+	local ready = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if self.readyPlayers[player] and player.Parent == Players then
+			table.insert(ready, player)
+		end
+	end
+	return ready
+end
+
+function RoundService:RequestPlay(player)
+	if not player or player.Parent ~= Players or self.phase ~= "Waiting" then
+		return false
+	end
+	if self.readyPlayers[player] then
+		return true
+	end
+	self.readyPlayers[player] = true
+	player:SetAttribute("SkyfallReady", true)
+	self:_broadcast()
+	return true
+end
+
+function RoundService:_clearReadyPlayers()
+	for player in pairs(self.readyPlayers) do
+		if player.Parent == Players then
+			player:SetAttribute("SkyfallReady", false)
+		end
+	end
+	self.readyPlayers = {}
+	self.roundHumanCount = 0
 end
 
 function RoundService:_setPlayerControllerHidden(player, hidden)
@@ -279,7 +332,7 @@ end
 
 function RoundService:_chooseController()
 	-- Give a solo human a fair first test as a runner, with a bot piloting the drone.
-	if self.roundNumber == 1 and #Players:GetPlayers() == 1 then
+	if self.roundNumber == 1 and #self:_getReadyPlayers() == 1 then
 		local botCandidates = {}
 		for _, bot in ipairs(self.botService:GetBots()) do
 			if self:_isCandidateValid({kind = "Bot", value = bot}) then
@@ -300,7 +353,7 @@ function RoundService:_chooseController()
 	self.nextController = nil
 	local candidates = {}
 
-	for _, player in ipairs(Players:GetPlayers()) do
+	for _, player in ipairs(self:_getReadyPlayers()) do
 		table.insert(candidates, {
 			kind = "Player",
 			value = player,

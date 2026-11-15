@@ -125,7 +125,7 @@ require("tile.CanCollide = true" in map_set_body, "The next map must restore flo
 bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
 for bot_name in ("Atlas", "Nova", "Rook"):
     require(f'name = "{bot_name}"' in bot_source, f"AI bot profile is missing: {bot_name}")
-for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""'):
+for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
 for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "MarketplaceService"):
     require(forbidden not in bot_source, f"Unwanted external asset or bot label code remains: {forbidden}")
@@ -142,6 +142,7 @@ for feature in (
     "function RoundService:IsBotController(",
     "function RoundService:_setPlayerControllerHidden(",
     "self.roundNumber == 1 and #Players:GetPlayers() == 1",
+    "self.botService.onBotDied = function(diedBot)",
     "self.nextController = self.winnerCandidate",
     "self:_moveEliminatedPlayerToLobby(player)",
     "remainingPlayers = remainingPlayers",

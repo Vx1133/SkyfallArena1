@@ -34,9 +34,7 @@ end
 function AdminFlightService:_setAdminAttribute(player)
 	if player and player.Parent == Players then
 		player:SetAttribute("SkyfallIsAdmin", self:_isAuthorized(player))
-		if not self:_isAuthorized(player) then
-			player:SetAttribute("SkyfallFlightEnabled", false)
-		end
+		player:SetAttribute("SkyfallFlightEnabled", self.active[player] ~= nil)
 	end
 end
 

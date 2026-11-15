@@ -128,13 +128,38 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(laserOrigin and laserOrigin.Parent == fuselage, "Laser origin must be attached directly to the unified fuselage")
 	assert(arena.aircraftModel:FindFirstChild("ControllerLensGimbal", true) == nil, "An independently moving lens gimbal must not remain")
 	local homeBodyC0 = bodyJoint.C0
-	local aimToken = arena:AimAircraftAt(arena:GetTile(5, 8))
-	assert(typeof(aimToken) == "number", "A valid target must start a tokenized aircraft aim")
-	task.wait(0.55)
-	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) < 0.999, "The whole aircraft body should rotate toward an off-center target")
-	arena:ReturnAircraftLensHome(aimToken)
-	task.wait(0.55)
-	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) > 0.999, "The complete aircraft should return to its home orientation")
+	-- Four-cardinal lens aim tests catch sign and axis mismatches that a single target misses.
+	local function verifyAimDirection(gridX, gridZ, label)
+		local tile = arena:GetTile(gridX, gridZ)
+		assert(tile, "Missing " .. label .. " aim-test tile")
+		local targetPosition = tile.Position + Vector3.new(0, 0.65, 0)
+		local aimToken = arena:AimAircraftAt(tile)
+		assert(typeof(aimToken) == "number", "A valid " .. label .. " target must start a tokenized aim")
+		task.wait(0.5)
+
+		local desiredDirection = (targetPosition - fuselage.Position).Unit
+		local opticalAxis = -fuselage.CFrame.UpVector
+		assert(opticalAxis:Dot(desiredDirection) > 0.995,
+			"The lens optical axis must point at the " .. label .. " target")
+		local originOffset = laserOrigin.WorldPosition - fuselage.Position
+		assert(originOffset.Magnitude > 0.1 and originOffset.Unit:Dot(opticalAxis) > 0.995,
+			"The laser origin must remain on the lens optical axis for " .. label)
+		local beamDirection = targetPosition - laserOrigin.WorldPosition
+		assert(beamDirection.Magnitude > 0.1 and beamDirection.Unit:Dot(opticalAxis) > 0.995,
+			"The emitted beam must travel toward the " .. label .. " target")
+
+		assert(arena:ReturnAircraftLensHome(aimToken), "The aircraft should accept its return-home token")
+		task.wait(0.45)
+	end
+
+	verifyAimDirection(15, 8, "right")
+	verifyAimDirection(1, 8, "left")
+	verifyAimDirection(8, 15, "front")
+	verifyAimDirection(8, 1, "back")
+	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) > 0.999
+		and bodyJoint.C0.UpVector:Dot(homeBodyC0.UpVector) > 0.999
+		and bodyJoint.C0.LookVector:Dot(homeBodyC0.LookVector) > 0.999,
+		"The complete aircraft should return to its home orientation after all cardinal aim tests")
 	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "Custom skybox must be removed")
 	assert(Lighting:FindFirstChild("SkyfallAtmosphere") == nil, "Custom Atmosphere must be removed")
@@ -163,10 +188,14 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	local energyShell = arena.root:FindFirstChild("LaserEnergyShell")
 	local hotCore = arena.root:FindFirstChild("LaserHotCore")
 	local filament = arena.root:FindFirstChild("LaserFilament")
+	local energyFlow = arena.root:FindFirstChild("LaserEnergyFlow")
 	assert(atmosphereGlow and atmosphereGlow:IsA("Beam"), "The soft laser atmosphere pass is missing")
 	assert(energyShell and energyShell:IsA("Beam"), "The main laser energy shell is missing")
 	assert(hotCore and hotCore:IsA("Beam"), "The bright laser core is missing")
 	assert(filament and filament:IsA("Beam"), "The fine laser filament is missing")
+	assert(energyFlow and energyFlow:IsA("Beam"), "The animated energy texture pass is missing")
+	assert(energyFlow.Texture == "rbxasset://textures/particles/sparkles_main.dds", "The laser must use the built-in moving beam texture")
+	assert(energyFlow.TextureMode == Enum.TextureMode.Wrap and energyFlow.TextureSpeed < 0, "The energy texture must wrap and travel toward the target")
 	assert(energyShell.Attachment0 == arena.laserOrigin, "The laser must originate from the golden fuselage")
 	local impact = centerTile:FindFirstChild("LaserImpactAttachment")
 	assert(impact and impact:FindFirstChild("LaserImpactParticles"), "The hit should use a short spark burst, not a solid impact disc")

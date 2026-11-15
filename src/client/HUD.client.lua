@@ -25,7 +25,7 @@ local state = {
 local screenGui = Instance.new("ScreenGui")
 screenGui.Name = "SkyfallHUD"
 screenGui.ResetOnSpawn = false
-screenGui.IgnoreGuiInset = false
+screenGui.IgnoreGuiInset = true
 screenGui.DisplayOrder = 20
 screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
@@ -33,8 +33,8 @@ screenGui.Parent = playerGui
 local panel = Instance.new("Frame")
 panel.Name = "RoundStatusBar"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.fromScale(0.5, 0)
-panel.Size = UDim2.new(0.96, 0, 0, Config.HUD_HEIGHT)
+panel.Position = UDim2.new(0.5, 0, 0, 6)
+panel.Size = UDim2.new(0.72, 0, 0, Config.HUD_HEIGHT)
 panel.BackgroundColor3 = Color3.fromRGB(22, 35, 45)
 panel.BackgroundTransparency = 0.46
 panel.BorderSizePixel = 0
@@ -62,7 +62,7 @@ gradient.Parent = panel
 
 local sizeConstraint = Instance.new("UISizeConstraint")
 sizeConstraint.MaxSize = Vector2.new(Config.HUD_MAX_WIDTH, Config.HUD_HEIGHT)
-sizeConstraint.MinSize = Vector2.new(240, Config.HUD_HEIGHT)
+sizeConstraint.MinSize = Vector2.new(176, Config.HUD_HEIGHT)
 sizeConstraint.Parent = panel
 
 local cellLabels = {}
@@ -81,7 +81,7 @@ for index, style in ipairs(cellStyles) do
 	label.Font = Enum.Font.GothamBold
 	label.Text = style.title .. "\n" .. style.value
 	label.TextColor3 = style.color
-	label.TextSize = 11
+	label.TextSize = 9
 	label.TextWrapped = true
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.TextXAlignment = Enum.TextXAlignment.Center
@@ -90,8 +90,8 @@ for index, style in ipairs(cellStyles) do
 	label.TextStrokeTransparency = 0.78
 	label.Parent = panel
 	local textConstraint = Instance.new("UITextSizeConstraint")
-	textConstraint.MinTextSize = 9
-	textConstraint.MaxTextSize = 11
+	textConstraint.MinTextSize = 8
+	textConstraint.MaxTextSize = 9
 	textConstraint.Parent = label
 	cellLabels[style.name] = label
 
@@ -100,7 +100,7 @@ for index, style in ipairs(cellStyles) do
 		divider.Name = "CellDivider_" .. tostring(index)
 		divider.AnchorPoint = Vector2.new(0.5, 0.5)
 		divider.Position = UDim2.fromScale(index * 0.5, 0.5)
-		divider.Size = UDim2.fromOffset(1, 22)
+		divider.Size = UDim2.fromOffset(1, 18)
 		divider.BackgroundColor3 = Color3.fromRGB(226, 214, 190)
 		divider.BackgroundTransparency = 0.76
 		divider.BorderSizePixel = 0
@@ -312,37 +312,52 @@ RunService.RenderStepped:Connect(function()
 			Vector3.new(0, 0, -1)
 		)
 		camera.Focus = CFrame.new(Config.ARENA_CENTER)
-	elseif controllerCameraActive then
-		controllerCameraActive = false
-		setControllerDroneHidden(false)
-		cachedControllerCameraHeight = nil
-		cachedControllerViewport = Vector2.zero
-		camera.CameraType = Enum.CameraType.Custom
-		if previousFieldOfViewMode then
-			camera.FieldOfViewMode = previousFieldOfViewMode
-			previousFieldOfViewMode = nil
-		end
-		if previousFieldOfView then
-			camera.FieldOfView = previousFieldOfView
-			previousFieldOfView = nil
+	else
+		if controllerCameraActive then
+			controllerCameraActive = false
+			setControllerDroneHidden(false)
+			cachedControllerCameraHeight = nil
+			cachedControllerViewport = Vector2.zero
+			camera.CameraType = Enum.CameraType.Custom
+			if previousFieldOfViewMode then
+				camera.FieldOfViewMode = previousFieldOfViewMode
+				previousFieldOfViewMode = nil
+			end
+			if previousFieldOfView then
+				camera.FieldOfView = previousFieldOfView
+				previousFieldOfView = nil
+			end
 		end
 
+		-- Keep the normal player camera attached to the current living character.
+		-- This also repairs the camera after respawns and role changes.
 		local character = player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			camera.CameraSubject = humanoid
+		if humanoid and humanoid.Health > 0 then
+			if camera.CameraType ~= Enum.CameraType.Custom then
+				camera.CameraType = Enum.CameraType.Custom
+			end
+			if camera.CameraSubject ~= humanoid then
+				camera.CameraSubject = humanoid
+			end
 		end
 	end
 end)
 
 player.CharacterAdded:Connect(function(character)
-	if not controllerCameraActive then
-		local humanoid = character:WaitForChild("Humanoid", 10)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then
+		return
+	end
+
+	task.defer(function()
 		local camera = Workspace.CurrentCamera
-		if camera and humanoid then
+		local controllerActive = getRole() == "Controller" and state.phase == "Active"
+		if camera and not controllerActive then
+			camera.CameraType = Enum.CameraType.Custom
 			camera.CameraSubject = humanoid
 		end
-	end
+	end)
 end)
 
 updateHud()

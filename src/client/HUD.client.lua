@@ -76,8 +76,8 @@ for index, style in ipairs(cellStyles) do
 	local label = Instance.new("TextLabel")
 	label.Name = style.name
 	label.AnchorPoint = Vector2.new(0, 0)
-	label.Position = UDim2.new((index - 1) * 0.25, 0, 0, 0)
-	label.Size = UDim2.new(0.25, 0, 1, 0)
+	label.Position = UDim2.fromScale((index - 1) * 0.25, 0)
+	label.Size = UDim2.fromScale(0.25, 1)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
 	label.Text = style.title .. "\n" .. style.value
@@ -100,8 +100,8 @@ for index, style in ipairs(cellStyles) do
 		local divider = Instance.new("Frame")
 		divider.Name = "CellDivider_" .. tostring(index)
 		divider.AnchorPoint = Vector2.new(0.5, 0.5)
-		divider.Position = UDim2.new(index * 0.25, 0, 0.5, 0)
-		divider.Size = UDim2.new(0, 1, 0, 30)
+		divider.Position = UDim2.fromScale(index * 0.25, 0.5)
+		divider.Size = UDim2.fromOffset(1, 30)
 		divider.BackgroundColor3 = Color3.fromRGB(226, 214, 190)
 		divider.BackgroundTransparency = 0.76
 		divider.BorderSizePixel = 0
@@ -114,6 +114,10 @@ local function formatTime(totalSeconds)
 	local minutes = math.floor(seconds / 60)
 	local remainder = seconds % 60
 	return string.format("%02d:%02d", minutes, remainder)
+end
+
+local function getRole()
+	return player:GetAttribute("SkyfallRole") or "Waiting"
 end
 
 local function updateHud()

@@ -379,6 +379,10 @@ function BotService:_buildRig(bot)
 		bot.targetTile = nil
 		model:SetAttribute("SkyfallRole", "Spectator")
 
+		if self.onBotDied then
+			self.onBotDied(bot)
+		end
+
 		task.defer(function()
 			for index, candidate in ipairs(self.bots) do
 				if candidate == bot

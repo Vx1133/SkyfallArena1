@@ -490,16 +490,16 @@ function ArenaService:AimAircraftAt(tile)
 		local direction = targetPosition - body.Position
 		if direction.Magnitude > 0.01 then
 			direction = direction.Unit
-			-- Local -Y is the optical axis. This joint rotates the whole drone,
-			-- keeping the lens, collar, armor and fuselage mechanically aligned.
-			local up = -direction
-			local referenceRight = Vector3.xAxis
-			local right = referenceRight - up * referenceRight:Dot(up)
-			if right.Magnitude < 0.05 then
-				referenceRight = Vector3.zAxis
-				right = referenceRight - up * referenceRight:Dot(up)
+			-- The lens optical axis is local +X (the right vector of lensFrameAt).
+			-- Aim that same axis toward the selected tile so the body and emitter agree.
+			local right = direction
+			local referenceUp = Vector3.new(0, 0, -1)
+			local up = referenceUp - right * referenceUp:Dot(right)
+			if up.Magnitude < 0.05 then
+				referenceUp = Vector3.yAxis
+				up = referenceUp - right * referenceUp:Dot(right)
 			end
-			right = right.Unit
+			up = up.Unit
 			local back = right:Cross(up).Unit
 			local aimFrame = CFrame.fromMatrix(anchor.Position, right, up, back)
 			targetC0 = anchor.CFrame:ToObjectSpace(aimFrame)

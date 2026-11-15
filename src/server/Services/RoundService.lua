@@ -558,6 +558,7 @@ end
 
 function RoundService:HandleDeath(player, deadCharacter)
 	if self.phase ~= "Active" then
+		self:_scheduleRespawnRecovery(player, deadCharacter or player.Character)
 		return
 	end
 

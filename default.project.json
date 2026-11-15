@@ -28,7 +28,7 @@
       "$properties": {
         "StreamingEnabled": true,
         "StreamingMinRadius": 64,
-        "StreamingTargetRadius": 384,
+        "StreamingTargetRadius": 192,
         "ModelStreamingBehavior": "Improved",
         "StreamOutBehavior": "Opportunistic",
         "StreamingIntegrityMode": "PauseOutsideLoadedArea"

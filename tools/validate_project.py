@@ -53,6 +53,7 @@ for setting in (
     "Config.BOT_COUNT = 10",
     "Config.TILE_GAP = 0",
     "Config.LOBBY_SIZE = 144",
+    "Config.LOBBY_CENTER = Vector3.new(-250, 70, 0)",
     "Config.ADMIN_FLIGHT_SPEED = 52",
     "Config.HUD_MAX_WIDTH = 224",
     "Config.HUD_HEIGHT = 30",
@@ -84,6 +85,7 @@ for feature in (
     "function ArenaService:SetMap(",
     "function ArenaService:ResetTiles(",
     "function ArenaService:GetControllerSpawnCFrame(",
+    "function ArenaService:GetStreamingFocusPart(",
     "SkyfallLaserAircraft",
     "ControllerLens",
     "WaitingPlatform",
@@ -140,6 +142,7 @@ for forbidden_lighting in (
 ):
     require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
 require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
+require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
 require("tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs" in arena_source, "Broken tile surface reset is missing")
 require("part.CastShadow = false" in arena_source, "Static map part shadows should be disabled")
 require("warningLight.Brightness" not in arena_source, "Per-target dynamic warning lights should be removed")
@@ -247,6 +250,10 @@ for feature in (
     "self.botService.onBotDied = function(diedBot)",
     "self.nextController = self.winnerCandidate",
     "function RoundService:_moveEliminatedPlayerToLobby(player)",
+    "function RoundService:_setArenaStreamingFocus(",
+    "function RoundService:_resetArenaAfterRound(",
+    "AddReplicationFocus",
+    "RemoveReplicationFocus",
     "remainingPlayers = remainingPlayers",
     "remainingSeconds = remainingSeconds",
     "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",
@@ -257,6 +264,17 @@ require("characterOverride or player.Character" in round_source, "Character plac
 require("LoadCharacterAsync" in round_source, "Player respawn recovery must request a fresh character when Roblox respawn is missing")
 require('if self.phase ~= "Active" then\n\t\tself:_scheduleRespawnRecovery(player, deadCharacter or player.Character)' in round_source, "Players also need respawn recovery while in the waiting lobby")
 require("characterSerial" in round_source, "CharacterAdded placement must ignore stale character callbacks")
+require("local parentDeadline = os.clock() + 10" in round_source, "CharacterAdded placement must wait for the model to enter Workspace")
+round_run_body = round_source.split("function RoundService:_runRound()", 1)[1].split("function RoundService:_runLoop()", 1)[0]
+phase_end_index = round_run_body.find('self.phase = canceled and "Waiting" or "Results"')
+reset_end_index = round_run_body.find("self:_resetArenaAfterRound()")
+results_countdown_index = round_run_body.find("for seconds = Config.RESULTS_SECONDS")
+require(phase_end_index >= 0 and phase_end_index < reset_end_index < results_countdown_index, "Round-end map reset must run before the Results countdown")
+bootstrap_source = (ROOT / "src/server/Bootstrap.server.lua").read_text(encoding="utf-8")
+require("Players.CharacterAutoLoads = false" in bootstrap_source, "Automatic spawning must be disabled before round services initialize")
+bind_player_body = round_source.split("function RoundService:_bindPlayer(player)", 1)[1].split("function RoundService:_readyPlayerCount()", 1)[0]
+require(bind_player_body.find("player.CharacterAdded:Connect") < bind_player_body.find("player:LoadCharacterAsync()"), "Initial character loading must happen only after lobby placement is connected")
+require("task.delay(Config.RESPAWN_TIME, function()" in round_source, "Manual respawn timing must use the configured delay")
 
 admin_source = (ROOT / "src/server/Services/AdminFlightService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -398,7 +416,9 @@ for feature in (
     "Players remain in the lobby until they request Play",
     "Creator flight authorization only grants the personal experience owner",
     "Broken tiles remain broken",
-    "The one map restores the floor only when a new round loads",
+    "Round-end cleanup instantly restores every destructible tile",
+    "Lobby streaming focus is added and removed once without changing global radius",
+    "Late joiners during an active round are routed to the observation lobby",
     "The next-round map remains the one fixed Classic arena",
     "The active HUD count only includes living arena runners",
     "A fallen bot is removed before the round broadcasts its survivor count",

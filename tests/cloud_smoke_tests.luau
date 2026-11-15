@@ -77,6 +77,18 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
 	assert(lobbyPlatform, "Classic waiting baseplate is missing")
 	assert(lobbyPlatform.TopSurface == Enum.SurfaceType.Studs, "Lobby baseplate must use native Classic Studs")
+	assert(Players.CharacterAutoLoads == false, "Automatic character spawning must be disabled until server lobby routing is ready")
+	assert(Config.LOBBY_CENTER.Y - Config.ARENA_CENTER.Y >= 48, "The observation deck must be elevated at least 48 studs above the arena")
+	assert(lobbyPlatform.Position.Y - arena:GetTile(8, 8).Position.Y >= 48, "The waiting platform must be clearly above the arena floor")
+	local lobbySpawn = arena:GetLobbySpawnCFrame(1, 1, false)
+	local horizontalViewTarget = Vector3.new(
+		Config.ARENA_CENTER.X,
+		lobbySpawn.Position.Y,
+		Config.ARENA_CENTER.Z
+	)
+	local viewDirection = (horizontalViewTarget - lobbySpawn.Position).Unit
+	assert(lobbySpawn.LookVector:Dot(viewDirection) > 0.99, "Lobby spawns must face toward the arena without tilting avatars")
+	assert(arena:GetStreamingFocusPart() == arena:GetTile(8, 8), "The arena streaming focus must stay at the center tile")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWater") == nil, "Lobby water surface must be removed")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign") == nil, "Floating lobby welcome board must be removed")
 	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
@@ -300,7 +312,7 @@ runTest("The Classic arena uses neutral lighting and connected stud geometry", f
 	assert(arena.mapFolder:FindFirstChild("AzureHarborFortress") == nil, "Old Azure Harbor map remains")
 end)
 
-runTest("Broken tiles remain broken until a new map is loaded", function()
+runTest("Broken tiles remain broken until round-end cleanup", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 
 	local targets = {
@@ -330,22 +342,47 @@ runTest("Broken tiles remain broken until a new map is loaded", function()
 
 	for _, coordinates in ipairs(targets) do
 		local tile = arena:GetTile(coordinates[1], coordinates[2])
-		assert(tile:GetAttribute("IsBroken") == true, "A broken tile repaired itself before the next map")
-		assert(tile.CanCollide == false, "A broken tile regained collision before the next map")
+		assert(tile:GetAttribute("IsBroken") == true, "A broken tile repaired itself before round-end cleanup")
+		assert(tile.CanCollide == false, "A broken tile regained collision before round-end cleanup")
 	end
 end)
 
-runTest("The one map restores the floor only when a new round loads", function()
+runTest("Round-end cleanup instantly restores every destructible tile", function()
 	assert(arena ~= nil, "Arena setup did not complete")
-	local tile = arena:GetTile(8, 8)
-	local staleToken = tile:GetAttribute("StrikeToken")
-	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "The single map failed to reload")
-	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New round did not restore the full grid")
-	assert(tile:GetAttribute("IsBroken") == false, "New round did not clear broken state")
-	assert(tile.CanCollide == true, "New round did not restore floor collision")
-	assert(tile.TopSurface == Enum.SurfaceType.Studs, "New round did not restore native Stud surfaces")
-	arena:BreakTile(tile, staleToken)
-	assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after reset")
+	local targets = {{8, 8}, {7, 8}, {8, 7}, {9, 8}}
+	local staleTokens = {}
+
+	for _, coordinates in ipairs(targets) do
+		local tile = arena:GetTile(coordinates[1], coordinates[2])
+		local token = arena:MarkTile(tile)
+		assert(token ~= nil, "A clean tile should accept a test warning")
+		arena:BreakTile(tile, token)
+		assert(tile:GetAttribute("IsBroken") == true, "The test tile should be broken before cleanup")
+		staleTokens[tile] = token
+	end
+
+	local harness = setmetatable({arena = arena}, RoundService)
+	harness:_resetArenaAfterRound()
+
+	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "Round-end cleanup must restore the complete 15x15 floor")
+	for tile, staleToken in pairs(staleTokens) do
+		assert(tile:GetAttribute("IsBroken") == false, "Round-end cleanup must clear IsBroken")
+		assert(tile:GetAttribute("IsWarning") == false, "Round-end cleanup must clear warning state")
+		assert(tile.CanCollide == true, "Round-end cleanup must restore floor collision")
+		assert(tile.Transparency == 0, "Round-end cleanup must restore tile visibility")
+		assert(tile.Color == arena.theme.tileColor, "Round-end cleanup must restore the map tile color")
+		assert(tile.Material == arena.theme.tileMaterial, "Round-end cleanup must restore the map material")
+		assert(tile.TopSurface == Enum.SurfaceType.Studs, "Round-end cleanup must restore native studs")
+		assert(tile.BottomSurface == Enum.SurfaceType.Inlet, "Round-end cleanup must restore native inlets")
+		arena:BreakTile(tile, staleToken)
+		assert(tile:GetAttribute("IsBroken") == false, "A stale shot must not re-break a tile after round reset")
+		assert(tile:FindFirstChild("LaserImpactAttachment") == nil, "Round-end cleanup must remove lingering impact particles")
+		assert(tile:FindFirstChild("LaserImpactSound") == nil, "Round-end cleanup must remove lingering impact sound")
+	end
+
+	for _, child in ipairs(arena.root:GetChildren()) do
+		assert(string.sub(child.Name, 1, 13) ~= "LaserVFXShot_", "Round-end cleanup must remove active laser beam containers")
+	end
 end)
 
 runTest("The next-round map remains the one fixed Classic arena", function()
@@ -510,6 +547,97 @@ runTest("Players remain in the lobby until they request Play", function()
 		SetAttribute = function() end,
 	}
 	assert(harness:RequestPlay(latePlayer) == false, "A player must not join after the round starts")
+end)
+
+runTest("Lobby streaming focus is added and removed once without changing global radius", function()
+	local focusPart = arena:GetStreamingFocusPart()
+	local addCount = 0
+	local removeCount = 0
+	local fakePlayer = {Name = "StreamingFocusTest"}
+	function fakePlayer:AddReplicationFocus(part)
+		assert(part == focusPart, "Waiting player must stream around the center arena tile")
+		addCount += 1
+	end
+	function fakePlayer:RemoveReplicationFocus(part)
+		assert(part == focusPart, "The same arena focus must be removed")
+		removeCount += 1
+	end
+
+	local harness = setmetatable({
+		arena = arena,
+		arenaStreamingFocusPlayers = {},
+	}, RoundService)
+	assert(harness:_setArenaStreamingFocus(fakePlayer, true), "Waiting player should receive an arena streaming focus")
+	assert(harness:_setArenaStreamingFocus(fakePlayer, true), "Repeated lobby focus requests should be safe")
+	assert(addCount == 1, "The same player must not receive duplicate arena streaming foci")
+	assert(harness:_setArenaStreamingFocus(fakePlayer, false), "Arena focus should be removable")
+	assert(removeCount == 1, "Arena focus should be removed exactly once")
+	assert(Workspace.StreamingTargetRadius == 192, "Observation support must preserve the bounded mobile streaming radius")
+end)
+
+runTest("Late joiners during an active round are routed to the observation lobby", function()
+	local character = Instance.new("Model")
+	character.Name = "LateJoinTestCharacter"
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2, 2, 1)
+	root.Parent = character
+	local humanoid = Instance.new("Humanoid")
+	humanoid.Parent = character
+	character.PrimaryPart = root
+	character:PivotTo(CFrame.new(0, 30, 0))
+
+	local fakePlayer = {
+		Name = "LateJoinTest",
+		Parent = Players,
+		Character = character,
+		attributes = {},
+		ReplicationFocus = nil,
+	}
+	function fakePlayer:SetAttribute(name, value)
+		self.attributes[name] = value
+	end
+	function fakePlayer:AddReplicationFocus(part)
+		self.arenaStreamingFocus = part
+	end
+	function fakePlayer:RemoveReplicationFocus(part)
+		if self.arenaStreamingFocus == part then
+			self.arenaStreamingFocus = nil
+		end
+	end
+
+	local harness = setmetatable({
+		arena = arena,
+		phase = "Active",
+		controller = nil,
+		aliveRunners = {},
+		characterSerial = {},
+		arenaStreamingFocusPlayers = {},
+	}, RoundService)
+
+	local expectedLobbySpawn = arena:GetLobbySpawnCFrame(1, 1, false)
+	local placementFinished = false
+	task.spawn(function()
+		harness:_onCharacterAdded(fakePlayer, character)
+		placementFinished = true
+	end)
+	task.wait(0.05)
+	assert(character.Parent == nil, "CharacterAdded test must cover the engine's pre-Workspace stage")
+	character.Parent = Workspace
+	for _ = 1, 20 do
+		if placementFinished then
+			break
+		end
+		task.wait(0.05)
+	end
+	assert(placementFinished, "Character placement must finish after the model enters Workspace")
+	assert(fakePlayer.attributes.SkyfallRole == "Spectator", "A late joiner must not become a runner during an active round")
+	assert((character:GetPivot().Position - expectedLobbySpawn.Position).Magnitude < 0.1, "A late joiner must be placed on the lobby deck")
+	assert(fakePlayer.arenaStreamingFocus == arena:GetStreamingFocusPart(), "A lobby spectator must stream the live arena")
+
+	harness:_setArenaStreamingFocus(fakePlayer, false)
+	fakePlayer.Parent = nil
+	character:Destroy()
 end)
 
 runTest("Creator flight authorization only grants the personal experience owner", function()

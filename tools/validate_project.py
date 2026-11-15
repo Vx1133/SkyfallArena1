@@ -209,7 +209,7 @@ for feature in (
     "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
     "self.nextController = self.winnerCandidate",
-    "self:_moveEliminatedPlayerToLobby(player)",
+    "function RoundService:_moveEliminatedPlayerToLobby(player)",
     "remainingPlayers = remainingPlayers",
     "remainingSeconds = remainingSeconds",
     "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",

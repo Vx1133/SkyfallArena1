@@ -95,9 +95,10 @@ function ArenaService.new()
 	self.aircraftModel = nil
 	self.aircraftBasePosition = Config.CONTROL_CENTER
 	self.aircraftHoverTween = nil
-	self.lensMotor = nil
-	self.lensHomeC0 = nil
-	self.lensAimTween = nil
+	self.aircraftAnchor = nil
+	self.aircraftBodyMotor = nil
+	self.aircraftHomeC0 = nil
+	self.aircraftAimTween = nil
 	self.aircraftAimToken = 0
 	self.mapDecorBuilt = false
 	self.laserOrigin = nil
@@ -139,9 +140,38 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	orb.Shape = Enum.PartType.Ball
-	orb.Reflectance = 0.08
+	orb.Reflectance = 0.12
+	orb.CustomPhysicalProperties = PhysicalProperties.new(7.85, 0.32, 0.22, 1, 1)
 	orb.CastShadow = false
+	orb.Anchored = false
 	model.PrimaryPart = orb
+
+	-- One hidden anchor drives the complete aircraft assembly.
+	local aircraftAnchor = createPart(
+		model,
+		"AircraftMotionAnchor",
+		Vector3.new(0.2, 0.2, 0.2),
+		base,
+		Color3.new(0, 0, 0),
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	aircraftAnchor.Transparency = 1
+	aircraftAnchor.CanCollide = false
+	aircraftAnchor.CanTouch = false
+	aircraftAnchor.CanQuery = false
+	aircraftAnchor.Anchored = true
+	self.aircraftAnchor = aircraftAnchor
+
+	local bodyMotor = Instance.new("Motor6D")
+	bodyMotor.Name = "AircraftBodyJoint"
+	bodyMotor.Part0 = aircraftAnchor
+	bodyMotor.Part1 = orb
+	bodyMotor.C0 = aircraftAnchor.CFrame:ToObjectSpace(orb.CFrame)
+	bodyMotor.C1 = CFrame.identity
+	bodyMotor.Parent = aircraftAnchor
+	self.aircraftBodyMotor = bodyMotor
+	self.aircraftHomeC0 = bodyMotor.C0
 
 	local armorGroups = {
 		{
@@ -245,39 +275,11 @@ function ArenaService:_buildAircraft()
 		return CFrame.fromMatrix(position, lensNormal, Vector3.new(0, 0, -1), Vector3.new(1, 0, 0))
 	end
 
-	local lensPartSet = {}
 	local lensPosition = lensCenter + lensNormal * 0.95
-	local lensPivot = createPart(
-		model,
-		"ControllerLensPivot",
-		Vector3.new(0.18, 0.18, 0.18),
-		lensPosition,
-		Color3.fromRGB(15, 15, 18),
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	lensPivot.CFrame = lensFrameAt(lensPosition)
-	lensPivot.Transparency = 1
-	lensPivot.CanCollide = false
-	lensPivot.CanTouch = false
-	lensPivot.CanQuery = false
-	lensPivot.Massless = true
-	lensPivot.Anchored = false
-
-	local lensMotor = Instance.new("Motor6D")
-	lensMotor.Name = "ControllerLensGimbal"
-	lensMotor.Part0 = orb
-	lensMotor.Part1 = lensPivot
-	lensMotor.C0 = orb.CFrame:ToObjectSpace(lensPivot.CFrame)
-	lensMotor.C1 = CFrame.identity
-	lensMotor.Parent = orb
-	self.lensMotor = lensMotor
-	self.lensHomeC0 = lensMotor.C0
-
 	local laserOrigin = Instance.new("Attachment")
 	laserOrigin.Name = "LaserOrigin"
-	laserOrigin.Position = Vector3.new(0.62, 0, 0)
-	laserOrigin.Parent = lensPivot
+	laserOrigin.Position = orb.CFrame:PointToObjectSpace(lensPosition + lensNormal * 0.62)
+	laserOrigin.Parent = orb
 	self.laserOrigin = laserOrigin
 
 	local function lensDisc(name, thickness, diameter, position, color, material)
@@ -295,7 +297,6 @@ function ArenaService:_buildAircraft()
 		disc.CastShadow = false
 		disc.CanQuery = false
 		disc.CanTouch = false
-		lensPartSet[disc] = true
 		return disc
 	end
 
@@ -343,7 +344,6 @@ function ArenaService:_buildAircraft()
 	lens.CastShadow = false
 	lens.CanQuery = false
 	lens.CanTouch = false
-	lensPartSet[lens] = true
 
 	local lensLight = Instance.new("PointLight")
 	lensLight.Color = Color3.fromRGB(255, 69, 72)
@@ -366,7 +366,6 @@ function ArenaService:_buildAircraft()
 		detail.CanQuery = false
 		detail.CanTouch = false
 		detail.CastShadow = false
-		lensPartSet[detail] = true
 		return detail
 	end
 
@@ -447,70 +446,75 @@ function ArenaService:_buildAircraft()
 		slot.CanTouch = false
 	end
 
-	-- Join the shell to its anchored core, while the lens remains on its own aiming joint.
+	-- Every visible part is rigidly joined to the fuselage, including the lens assembly.
 	for _, descendant in ipairs(model:GetDescendants()) do
-		if descendant:IsA("BasePart") and descendant ~= orb and descendant ~= lensPivot then
+		if descendant:IsA("BasePart")
+			and descendant ~= orb
+			and descendant ~= aircraftAnchor
+		then
 			descendant.Anchored = false
 			descendant.Massless = true
-			local joint = Instance.new("WeldConstraint")
-			joint.Part0 = lensPartSet[descendant] and lensPivot or orb
-			joint.Part1 = descendant
-			joint.Parent = joint.Part0
+			local weld = Instance.new("WeldConstraint")
+			weld.Name = "AircraftUnifiedWeld"
+			weld.Part0 = orb
+			weld.Part1 = descendant
+			weld.Parent = orb
 		end
 	end
 
 	self.aircraftModel = model
 	self.aircraftAimToken = 0
-	local hoverGoal = orb.CFrame
-		* CFrame.new(0, 0.42, 0)
-		* CFrame.Angles(0, math.rad(1.2), 0)
+	local hoverGoal = aircraftAnchor.Position + Vector3.new(0, 0.42, 0)
 	self.aircraftHoverTween = TweenService:Create(
-		orb,
+		aircraftAnchor,
 		TweenInfo.new(3.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{CFrame = hoverGoal}
+		{Position = hoverGoal}
 	)
 	self.aircraftHoverTween:Play()
 end
 
 function ArenaService:AimAircraftAt(tile)
-	local motor = self.lensMotor
-	local root = self.aircraftModel and self.aircraftModel.PrimaryPart
-	if not motor or not motor.Parent or not motor.Part1 or not root then
+	local motor = self.aircraftBodyMotor
+	local anchor = self.aircraftAnchor
+	local body = self.aircraftModel and self.aircraftModel.PrimaryPart
+	if not motor or not motor.Parent or not anchor or not body then
 		return nil
 	end
 
 	self.aircraftAimToken += 1
 	local aimToken = self.aircraftAimToken
-	local targetC0 = self.lensHomeC0
+	local targetC0 = self.aircraftHomeC0
 
 	if tile and tile.Parent then
-		local origin = motor.Part1.Position
 		local targetPosition = tile.Position + Vector3.new(0, 0.65, 0)
-		local direction = targetPosition - origin
+		local direction = targetPosition - body.Position
 		if direction.Magnitude > 0.01 then
 			direction = direction.Unit
-			local referenceUp = Vector3.new(0, 0, -1)
-			local up = referenceUp - direction * referenceUp:Dot(direction)
-			if up.Magnitude < 0.05 then
-				local worldUp = Vector3.yAxis
-				up = worldUp - direction * worldUp:Dot(direction)
+			-- Local -Y is the optical axis. This joint rotates the whole drone,
+			-- keeping the lens, collar, armor and fuselage mechanically aligned.
+			local up = -direction
+			local referenceRight = Vector3.xAxis
+			local right = referenceRight - up * referenceRight:Dot(up)
+			if right.Magnitude < 0.05 then
+				referenceRight = Vector3.zAxis
+				right = referenceRight - up * referenceRight:Dot(up)
 			end
-			up = up.Unit
-			local back = direction:Cross(up).Unit
-			local aimFrame = CFrame.fromMatrix(origin, direction, up, back)
-			targetC0 = root.CFrame:ToObjectSpace(aimFrame)
+			right = right.Unit
+			local back = right:Cross(up).Unit
+			local aimFrame = CFrame.fromMatrix(anchor.Position, right, up, back)
+			targetC0 = anchor.CFrame:ToObjectSpace(aimFrame)
 		end
 	end
 
-	if self.lensAimTween then
-		self.lensAimTween:Cancel()
+	if self.aircraftAimTween then
+		self.aircraftAimTween:Cancel()
 	end
-	self.lensAimTween = TweenService:Create(
+	self.aircraftAimTween = TweenService:Create(
 		motor,
 		TweenInfo.new(tile and 0.42 or 0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 		{C0 = targetC0}
 	)
-	self.lensAimTween:Play()
+	self.aircraftAimTween:Play()
 	return aimToken
 end
 
@@ -527,10 +531,10 @@ function ArenaService:_setLighting(_theme)
 	Lighting.Brightness = 2
 	Lighting.ClockTime = 14
 	Lighting.Ambient = Color3.fromRGB(0, 0, 0)
-	Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)
+	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
 	Lighting.ExposureCompensation = 0
-	Lighting.EnvironmentDiffuseScale = 0
-	Lighting.EnvironmentSpecularScale = 0
+	Lighting.EnvironmentDiffuseScale = 1
+	Lighting.EnvironmentSpecularScale = 1
 	Lighting.GlobalShadows = true
 	Lighting.FogColor = Color3.fromRGB(192, 192, 192)
 	Lighting.FogStart = 0
@@ -638,6 +642,17 @@ function ArenaService:_buildMapDecoration(theme)
 end
 
 function ArenaService:Build()
+	for _, descendant in ipairs(self.root:GetDescendants()) do
+		if descendant.Name == "BlueLaserImpact"
+			or descendant.Name == "ImpactShockwave"
+			or descendant.Name == "BlueLaserHalo"
+			or descendant.Name == "BlueLaserOuter"
+			or descendant.Name == "BlueLaserCore"
+		then
+			descendant:Destroy()
+		end
+	end
+
 	for _, child in ipairs(self.tilesFolder:GetChildren()) do
 		child:Destroy()
 	end
@@ -781,82 +796,72 @@ function ArenaService:CreateStrikeBeam(tile)
 	target.Position = Vector3.new(0, 0.65, 0)
 	target.Parent = tile
 
-	local haloBeam = Instance.new("Beam")
-	haloBeam.Name = "BlueLaserHalo"
-	haloBeam.Attachment0 = self.laserOrigin
-	haloBeam.Attachment1 = target
-	haloBeam.FaceCamera = true
-	haloBeam.Width0 = 5.2
-	haloBeam.Width1 = 3.6
-	haloBeam.Segments = 12
-	haloBeam.LightEmission = 0.75
-	haloBeam.LightInfluence = 0
-	haloBeam.Color = ColorSequence.new(
-		Color3.fromRGB(28, 89, 255),
-		Color3.fromRGB(70, 189, 255)
-	)
-	haloBeam.Transparency = NumberSequence.new(0.68)
-	haloBeam.Parent = self.root
+	local function createLaserPass(name, width0, width1, color, transparency, emission)
+		local beam = Instance.new("Beam")
+		beam.Name = name
+		beam.Attachment0 = self.laserOrigin
+		beam.Attachment1 = target
+		beam.FaceCamera = true
+		beam.Width0 = width0
+		beam.Width1 = width1
+		beam.Segments = 10
+		beam.LightEmission = emission
+		beam.LightInfluence = 0
+		beam.Color = color
+		beam.Transparency = transparency
+		beam.Parent = self.root
+		Debris:AddItem(beam, 0.52)
+		return beam
+	end
 
-	local outerBeam = Instance.new("Beam")
-	outerBeam.Name = "BlueLaserOuter"
-	outerBeam.Attachment0 = self.laserOrigin
-	outerBeam.Attachment1 = target
-	outerBeam.FaceCamera = true
-	outerBeam.Width0 = 2.55
-	outerBeam.Width1 = 1.85
-	outerBeam.Segments = 12
-	outerBeam.LightEmission = 0.95
-	outerBeam.LightInfluence = 0
-	outerBeam.Color = ColorSequence.new({
-		ColorSequenceKeypoint.new(0, Color3.fromRGB(36, 108, 255)),
-		ColorSequenceKeypoint.new(0.55, Color3.fromRGB(55, 183, 255)),
-		ColorSequenceKeypoint.new(1, Color3.fromRGB(108, 224, 255)),
-	})
-	outerBeam.Transparency = NumberSequence.new(0.22)
-	outerBeam.Parent = self.root
-
-	local innerBeam = Instance.new("Beam")
-	innerBeam.Name = "BlueLaserCore"
-	innerBeam.Attachment0 = self.laserOrigin
-	innerBeam.Attachment1 = target
-	innerBeam.FaceCamera = true
-	innerBeam.Width0 = 0.72
-	innerBeam.Width1 = 0.48
-	innerBeam.Segments = 12
-	innerBeam.LightEmission = 1
-	innerBeam.LightInfluence = 0
-	innerBeam.Color = ColorSequence.new(
-		Color3.fromRGB(205, 243, 255),
-		Color3.fromRGB(255, 255, 255)
+	-- Four layered passes create a bright core with a soft energy envelope.
+	createLaserPass(
+		"LaserAtmosphereGlow",
+		4.8,
+		3.4,
+		ColorSequence.new(Color3.fromRGB(31, 115, 255), Color3.fromRGB(76, 209, 255)),
+		NumberSequence.new(0.82),
+		0.72
 	)
-	innerBeam.Transparency = NumberSequence.new(0.05)
-	innerBeam.Parent = self.root
-
-	local impact = createPart(
-		self.root,
-		"BlueLaserImpact",
-		Vector3.new(0.22, 7, 7),
-		tile.Position + Vector3.new(0, 0.78, 0),
-		Color3.fromRGB(91, 204, 255),
-		Enum.Material.Glass,
-		false
+	createLaserPass(
+		"LaserEnergyShell",
+		1.9,
+		1.25,
+		ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 139, 255)),
+			ColorSequenceKeypoint.new(0.55, Color3.fromRGB(71, 198, 255)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(142, 235, 255)),
+		}),
+		NumberSequence.new(0.24),
+		0.94
 	)
-	impact.Shape = Enum.PartType.Cylinder
-	impact.CFrame = CFrame.new(impact.Position) * CFrame.Angles(0, 0, math.rad(90))
-	impact.Transparency = 0.18
-	impact.CanTouch = false
-	impact.CanQuery = false
+	createLaserPass(
+		"LaserHotCore",
+		0.62,
+		0.4,
+		ColorSequence.new(Color3.fromRGB(221, 248, 255), Color3.fromRGB(255, 255, 255)),
+		NumberSequence.new(0.035),
+		1
+	)
+	createLaserPass(
+		"LaserFilament",
+		0.12,
+		0.08,
+		ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(187, 238, 255)),
+		NumberSequence.new(0.08),
+		1
+	)
 
 	local impactLight = Instance.new("PointLight")
-	impactLight.Color = Color3.fromRGB(80, 195, 255)
-	impactLight.Brightness = 2.4
-	impactLight.Range = 18
+	impactLight.Name = "LaserImpactFlash"
+	impactLight.Color = Color3.fromRGB(121, 216, 255)
+	impactLight.Brightness = 3
+	impactLight.Range = 14
 	impactLight.Shadows = false
-	impactLight.Parent = impact
+	impactLight.Parent = target
 	TweenService:Create(
 		impactLight,
-		TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
 		{Brightness = 0}
 	):Play()
 
@@ -864,49 +869,29 @@ function ArenaService:CreateStrikeBeam(tile)
 	impactParticles.Name = "LaserImpactParticles"
 	impactParticles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
 	impactParticles.Rate = 0
-	impactParticles.Lifetime = NumberRange.new(0.18, 0.46)
-	impactParticles.Speed = NumberRange.new(15, 25)
-	impactParticles.Drag = 5
+	impactParticles.Lifetime = NumberRange.new(0.16, 0.38)
+	impactParticles.Speed = NumberRange.new(13, 22)
+	impactParticles.Drag = 6
 	impactParticles.SpreadAngle = Vector2.new(180, 180)
 	impactParticles.Rotation = NumberRange.new(0, 360)
-	impactParticles.RotSpeed = NumberRange.new(-150, 150)
-	impactParticles.LightEmission = 0.85
+	impactParticles.RotSpeed = NumberRange.new(-135, 135)
+	impactParticles.LightEmission = 0.9
 	impactParticles.LightInfluence = 0
 	impactParticles.Color = ColorSequence.new(
 		Color3.fromRGB(154, 227, 255),
 		Color3.fromRGB(255, 255, 255)
 	)
 	impactParticles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.56),
-		NumberSequenceKeypoint.new(0.35, 0.3),
+		NumberSequenceKeypoint.new(0, 0.42),
+		NumberSequenceKeypoint.new(0.3, 0.22),
 		NumberSequenceKeypoint.new(1, 0),
 	})
 	impactParticles.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.06),
+		NumberSequenceKeypoint.new(0, 0.02),
 		NumberSequenceKeypoint.new(1, 1),
 	})
 	impactParticles.Parent = target
-	impactParticles:Emit(26)
-
-	local shockwave = createPart(
-		self.root,
-		"ImpactShockwave",
-		Vector3.new(0.16, 5.4, 5.4),
-		tile.Position + Vector3.new(0, 0.84, 0),
-		Color3.fromRGB(116, 220, 255),
-		Enum.Material.Glass,
-		false
-	)
-	shockwave.Shape = Enum.PartType.Cylinder
-	shockwave.CFrame = CFrame.new(shockwave.Position) * CFrame.Angles(0, 0, math.rad(90))
-	shockwave.Transparency = 0.18
-	shockwave.CanTouch = false
-	shockwave.CanQuery = false
-	TweenService:Create(
-		shockwave,
-		TweenInfo.new(0.34, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{Size = Vector3.new(0.16, 15, 15), Transparency = 1}
-	):Play()
+	impactParticles:Emit(22)
 
 	local impactSound = Instance.new("Sound")
 	impactSound.Name = "LaserImpactSound"
@@ -916,15 +901,12 @@ function ArenaService:CreateStrikeBeam(tile)
 	impactSound.RollOffMinDistance = 10
 	impactSound.RollOffMaxDistance = 180
 	impactSound.EmitterSize = 8
-	impactSound.Parent = impact
+	impactSound.Parent = tile
 	impactSound:Play()
 
-	Debris:AddItem(haloBeam, 0.48)
-	Debris:AddItem(outerBeam, 0.48)
-	Debris:AddItem(innerBeam, 0.48)
-	Debris:AddItem(target, 0.65)
-	Debris:AddItem(impact, 1)
-	Debris:AddItem(shockwave, 0.4)
+	-- No persistent cylinder or expanding ring is spawned at the impact point.
+	Debris:AddItem(target, 0.9)
+	Debris:AddItem(impactSound, 3)
 end
 
 function ArenaService:BreakTile(tile, token)

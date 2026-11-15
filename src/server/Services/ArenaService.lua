@@ -352,7 +352,7 @@ function ArenaService:_buildLobby()
 		addBench(
 			decor,
 			"LobbyBench_" .. tostring(side),
-			center + Vector3.new(side * (half - 12), 0, 0),
+			center + Vector3.new(side * (half - 17), 0, half - 20),
 			Color3.fromRGB(124, 82, 43),
 			poolRimColor
 		)

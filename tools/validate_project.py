@@ -121,6 +121,14 @@ map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("
 require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")
 require("tile.CanCollide = true" in map_set_body, "The next map must restore floor collision")
 
+bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
+for bot_name in ("Atlas", "Nova", "Rook"):
+    require(f'name = "{bot_name}"' in bot_source, f"AI bot profile is missing: {bot_name}")
+for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""'):
+    require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
+for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "MarketplaceService"):
+    require(forbidden not in bot_source, f"Unwanted external asset or bot label code remains: {forbidden}")
+
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
 for feature in (
     "function RoundService:_chooseController(",
@@ -194,6 +202,8 @@ for feature in (
     "Broken tiles remain broken",
     "The one map restores the floor only when a new round loads",
     "The next-round map remains the one fixed Sunspire arena",
+    "The round state counts down from 180 seconds",
+    "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",
     "SKYFALL_CLOUD_TESTS_OK",
 ):

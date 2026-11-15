@@ -104,28 +104,32 @@ flyButton.Activated:Connect(function()
 	end
 end)
 
-local function setVertical(button, isUp)
-	button.InputBegan:Connect(function(input)
-		if input.UserInputType == Enum.UserInputType.Touch
-			or input.UserInputType == Enum.UserInputType.MouseButton1
-		then
-			if isUp then
-				verticalUp = true
-			else
-				verticalDown = true
-			end
-		end
-	end)
-end
 
-setVertical(upButton, true)
-setVertical(downButton, false)
+
+local activeUpInput = nil
+local activeDownInput = nil
+
+upButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		activeUpInput = input
+		verticalUp = true
+	end
+end)
+
+downButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		activeDownInput = input
+		verticalDown = true
+	end
+end)
 
 UserInputService.InputEnded:Connect(function(input)
-	if input.UserInputType == Enum.UserInputType.Touch
-		or input.UserInputType == Enum.UserInputType.MouseButton1
-	then
+	if input == activeUpInput then
+		activeUpInput = nil
 		verticalUp = false
+	end
+	if input == activeDownInput then
+		activeDownInput = nil
 		verticalDown = false
 	end
 end)

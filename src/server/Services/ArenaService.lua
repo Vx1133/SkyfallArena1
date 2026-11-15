@@ -492,16 +492,20 @@ function ArenaService:AimAircraftAt(tile)
 			direction = direction.Unit
 			-- The lens optical axis is local +X (the right vector of lensFrameAt).
 			-- Aim that same axis toward the selected tile so the body and emitter agree.
-			local right = direction
-			local referenceUp = Vector3.new(0, 0, -1)
-			local up = referenceUp - right * referenceUp:Dot(right)
-			if up.Magnitude < 0.05 then
-				referenceUp = Vector3.yAxis
-				up = referenceUp - right * referenceUp:Dot(right)
+			-- The optical axis is local -Y: lensFrameAt() uses lensNormal as its local X axis,
+			-- and the laser attachment is placed along the same downward local axis.
+			-- CFrame.fromMatrix() receives the body's local X, Y and Z axes in world space.
+			local opticalUp = -direction
+			local referenceBack = Vector3.zAxis
+			local back = referenceBack - opticalUp * referenceBack:Dot(opticalUp)
+			if back.Magnitude < 0.05 then
+				referenceBack = Vector3.xAxis
+				back = referenceBack - opticalUp * referenceBack:Dot(opticalUp)
 			end
-			up = up.Unit
-			local back = right:Cross(up).Unit
-			local aimFrame = CFrame.fromMatrix(anchor.Position, right, up, back)
+			back = back.Unit
+			local right = opticalUp:Cross(back).Unit
+			back = right:Cross(opticalUp).Unit
+			local aimFrame = CFrame.fromMatrix(anchor.Position, right, opticalUp, back)
 			targetC0 = anchor.CFrame:ToObjectSpace(aimFrame)
 		end
 	end
@@ -851,6 +855,25 @@ function ArenaService:CreateStrikeBeam(tile)
 		NumberSequence.new(0.08),
 		1
 	)
+
+	-- A moving native texture adds directional energy motion without extra Parts.
+	local energyFlow = createLaserPass(
+		"LaserEnergyFlow",
+		0.92,
+		0.68,
+		ColorSequence.new(Color3.fromRGB(22, 116, 255), Color3.fromRGB(115, 235, 255)),
+		NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.2),
+			NumberSequenceKeypoint.new(0.88, 0.2),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		1
+	)
+	energyFlow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	energyFlow.TextureMode = Enum.TextureMode.Wrap
+	energyFlow.TextureLength = 2.4
+	energyFlow.TextureSpeed = -5.5
+	energyFlow.Segments = 20
 
 	local impactLight = Instance.new("PointLight")
 	impactLight.Name = "LaserImpactFlash"

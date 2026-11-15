@@ -62,6 +62,7 @@ for setting in (
 ):
     require(setting in config_source, f"Required gameplay setting is missing: {setting}")
 require("TILE_REPAIR_SECONDS" not in config_source, "Broken floor tiles must not have a repair timer")
+require("OVERTIME_" not in config_source, "The three-minute round must not use overtime modifiers")
 
 arena_source = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
 for map_name in ("SKYFALL SUNSPIRE",):

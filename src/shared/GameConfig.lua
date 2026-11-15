@@ -16,7 +16,7 @@ Config.ARENA_WIDTH = Config.GRID_SIZE * Config.TILE_SIZE + (Config.GRID_SIZE - 1
 Config.ARENA_HALF_WIDTH = Config.ARENA_WIDTH / 2
 Config.RUNNER_SPAWN_RADIUS = 68
 
-Config.LOBBY_CENTER = Vector3.new(-250, 10, 0)
+Config.LOBBY_CENTER = Vector3.new(-250, 70, 0)
 Config.LOBBY_SIZE = 144
 Config.LOBBY_SPAWN_RADIUS = 49
 Config.LOBBY_BOT_SPAWN_RADIUS = 66

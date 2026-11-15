@@ -26,79 +26,88 @@ screenGui.Name = "SkyfallHUD"
 screenGui.ResetOnSpawn = false
 screenGui.IgnoreGuiInset = false
 screenGui.DisplayOrder = 20
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 screenGui.Parent = playerGui
 
 local panel = Instance.new("Frame")
-panel.Name = "StatusPanel"
+panel.Name = "RoundStatusBar"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 4)
+panel.Position = UDim2.new(0.5, 0, 0, 6)
 panel.Size = UDim2.new(0.96, 0, 0, Config.HUD_HEIGHT)
-panel.BackgroundColor3 = Color3.fromRGB(25, 31, 34)
-panel.BackgroundTransparency = 0.26
+panel.BackgroundColor3 = Color3.fromRGB(22, 35, 45)
+panel.BackgroundTransparency = 0.08
 panel.BorderSizePixel = 0
+panel.Visible = false
 panel.Parent = screenGui
 
 local corner = Instance.new("UICorner")
-corner.CornerRadius = UDim.new(0, 9)
+corner.CornerRadius = UDim.new(0, 12)
 corner.Parent = panel
 
 local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(226, 215, 190)
-stroke.Transparency = 0.72
+stroke.Color = Color3.fromRGB(218, 183, 113)
+stroke.Transparency = 0.42
 stroke.Thickness = 1
 stroke.Parent = panel
 
+local gradient = Instance.new("UIGradient")
+gradient.Color = ColorSequence.new({
+	ColorSequenceKeypoint.new(0, Color3.fromRGB(28, 42, 52)),
+	ColorSequenceKeypoint.new(0.5, Color3.fromRGB(40, 58, 65)),
+	ColorSequenceKeypoint.new(1, Color3.fromRGB(25, 39, 48)),
+})
+gradient.Rotation = 0
+gradient.Parent = panel
+
 local sizeConstraint = Instance.new("UISizeConstraint")
 sizeConstraint.MaxSize = Vector2.new(Config.HUD_MAX_WIDTH, Config.HUD_HEIGHT)
+sizeConstraint.MinSize = Vector2.new(260, Config.HUD_HEIGHT)
 sizeConstraint.Parent = panel
 
-local function makeLabel(name, position, size, initialText, color)
+local cellLabels = {}
+local cellStyles = {
+	{name = "TimeLabel", title = "TIME", value = "03:00", color = Color3.fromRGB(255, 236, 196)},
+	{name = "PlayersLabel", title = "PLAYERS", value = "04", color = Color3.fromRGB(220, 237, 245)},
+	{name = "RemainingLabel", title = "LEFT", value = "03", color = Color3.fromRGB(187, 237, 210)},
+	{name = "EliminatedLabel", title = "OUT", value = "00", color = Color3.fromRGB(255, 197, 187)},
+}
+
+for index, style in ipairs(cellStyles) do
 	local label = Instance.new("TextLabel")
-	label.Name = name
-	label.Position = position
-	label.Size = size
+	label.Name = style.name
+	label.AnchorPoint = Vector2.new(0, 0)
+	label.Position = UDim2.new((index - 1) * 0.25, 0, 0, 0)
+	label.Size = UDim2.new(0.25, 0, 1, 0)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
-	label.Text = initialText
-	label.TextColor3 = color
-	label.TextSize = 14
+	label.Text = style.title .. "\n" .. style.value
+	label.TextColor3 = style.color
+	label.TextSize = 13
+	label.TextWrapped = true
 	label.TextTruncate = Enum.TextTruncate.AtEnd
 	label.TextXAlignment = Enum.TextXAlignment.Center
 	label.TextYAlignment = Enum.TextYAlignment.Center
-	label.TextStrokeColor3 = Color3.fromRGB(20, 24, 26)
-	label.TextStrokeTransparency = 0.65
+	label.TextStrokeColor3 = Color3.fromRGB(10, 18, 24)
+	label.TextStrokeTransparency = 0.78
 	label.Parent = panel
+	local textConstraint = Instance.new("UITextSizeConstraint")
+	textConstraint.MinTextSize = 10
+	textConstraint.MaxTextSize = 13
+	textConstraint.Parent = label
+	cellLabels[style.name] = label
 
-	local constraint = Instance.new("UITextSizeConstraint")
-	constraint.MinTextSize = 11
-	constraint.MaxTextSize = 14
-	constraint.Parent = label
-	return label
+	if index < #cellStyles then
+		local divider = Instance.new("Frame")
+		divider.Name = "CellDivider_" .. tostring(index)
+		divider.AnchorPoint = Vector2.new(0.5, 0.5)
+		divider.Position = UDim2.new(index * 0.25, 0, 0.5, 0)
+		divider.Size = UDim2.new(0, 1, 0, 30)
+		divider.BackgroundColor3 = Color3.fromRGB(226, 214, 190)
+		divider.BackgroundTransparency = 0.76
+		divider.BorderSizePixel = 0
+		divider.Parent = panel
+	end
 end
-
-local timeLabel = makeLabel(
-	"TimeLabel",
-	UDim2.fromOffset(3, 0),
-	UDim2.new(0.34, -4, 1, 0),
-	"TIME 00:00",
-	Color3.fromRGB(255, 246, 222)
-)
-
-local playersLabel = makeLabel(
-	"PlayersLabel",
-	UDim2.fromScale(0.34, 0),
-	UDim2.fromScale(0.33, 1),
-	"PLAYERS 0",
-	Color3.fromRGB(230, 239, 244)
-)
-
-local remainingLabel = makeLabel(
-	"RemainingLabel",
-	UDim2.fromScale(0.67, 0),
-	UDim2.new(0.33, -3, 1, 0),
-	"LEFT 0",
-	Color3.fromRGB(212, 238, 209)
-)
 
 local function formatTime(totalSeconds)
 	local seconds = math.max(0, math.floor(totalSeconds or 0))
@@ -107,33 +116,30 @@ local function formatTime(totalSeconds)
 	return string.format("%02d:%02d", minutes, remainder)
 end
 
-local function getRole()
-	return player:GetAttribute("SkyfallRole") or "Waiting"
-end
-
 local function updateHud()
-	local phase = state.phase or "Waiting"
-	local timeValue = state.elapsedSeconds or 0
-
-	if phase == "Intermission" or phase == "Results" then
-		timeValue = state.countdownSeconds or 0
-	elseif phase == "Waiting" then
-		timeValue = 0
+	local active = state.phase == "Active"
+	panel.Visible = active
+	if not active then
+		return
 	end
 
-	local totalPlayers = state.playerCount
-	if typeof(totalPlayers) ~= "number" then
-		totalPlayers = #Players:GetPlayers()
-	end
+	local totalPlayers = typeof(state.playerCount) == "number"
+		and state.playerCount
+		or #Players:GetPlayers()
+	local remainingPlayers = typeof(state.remainingPlayers) == "number"
+		and state.remainingPlayers
+		or 0
+	local eliminatedPlayers = typeof(state.eliminatedPlayers) == "number"
+		and state.eliminatedPlayers
+		or 0
+	local remainingSeconds = typeof(state.remainingSeconds) == "number"
+		and state.remainingSeconds
+		or Config.ROUND_SECONDS
 
-	local remainingPlayers = state.remainingPlayers
-	if typeof(remainingPlayers) ~= "number" then
-		remainingPlayers = state.aliveRunners or 0
-	end
-
-	timeLabel.Text = "TIME " .. formatTime(timeValue)
-	playersLabel.Text = "PLAYERS " .. tostring(math.max(0, totalPlayers))
-	remainingLabel.Text = "LEFT " .. tostring(math.max(0, remainingPlayers))
+	cellLabels.TimeLabel.Text = "TIME\n" .. formatTime(remainingSeconds)
+	cellLabels.PlayersLabel.Text = "PLAYERS\n" .. tostring(math.max(0, totalPlayers))
+	cellLabels.RemainingLabel.Text = "LEFT\n" .. tostring(math.max(0, remainingPlayers))
+	cellLabels.EliminatedLabel.Text = "OUT\n" .. tostring(math.max(0, eliminatedPlayers))
 end
 
 local function targetAt(screenPosition)

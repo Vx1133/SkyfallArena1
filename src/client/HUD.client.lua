@@ -232,7 +232,7 @@ local function updateLaserStatus()
 	local remaining = math.max(0, readyAt - Workspace:GetServerTimeNow())
 	local cooldown = Config.HUMAN_STRIKE_COOLDOWN_SECONDS
 	local progress = 1 - math.clamp(remaining / cooldown, 0, 1)
-	cooldownFill.Size = UDim2.new(progress, 0, 1, 0)
+	cooldownFill.Size = UDim2.fromScale(progress, 1)
 
 	if remaining > 0.01 then
 		cooldownLabel.Text = string.format("LASER RECHARGING  %.1fs", remaining)

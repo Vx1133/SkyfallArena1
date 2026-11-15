@@ -11,7 +11,7 @@ Skyfall Arena is a Roblox survival game built around a fixed 15 by 15 destructib
 - A continuous four-sided perimeter frame meets the playfield edges. Its corner supports overlap the edge beams, replacing disconnected blue posts and red gate pieces.
 - The golden drone, downward-facing red lens, blue laser, 225 breakable tiles, ten bots, and lobby-first Play flow are preserved.
 - Broken tiles hide their native stud surfaces and become non-collidable. Their studs return only when a new round resets the floor.
-- The drone controller uses a true vertical overhead camera. Camera height is calculated from viewport aspect ratio and arena size so the full map stays visible on portrait and landscape screens.
+- The drone controller uses a true vertical overhead camera. Its height is calculated from viewport aspect ratio and arena size, with clearance above the drone and a local-only hide for the drone body so it cannot block the view.
 - The active-round HUD shows only the round timer and participant count. It sits at the top safe area and is hidden outside the Active phase. The lobby Play control remains separate.
 - Low-volume background music, a round-start cue, a Play-button cue, and a positional laser impact sound are included.
 - Joining does not start a round. A player must press PLAY in the lobby before the intermission begins.
@@ -19,7 +19,7 @@ Skyfall Arena is a Roblox survival game built around a fixed 15 by 15 destructib
 
 ## Mobile performance measures
 
-- Workspace instance streaming is enabled with a 64-stud high-priority radius, a bounded 384-stud target radius, Improved model streaming, and Opportunistic stream-out.
+- Workspace instance streaming is enabled with a 64-stud high-priority radius, a bounded 192-stud target radius, Improved model streaming, and Opportunistic stream-out.
 - While a human controls the drone, replication focus follows the drone instead of the hidden character, keeping the overhead arena streamed in.
 - Static map Parts and NPC body Parts do not cast shadows. The red target warning uses the tile color rather than creating a dynamic PointLight for every target.
 - Native Studs/Inlet surfaces replace thousands of extra stud Parts and the 144 separate lobby floor panels.

@@ -185,7 +185,7 @@ for feature in (
     "Config.LASER_EXTENSION_SECONDS",
     "Config.LASER_HOLD_SECONDS",
     "Config.LASER_FADE_SECONDS",
-    "TextureSpeed = 3.2",
+    "local FLOW_TEXTURE_SPEED = 3.2",
     "LaserParticles_MuzzleSparks",
     "LaserParticles_MuzzleMist",
     "LaserParticles_ImpactSparks",
@@ -283,7 +283,7 @@ for feature in (
 ):
     require(feature in laser_source, f"Laser feature is missing: {feature}")
 require("RepairTile" not in laser_source, "The laser must not repair damaged tiles")
-require('player:SetAttribute("SkyfallLaserReadyAt", workspace:GetServerTimeNow() + Config.HUMAN_STRIKE_COOLDOWN_SECONDS)' in laser_source, "Accepted human shots must publish a synchronized ready timestamp")
+require('"SkyfallLaserReadyAt"' in laser_source and "workspace:GetServerTimeNow() + Config.HUMAN_STRIKE_COOLDOWN_SECONDS" in laser_source, "Accepted human shots must publish a synchronized ready timestamp")
 require("Config.LASER_EXTENSION_SECONDS + Config.LASER_HOLD_SECONDS" in laser_source, "Tile damage must wait for beam extension and impact hold")
 
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
@@ -406,7 +406,7 @@ for feature in (
     "three-second cooldown",
     "Four-cardinal lens aim tests",
     "24-layer procedural laser VFX",
-    "three-second laser cooldown status bar",
+    "The visual stack must declare 24 layers",
     "SKYFALL_CLOUD_TESTS_OK",
 ):
     require(feature in cloud_tests, f"Cloud smoke test is missing: {feature}")

@@ -136,8 +136,8 @@ require('outerBeam.Name = "BlueLaserOuter"' in arena_source, "The drone blue bea
 require('innerBeam.Name = "BlueLaserCore"' in arena_source, "The drone blue-white core beam is missing")
 require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
 require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
-require("\\t\\t\\t\\t0.34," in arena_source, "Drone reticle must be placed on the outward underside of the lens")
-require("\\t\\t\\t\\t-0.34," not in arena_source, "Drone reticle must not be hidden inside the sphere")
+require("\t\t\t\t0.34," in arena_source, "Drone reticle must be placed on the outward underside of the lens")
+require("\t\t\t\t-0.34," not in arena_source, "Drone reticle must not be hidden inside the sphere")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]

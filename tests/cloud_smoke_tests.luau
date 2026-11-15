@@ -272,6 +272,15 @@ runTest("Players remain in the lobby until they request Play", function()
 	local harness = setmetatable({
 		phase = "Waiting",
 		readyPlayers = {},
+		aliveRunners = {},
+		elapsedSeconds = 0,
+		countdownSeconds = 0,
+		roundRunnerCount = 0,
+		controller = nil,
+		winner = "",
+		roundNumber = 0,
+		arena = {GetMapName = function() return "SKYFALL CLASSIC ARENA" end},
+		stateRemote = {FireAllClients = function() end},
 	}, RoundService)
 	assert(harness:_readyPlayerCount() == 0, "A new server must have no ready players")
 	local fakePlayer = {

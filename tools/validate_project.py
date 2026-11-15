@@ -35,6 +35,7 @@ required_files = [
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
     "src/client/HUD.client.lua",
+    "src/client/Audio.client.lua",
     "tests/cloud_smoke_tests.luau",
     "docs/CLOUD_PUBLISHING.md",
     "src/server/Services/AdminFlightService.lua",
@@ -52,19 +53,15 @@ for setting in (
     "Config.TILE_GAP = 0",
     "Config.LOBBY_SIZE = 144",
     "Config.ADMIN_FLIGHT_SPEED = 52",
-    "Config.HUD_MAX_WIDTH = 440",
-    "Config.HUD_HEIGHT = 42",
+    "Config.HUD_MAX_WIDTH = 360",
+    "Config.HUD_HEIGHT = 38",
     "Config.GRID_SIZE = 15",
     "Config.MAX_PLAYER_CAPACITY = 30",
     "Config.MAP_COUNT = 1",
     "Config.ROUND_SECONDS = 180",
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
-    "Config.CONTROLLER_CAMERA_HEIGHT = 145",
-    "Config.CONTROLLER_CAMERA_BACK = 8",
-    "Config.CONTROLLER_CAMERA_FOV = 110",
-    "Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT = 130",
-    "Config.CONTROLLER_CAMERA_LANDSCAPE_BACK = 130",
-    "Config.CONTROLLER_CAMERA_LANDSCAPE_FOV = 44",
+    "Config.CONTROLLER_CAMERA_FOV = 90",
+    "Config.CONTROLLER_CAMERA_MARGIN = 8",
     "Config.RESPAWN_TIME",
 ):
     require(setting in config_source, f"Required gameplay setting is missing: {setting}")
@@ -83,10 +80,13 @@ for feature in (
     "function ArenaService:GetControllerSpawnCFrame(",
     "SkyfallLaserAircraft",
     "ControllerLens",
-    "LobbyWater",
+    "WaitingPlatform",
     "ClassicArenaSupport",
-    "ClassicArenaGate",
-    "SquareStud_",
+    "ClassicArenaOuterTrim",
+    "ClassicPerimeterNorthSouth_",
+    "ClassicPerimeterEastWest_",
+    "ClassicPerimeterCornerPost_",
+    "Enum.SurfaceType.Studs",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
 require(arena_source.count("tileMaterial = Enum.Material.Plastic") == 1, "The Classic floor must use Plastic")
@@ -99,6 +99,17 @@ for feature in (
 ):
     require(feature in arena_source, f"Golden sphere detail is missing: {feature}")
 for forbidden in (
+    "Enum.Material.Water",
+    "LobbyWater",
+    "LobbyWelcomeSign",
+    "LobbyEntranceColumn_",
+    "LobbyEntranceHeader",
+    "ClassicGatePillar_",
+    "ClassicArenaGate",
+    "addTree(",
+    "addBench(",
+    "ClassicArenaTree_",
+    "SquareStud_",
     "Enum.Material.Neon",
     "addNeonBar",
     "NexusRingSegment",
@@ -122,6 +133,10 @@ for forbidden_lighting in (
     'Instance.new("Clouds")',
 ):
     require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
+require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
+require("tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs" in arena_source, "Broken tile surface reset is missing")
+require("part.CastShadow = false" in arena_source, "Static map part shadows should be disabled")
+require("warningLight.Brightness" not in arena_source, "Per-target dynamic warning lights should be removed")
 for neutral_setting in (
     "Lighting.Brightness = 2",
     "Lighting.ClockTime = 14",
@@ -153,6 +168,10 @@ require("createFallbackHair" not in bot_source, "Procedural custom bot hair must
 for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
 require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
+require("function BotService:_collectWarningTiles()" in bot_source, "Bot warning grid should be snapshotted once per decision")
+require("self:_warningDistance(gridX, gridZ, warningTiles)" in bot_source, "Bot target selection should use cached warning coordinates")
+require("math.clamp(" in bot_source, "Nearest tile lookup should be constant-time")
+require("descendant.CastShadow = false" in bot_source, "NPC shadows should be disabled for mobile rendering")
 fall_check = bot_source.split("function BotService:EliminateFallenRunners(", 1)[1].split("function BotService:", 1)[0]
 require("self.onBotDied(bot)" in fall_check, "A bot falling out of the arena must record its survival time")
 for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "MarketplaceService"):
@@ -173,6 +192,8 @@ for feature in (
     "function RoundService:IsHumanController(",
     "function RoundService:IsBotController(",
     "function RoundService:_setPlayerControllerHidden(",
+    "player.ReplicationFocus = focusPart",
+    "player.ReplicationFocus = nil",
     "self.roundNumber == 1 and #self:_getReadyPlayers() == 1",
     "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
@@ -212,28 +233,58 @@ hud_source = (ROOT / "src/client/HUD.client.lua").read_text(encoding="utf-8")
 for feature in (
     "TimeLabel",
     "PlayersLabel",
-    "RemainingLabel",
-    "EliminatedLabel",
-    "OUT\\n",
-    "state.remainingSeconds",
+    "ROUND\\n",
+    "PLAYERS\\n",
     "panel.Visible = active",
-    "Config.CONTROLLER_CAMERA_HEIGHT",
     "Config.CONTROLLER_CAMERA_FOV",
-    "camera.ViewportSize.X < camera.ViewportSize.Y",
+    "Config.CONTROLLER_CAMERA_MARGIN",
+    "camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical",
     "camera.CFrame = CFrame.lookAt(",
+    "Vector3.new(0, 0, -1)",
     "camera.Focus = CFrame.new(Config.ARENA_CENTER)",
-    "camera.FieldOfView = cameraFov",
+    "camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV",
     "previousFieldOfView = camera.FieldOfView",
+    "previousFieldOfViewMode = camera.FieldOfViewMode",
     "camera.FieldOfView = previousFieldOfView",
     "targetRemote:FireServer(gridX, gridZ)",
 ):
-    require(feature in hud_source, f"Mobile HUD or controller camera feature is missing: {feature}")
+    require(feature in hud_source, f"Overhead two-stat HUD feature is missing: {feature}")
+for forbidden in ("RemainingLabel", "EliminatedLabel", "LEFT\\n", "OUT\\n", "cameraBack", "isPortrait"):
+    require(forbidden not in hud_source, f"Unwanted HUD statistic or angled-camera code remains: {forbidden}")
 require('remotes:WaitForChild("PlayRequest")' in hud_source, "Lobby Play remote is missing from mobile HUD")
 require('playButton.Name = "PlayButton"' in hud_source, "Lobby Play button is missing")
 require("playRemote:FireServer()" in hud_source, "Lobby Play button does not request a round")
-require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile round HUD must be translucent")
-for forbidden in ('"Title"', '"Role"', '"Hint"', '"Status"'):
-    require(forbidden not in hud_source, f"Unwanted HUD label remains: {forbidden}")
+require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile HUD must remain translucent")
+
+audio_source = (ROOT / "src/client/Audio.client.lua").read_text(encoding="utf-8")
+for feature in (
+    "SoundService",
+    "SkyfallBackgroundMusic",
+    "Config.BACKGROUND_MUSIC_ID",
+    "Config.ROUND_START_SOUND_ID",
+    "playButton.Activated",
+    'newState.phase == "Active"',
+):
+    require(feature in audio_source, f"Audio feature is missing: {feature}")
+for audio_setting in (
+    'Config.BACKGROUND_MUSIC_ID = "1841461968"',
+    'Config.ROUND_START_SOUND_ID = "9119144736"',
+    'Config.LASER_SOUND_ID = "9119772752"',
+    "Config.AUDIO_MUSIC_VOLUME = 0.12",
+    "Config.AUDIO_UI_VOLUME = 0.10",
+    "Config.AUDIO_LASER_VOLUME = 0.14",
+):
+    require(audio_setting in config_source, f"Audio configuration is missing: {audio_setting}")
+
+workspace_properties = tree.get("Workspace", {}).get("$properties", {})
+require(workspace_properties.get("StreamingEnabled") is True, "Workspace instance streaming must be enabled")
+require(workspace_properties.get("StreamingMinRadius") == 64, "Streaming minimum radius must remain conservative")
+require(workspace_properties.get("StreamingTargetRadius") == 384, "Streaming target radius must be bounded for mobile")
+require(workspace_properties.get("ModelStreamingBehavior") == "Improved", "Improved model streaming is required")
+require(workspace_properties.get("StreamOutBehavior") == "Opportunistic", "Opportunistic stream-out is required")
+require(workspace_properties.get("StreamingIntegrityMode") == "PauseOutsideLoadedArea", "Streaming integrity protection is required")
+
+
 
 admin_client_source = (ROOT / "src/client/AdminFlight.client.lua").read_text(encoding="utf-8")
 for feature in (

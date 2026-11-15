@@ -185,7 +185,7 @@ function RoundService:_bindPlayer(player)
 		self:_onCharacterAdded(player, character)
 	end)
 
-	if player.Character and player.Character.Parent then
+	if player.Character then
 		task.defer(self._onCharacterAdded, self, player, player.Character)
 	else
 		-- CharacterAutoLoads is disabled, so the first character is loaded only after

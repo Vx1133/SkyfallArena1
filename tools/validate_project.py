@@ -50,6 +50,8 @@ for setting in (
     "Config.MIN_PLAYERS = 1",
     "Config.BOT_COUNT = 10",
     "Config.TILE_GAP = 0",
+    "Config.LOBBY_SIZE = 144",
+    "Config.ADMIN_FLIGHT_SPEED = 52",
     "Config.HUD_MAX_WIDTH = 440",
     "Config.HUD_HEIGHT = 42",
     "Config.GRID_SIZE = 15",

@@ -298,6 +298,33 @@ runTest("Sole survivor and grounded checks distinguish air from floor", function
 	assert(harness:_isGrounded(survivor) == false, "A survivor in the air must not be treated as grounded")
 end)
 
+runTest("The longest-surviving runner is selected as the next controller", function()
+	local shortRunner = {
+		name = "ShortRunner",
+		model = {Parent = Workspace},
+	}
+	local longRunner = {
+		name = "LongRunner",
+		model = {Parent = Workspace},
+	}
+	local shortCandidate = {kind = "Bot", value = shortRunner}
+	local longCandidate = {kind = "Bot", value = longRunner}
+	local harness = setmetatable({
+		roundRunners = {
+			[shortRunner] = shortCandidate,
+			[longRunner] = longCandidate,
+		},
+		survivalTimes = {
+			[shortRunner] = 42,
+			[longRunner] = 137,
+		},
+		random = Random.new(12345),
+	}, RoundService)
+
+	local winner = harness:_getLongestSurvivor()
+	assert(winner and winner.value == longRunner, "The runner with the highest survival time should win")
+end)
+
 runTest("Human laser requests validate the controller, coordinates, phase, and three-second cooldown", function()
 	local controller = {UserId = 8675309}
 	local canControl = false

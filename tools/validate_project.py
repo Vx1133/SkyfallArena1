@@ -60,8 +60,9 @@ for setting in (
     "Config.MAP_COUNT = 1",
     "Config.ROUND_SECONDS = 180",
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
-    "Config.CONTROLLER_CAMERA_FOV = 90",
+    "Config.CONTROLLER_CAMERA_FOV = 70",
     "Config.CONTROLLER_CAMERA_MARGIN = 8",
+    "Config.CONTROLLER_CAMERA_MIN_HEIGHT = 132",
     "Config.RESPAWN_TIME",
 ):
     require(setting in config_source, f"Required gameplay setting is missing: {setting}")
@@ -238,6 +239,10 @@ for feature in (
     "panel.Visible = active",
     "Config.CONTROLLER_CAMERA_FOV",
     "Config.CONTROLLER_CAMERA_MARGIN",
+    "Config.CONTROLLER_CAMERA_MIN_HEIGHT",
+    "cachedControllerCameraHeight",
+    "setControllerDroneHidden(true)",
+    "LocalTransparencyModifier = hidden and 1 or 0",
     "camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical",
     "camera.CFrame = CFrame.lookAt(",
     "Vector3.new(0, 0, -1)",
@@ -279,9 +284,10 @@ for audio_setting in (
 workspace_properties = tree.get("Workspace", {}).get("$properties", {})
 require(workspace_properties.get("StreamingEnabled") is True, "Workspace instance streaming must be enabled")
 require(workspace_properties.get("StreamingMinRadius") == 64, "Streaming minimum radius must remain conservative")
-require(workspace_properties.get("StreamingTargetRadius") == 384, "Streaming target radius must be bounded for mobile")
+require(workspace_properties.get("StreamingTargetRadius") == 192, "Streaming target radius must be bounded for mobile")
 require(workspace_properties.get("ModelStreamingBehavior") == "Improved", "Improved model streaming is required")
 require(workspace_properties.get("StreamOutBehavior") == "Opportunistic", "Opportunistic stream-out is required")
+require(workspace_properties.get("StreamingIntegrityMode") == "PauseOutsideLoadedArea", "Streaming integrity mode is required")
 require(workspace_properties.get("StreamingIntegrityMode") == "PauseOutsideLoadedArea", "Streaming integrity protection is required")
 
 

@@ -184,6 +184,7 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(separation > Config.ARENA_HALF_WIDTH + Config.LOBBY_SIZE / 2 + 10, "Lobby must be physically separated from the arena")
 
 	assert(arena:CreateStrikeBeam(centerTile), "The procedural laser VFX should accept a valid target")
+	task.wait(Config.LASER_EXTENSION_SECONDS + 0.06)
 	local vfxFolder
 	for _, child in ipairs(arena.root:GetChildren()) do
 		if string.sub(child.Name, 1, 13) == "LaserVFXShot_" then

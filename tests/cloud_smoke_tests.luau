@@ -156,7 +156,9 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	verifyAimDirection(1, 8, "left")
 	verifyAimDirection(8, 15, "front")
 	verifyAimDirection(8, 1, "back")
-	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) > 0.999,
+	assert(bodyJoint.C0.RightVector:Dot(homeBodyC0.RightVector) > 0.999
+		and bodyJoint.C0.UpVector:Dot(homeBodyC0.UpVector) > 0.999
+		and bodyJoint.C0.LookVector:Dot(homeBodyC0.LookVector) > 0.999,
 		"The complete aircraft should return to its home orientation after all cardinal aim tests")
 	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "Custom skybox must be removed")

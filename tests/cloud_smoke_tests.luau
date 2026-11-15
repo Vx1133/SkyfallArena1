@@ -347,6 +347,25 @@ runTest("Controller selection accepts a first controller and prioritizes the pre
 	assert(nextController.value == testBot, "Previous survivor should be the next controller")
 end)
 
+runTest("Previous human controller must press Play before being reused", function()
+	local previousWinner = {
+		Parent = Players,
+	}
+	local harness = setmetatable({
+		phase = "Waiting",
+		roundNumber = 2,
+		nextController = {kind = "Player", value = previousWinner},
+		readyPlayers = {},
+		botService = {
+			GetBots = function() return {} end,
+		},
+		random = Random.new(12345),
+	}, RoundService)
+
+	assert(harness:_chooseController() == nil, "An unready previous winner must not control a new round")
+	assert(harness.nextController == nil, "The unready previous winner must be cleared")
+end)
+
 runTest("Sole survivor and grounded checks distinguish air from floor", function()
 	local testBot = {
 		name = "CloudTestBot",

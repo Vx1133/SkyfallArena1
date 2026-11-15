@@ -590,7 +590,7 @@ function ArenaService:SetMap(_mapId)
 		if warningLight then
 			warningLight:Destroy()
 		end
-		setTileStudState(tile, false, selected.studColor)
+		setTileStudState(tile, false)
 	end
 
 	if not self.mapDecorBuilt then

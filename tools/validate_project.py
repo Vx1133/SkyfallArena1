@@ -142,7 +142,7 @@ for neutral_setting in (
     "Lighting.Brightness = 2",
     "Lighting.ClockTime = 14",
     "Lighting.Ambient = Color3.fromRGB(0, 0, 0)",
-    "Lighting.OutdoorAmbient = Color3.fromRGB(127, 127, 127)",
+    "Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)",
     "Lighting.ExposureCompensation = 0",
     "Lighting.EnvironmentDiffuseScale = 1",
     "Lighting.EnvironmentSpecularScale = 1",

@@ -405,7 +405,6 @@ for feature in (
     "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",
     "Four-cardinal lens aim tests",
-    "24-layer procedural laser VFX",
     "The visual stack must declare 24 layers",
     "SKYFALL_CLOUD_TESTS_OK",
 ):

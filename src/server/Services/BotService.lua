@@ -699,6 +699,9 @@ function BotService:EliminateFallenRunners(outOfBoundsY)
 				or bot.root.Position.Y < outOfBoundsY
 			)
 		then
+			if self.onBotDied then
+				self.onBotDied(bot)
+			end
 			bot.alive = false
 			bot.targetTile = nil
 

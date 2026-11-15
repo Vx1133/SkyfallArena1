@@ -26,6 +26,7 @@ end
 
 local ArenaService = requireService("ArenaService")
 local RoundService = requireService("RoundService")
+local BotService = requireService("BotService")
 local StrikeService = requireService("StrikeService")
 local AdminFlightService = requireService("AdminFlightService")
 
@@ -84,6 +85,11 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 		assert(not string.find(name, "bench") and not string.find(name, "chair"), "All seating must be removed")
 		assert(descendant:IsA("BasePart") == false or descendant.Material ~= Enum.Material.Water, "Water surfaces must be removed")
 	end
+	local support = arena.mapFolder:FindFirstChild("ClassicArenaSupport")
+	assert(support, "Arena support foundation is missing")
+	assert(support.Size.Y <= 2.1, "Arena support foundation must be thin")
+	assert(support.CanCollide == false, "Arena support foundation must not catch falling players")
+	assert(support.CanTouch == false, "Arena support foundation must not receive touch events")
 	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Continuous perimeter beams are missing")
 	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterEastWest_1"), "Perpendicular edge beams are missing")
 	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterCornerPost_1_1"), "Integrated corner supports are missing")
@@ -101,7 +107,18 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(not lensLight or lensLight.Range <= 5, "Red lens light must remain tightly contained")
 	assert(arena.mapFolder:FindFirstChild("ClassicArenaNameSign") == nil, "Old floating arena sign should not remain")
 	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "The waiting garden must stay separate from the arena")
-	assert(arena.aircraftModel:FindFirstChild("LaserOrigin"), "The golden drone laser origin attachment is missing")
+	local lensGimbal = arena.aircraftModel:FindFirstChild("ControllerLensGimbal", true)
+	assert(lensGimbal and lensGimbal:IsA("Motor6D"), "Golden drone lens must have a motorized aiming joint")
+	local laserOrigin = arena.aircraftModel:FindFirstChild("LaserOrigin", true)
+	assert(laserOrigin and laserOrigin.Parent == lensGimbal.Part1, "Laser origin must move with the aiming lens")
+	local homeLensC0 = lensGimbal.C0
+	local aimToken = arena:AimAircraftAt(arena:GetTile(5, 8))
+	assert(typeof(aimToken) == "number", "A valid target must start a tokenized lens aim")
+	task.wait(0.55)
+	assert(lensGimbal.C0.RightVector:Dot(homeLensC0.RightVector) < 0.999, "Lens should visibly rotate toward an off-center target")
+	arena:ReturnAircraftLensHome(aimToken)
+	task.wait(0.55)
+	assert(lensGimbal.C0.RightVector:Dot(homeLensC0.RightVector) > 0.999, "Lens should return to its home orientation")
 	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "Custom skybox must be removed")
 	assert(Lighting:FindFirstChild("SkyfallAtmosphere") == nil, "Custom Atmosphere must be removed")
@@ -245,22 +262,25 @@ runTest("The next-round map remains the one fixed Classic arena", function()
 	end
 end)
 
-runTest("The round state counts down from 180 seconds and reports runner eliminations", function()
+runTest("The active HUD count only includes living arena runners", function()
 	local capturedState = nil
+	local runnerA = {Parent = Players}
+	local runnerB = {Parent = Players}
+	local aliveBotCount = 3
 	local harness = setmetatable({
 		phase = "Active",
-		roundHumanCount = #Players:GetPlayers(),
+		roundHumanCount = 4,
 		readyPlayers = {},
 		elapsedSeconds = 75,
 		countdownSeconds = 0,
-		roundRunnerCount = 4,
-		aliveRunners = {},
+		roundRunnerCount = 14,
+		aliveRunners = {[runnerA] = true, [runnerB] = true},
 		controller = nil,
 		winner = "",
 		roundNumber = 1,
 		botService = {
 			GetBotCount = function() return Config.BOT_COUNT end,
-			GetAliveCount = function() return 0 end,
+			GetAliveCount = function() return aliveBotCount end,
 		},
 		arena = {
 			GetMapName = function() return "SKYFALL CLASSIC ARENA" end,
@@ -275,8 +295,49 @@ runTest("The round state counts down from 180 seconds and reports runner elimina
 	harness:_broadcast()
 	assert(capturedState ~= nil, "Round state should be broadcast")
 	assert(capturedState.remainingSeconds == 105, "Remaining time should count down from three minutes")
-	assert(capturedState.eliminatedPlayers == 4, "Eliminated runner count should be reported")
-	assert(capturedState.playerCount == #game:GetService("Players"):GetPlayers() + Config.BOT_COUNT, "Total player count should include all ten bots")
+	assert(capturedState.playerCount == 5, "HUD must count only two living human runners and three living bots")
+	assert(capturedState.eliminatedPlayers == 9, "Eliminated runner count should reflect the round roster")
+	harness.aliveRunners[runnerB] = nil
+	aliveBotCount = 2
+	harness:_broadcast()
+	assert(capturedState.playerCount == 3, "HUD count must drop immediately when a human and bot are eliminated")
+end)
+
+runTest("A fallen bot is removed before the round broadcasts its survivor count", function()
+	local capturedState = nil
+	local bot = {
+		name = "FallenTestBot",
+		alive = true,
+		isController = false,
+		humanoid = {Health = 100},
+		root = {
+			Parent = Workspace,
+			Position = Vector3.new(0, -10, 0),
+		},
+		model = {
+			Parent = Workspace,
+			SetAttribute = function() end,
+			PivotTo = function() end,
+		},
+	}
+	local botHarness = setmetatable({
+		bots = {bot},
+		arena = arena,
+		_playAnimation = function() end,
+	}, BotService)
+	local roundHarness = RoundService.new(arena, {
+		FireAllClients = function(_, state)
+			capturedState = state
+		end,
+	}, botHarness, nil)
+	roundHarness.phase = "Active"
+	roundHarness.roundRunners[bot] = {kind = "Bot", value = bot}
+	roundHarness.roundRunnerCount = 1
+
+	botHarness:EliminateFallenRunners(0)
+	assert(bot.alive == false, "Fallen bot must be marked eliminated")
+	assert(capturedState ~= nil, "Bot elimination should trigger an immediate round-state broadcast")
+	assert(capturedState.playerCount == 0, "The eliminated bot must not remain in the active HUD count")
 end)
 
 runTest("Controller drone and arena remain free of neon materials", function()
@@ -288,6 +349,37 @@ runTest("Controller drone and arena remain free of neon materials", function()
 			end
 		end
 	end
+end)
+
+runTest("Placement uses the exact fresh character supplied by CharacterAdded", function()
+	local function makeCharacter(name, position)
+		local character = Instance.new("Model")
+		character.Name = name
+		local root = Instance.new("Part")
+		root.Name = "HumanoidRootPart"
+		root.Size = Vector3.new(2, 2, 1)
+		root.Anchored = false
+		root.Parent = character
+		local humanoid = Instance.new("Humanoid")
+		humanoid.Parent = character
+		character.PrimaryPart = root
+		character.Parent = Workspace
+		character:PivotTo(CFrame.new(position))
+		return character
+	end
+	local decoy = makeCharacter("OldCharacter", Vector3.new(40, 30, 40))
+	local fresh = makeCharacter("FreshCharacter", Vector3.new(70, 30, 70))
+	local fakePlayer = {
+		Character = decoy,
+		SetAttribute = function() end,
+	}
+	local harness = setmetatable({arena = arena}, RoundService)
+	local destination = CFrame.new(-250, 20, 0)
+	harness:_placePlayer(fakePlayer, destination, fresh)
+	assert((fresh:GetPivot().Position - destination.Position).Magnitude < 0.1, "The new character must be placed at the supplied destination")
+	assert((decoy:GetPivot().Position - Vector3.new(40, 30, 40)).Magnitude < 0.1, "A stale character must not be moved instead of the new one")
+	decoy:Destroy()
+	fresh:Destroy()
 end)
 
 runTest("Players remain in the lobby until they request Play", function()

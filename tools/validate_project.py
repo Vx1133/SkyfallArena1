@@ -155,6 +155,14 @@ require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens 
 require("\t\t\t\t0.34," in arena_source, "Drone reticle must be placed on the outward underside of the lens")
 require("\t\t\t\t-0.34," not in arena_source, "Drone reticle must not be hidden inside the sphere")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
+require("Vector3.new(width + 26, 2, width + 26)" in arena_source, "The arena foundation must be thin")
+require("support.CanCollide = false" in arena_source, "The foundation must not catch falling players")
+require("ControllerLensGimbal" in arena_source and "Motor6D" in arena_source, "Drone lens needs a motorized aiming joint")
+require("function ArenaService:AimAircraftAt(tile)" in arena_source, "Drone lens aiming method is missing")
+require("function ArenaService:ReturnAircraftLensHome(token)" in arena_source, "Drone lens return-home method is missing")
+require("TweenService:Create" in arena_source and "aircraftHoverTween" in arena_source, "Drone body hover animation is missing")
+require("ParticleEmitter" in arena_source and "ImpactShockwave" in arena_source, "Laser impact particle and shockwave effects are missing")
+require("BlueLaserHalo" in arena_source, "Layered laser outer glow is missing")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
 require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")
@@ -169,6 +177,8 @@ require("createFallbackHair" not in bot_source, "Procedural custom bot hair must
 for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
 require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
+fallen_bot_body = bot_source.split("function BotService:EliminateFallenRunners", 1)[1].split("function BotService:SendToLobby", 1)[0]
+require(fallen_bot_body.find("bot.alive = false") < fallen_bot_body.find("self.onBotDied(bot)"), "Bot elimination must update alive state before the round broadcasts")
 require("function BotService:_collectWarningTiles()" in bot_source, "Bot warning grid should be snapshotted once per decision")
 require("self:_warningDistance(gridX, gridZ, warningTiles)" in bot_source, "Bot target selection should use cached warning coordinates")
 require("math.clamp(" in bot_source, "Nearest tile lookup should be constant-time")
@@ -199,12 +209,17 @@ for feature in (
     "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
     "self.nextController = self.winnerCandidate",
-    "self:_moveEliminatedPlayerToLobby(player)",
+    "function RoundService:_moveEliminatedPlayerToLobby(player)",
     "remainingPlayers = remainingPlayers",
     "remainingSeconds = remainingSeconds",
     "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",
 ):
     require(feature in round_source, f"Round feature is missing: {feature}")
+require('playerCount = self.phase == "Active" and remainingPlayers or allHumanCount + botCount' in round_source, "Active HUD count must use living arena runners only")
+require("characterOverride or player.Character" in round_source, "Character placement must use the exact respawning character")
+require("LoadCharacterAsync" in round_source, "Player respawn recovery must request a fresh character when Roblox respawn is missing")
+require('if self.phase ~= "Active" then\n\t\tself:_scheduleRespawnRecovery(player, deadCharacter or player.Character)' in round_source, "Players also need respawn recovery while in the waiting lobby")
+require("characterSerial" in round_source, "CharacterAdded placement must ignore stale character callbacks")
 
 admin_source = (ROOT / "src/server/Services/AdminFlightService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -224,6 +239,8 @@ laser_source = (ROOT / "src/server/Services/StrikeService.lua").read_text(encodi
 for feature in (
     "function StrikeService:_handleHumanTarget(",
     "function StrikeService:_runBotController(",
+    "AimAircraftAt(tile)",
+    "ReturnAircraftLensHome(aimToken)",
     "self.targetRemote.OnServerEvent",
     "self.arena:BreakTile(tile, token)",
 ):
@@ -339,7 +356,8 @@ for feature in (
     "Broken tiles remain broken",
     "The one map restores the floor only when a new round loads",
     "The next-round map remains the one fixed Classic arena",
-    "The round state counts down from 180 seconds",
+    "The active HUD count only includes living arena runners",
+    "A fallen bot is removed before the round broadcasts its survivor count",
     "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",
     "SKYFALL_CLOUD_TESTS_OK",

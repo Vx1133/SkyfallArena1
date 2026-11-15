@@ -29,11 +29,13 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	self.survivalTimes = {}
 	self.roundRunners = {}
 	self.roundRunnerCount = 0
+	self.characterSerial = {}
 	self.random = Random.new()
 
 	if self.botService then
 		self.botService.onBotDied = function(diedBot)
 			self:_recordSurvival({kind = "Bot", value = diedBot})
+			self:_broadcast()
 		end
 	end
 	if self.playRemote then
@@ -56,6 +58,8 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 		self.stats[player] = nil
 		self.roundRunners[player] = nil
 		self.survivalTimes[player] = nil
+		self.characterSerial[player] = nil
+		player.ReplicationFocus = nil
 
 		if self.controller
 			and self.controller.kind == "Player"
@@ -130,6 +134,7 @@ function RoundService:_bindPlayer(player)
 	player:SetAttribute("SkyfallRole", "Waiting")
 	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
+	self.characterSerial[player] = 0
 
 	player.CharacterAdded:Connect(function(character)
 		self:_onCharacterAdded(player, character)
@@ -183,7 +188,7 @@ function RoundService:_clearReadyPlayers()
 	self.roundHumanCount = 0
 end
 
-function RoundService:_setPlayerControllerHidden(player, hidden)
+function RoundService:_setPlayerControllerHidden(player, hidden, characterOverride)
 	if hidden then
 		local aircraft = self.arena and self.arena.aircraftModel
 		local focusPart = aircraft and aircraft.PrimaryPart
@@ -192,7 +197,7 @@ function RoundService:_setPlayerControllerHidden(player, hidden)
 		player.ReplicationFocus = nil
 	end
 
-	local character = player.Character
+	local character = characterOverride or player.Character
 	if not character then
 		return
 	end
@@ -252,42 +257,67 @@ function RoundService:_setPlayerControllerHidden(player, hidden)
 	end
 end
 
-function RoundService:_placePlayer(player, spawnCFrame)
-	self:_setPlayerControllerHidden(player, false)
-	local character = player.Character
-	if not character then
-		return
+function RoundService:_placePlayer(player, spawnCFrame, characterOverride)
+	local character = characterOverride or player.Character
+	if not character or not character.Parent then
+		return false
 	end
 
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local root = character:FindFirstChild("HumanoidRootPart")
-	if root then
-		root.Anchored = false
+	if not humanoid or humanoid.Health <= 0 or not root then
+		return false
 	end
+
+	self:_setPlayerControllerHidden(player, false, character)
+	root.Anchored = false
+	pcall(function()
+		root:SetNetworkOwner(nil)
+	end)
 
 	character:PivotTo(spawnCFrame)
+	root.AssemblyLinearVelocity = Vector3.zero
+	root.AssemblyAngularVelocity = Vector3.zero
 
-	if root then
-		root.Anchored = false
-		root.AssemblyLinearVelocity = Vector3.zero
-		root.AssemblyAngularVelocity = Vector3.zero
-		local canSetOwner = root:CanSetNetworkOwnership()
-		if canSetOwner then
-			root:SetNetworkOwner(player)
+	humanoid.PlatformStand = false
+	humanoid.Sit = false
+	humanoid.AutoRotate = true
+	humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+
+	-- Let the server finish placing the new model before handing simulation back to its owner.
+	task.delay(0.2, function()
+		if player.Parent == Players
+			and player.Character == character
+			and character.Parent
+			and root.Parent
+			and humanoid.Health > 0
+		then
+			pcall(function()
+				root:SetNetworkOwner(player)
+			end)
 		end
-	end
+	end)
 
-	if humanoid then
-		humanoid.PlatformStand = false
-		humanoid.Sit = false
-		humanoid.AutoRotate = true
-		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
-	end
+	return true
 end
 
 function RoundService:_onCharacterAdded(player, character)
+	local serial = (self.characterSerial[player] or 0) + 1
+	self.characterSerial[player] = serial
+
 	local humanoid = character:WaitForChild("Humanoid", 10)
-	character:WaitForChild("HumanoidRootPart", 10)
+	local root = character:WaitForChild("HumanoidRootPart", 10)
+	if not humanoid or not root then
+		warn("Skyfall could not place a character missing its Humanoid or HumanoidRootPart")
+		return
+	end
+
+	if player.Parent ~= Players
+		or player.Character ~= character
+		or self.characterSerial[player] ~= serial
+	then
+		return
+	end
 
 	if self.phase == "Active" then
 		if self.controller
@@ -295,27 +325,56 @@ function RoundService:_onCharacterAdded(player, character)
 			and self.controller.value == player
 		then
 			player:SetAttribute("SkyfallRole", "Controller")
-			self:_setPlayerControllerHidden(player, true)
+			self:_setPlayerControllerHidden(player, true, character)
 		elseif self.aliveRunners[player] then
 			player:SetAttribute("SkyfallRole", "Runner")
 			self:_placePlayer(
 				player,
-				self.arena:GetRunnerSpawnCFrame(1, math.max(self:_aliveRunnerCount(), 1))
+				self.arena:GetRunnerSpawnCFrame(1, math.max(self:_aliveRunnerCount(), 1)),
+				character
 			)
 		else
 			player:SetAttribute("SkyfallRole", "Spectator")
-			self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
+			self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
 		end
 	else
 		player:SetAttribute("SkyfallRole", "Waiting")
-		self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
+		self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
 	end
 
-	if humanoid then
+	if player.Character == character and self.characterSerial[player] == serial then
 		humanoid.Died:Connect(function()
-			self:HandleDeath(player)
+			if self.characterSerial[player] == serial then
+				self:HandleDeath(player, character)
+			end
 		end)
 	end
+end
+
+function RoundService:_scheduleRespawnRecovery(player, deadCharacter)
+	local serial = (self.characterSerial[player] or 0) + 1
+	self.characterSerial[player] = serial
+
+	task.delay(Config.RESPAWN_TIME + 3, function()
+		if player.Parent ~= Players or self.characterSerial[player] ~= serial then
+			return
+		end
+
+		local currentCharacter = player.Character
+		local currentHumanoid = currentCharacter and currentCharacter:FindFirstChildOfClass("Humanoid")
+		if not currentCharacter
+			or currentCharacter == deadCharacter
+			or not currentHumanoid
+			or currentHumanoid.Health <= 0
+		then
+			local success, message = pcall(function()
+				player:LoadCharacterAsync()
+			end)
+			if not success then
+				warn("Skyfall respawn recovery failed for " .. player.Name .. ": " .. tostring(message))
+			end
+		end
+	end)
 end
 
 function RoundService:_candidateName(candidate)
@@ -467,8 +526,6 @@ end
 function RoundService:_broadcast()
 	local botCount = self.botService and self.botService:GetBotCount() or 0
 	local allHumanCount = #Players:GetPlayers()
-	local activeHumanCount = self.phase == "Active" and self.roundHumanCount or self:_readyPlayerCount()
-	local totalPlayers = activeHumanCount + botCount
 	local remainingPlayers = self:_aliveRunnerCount()
 	local remainingSeconds = self.phase == "Active"
 		and math.max(0, Config.ROUND_SECONDS - self.elapsedSeconds)
@@ -481,7 +538,7 @@ function RoundService:_broadcast()
 		countdownSeconds = self.countdownSeconds,
 		aliveRunners = remainingPlayers,
 		remainingPlayers = remainingPlayers,
-		playerCount = self.phase == "Active" and totalPlayers or allHumanCount + botCount,
+		playerCount = self.phase == "Active" and remainingPlayers or allHumanCount + botCount,
 		botCount = botCount,
 		readyCount = self:_readyPlayerCount(),
 		eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers),
@@ -499,27 +556,31 @@ function RoundService:_moveEliminatedPlayerToLobby(player)
 	self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
 end
 
-function RoundService:HandleDeath(player)
+function RoundService:HandleDeath(player, deadCharacter)
 	if self.phase ~= "Active" then
+		self:_scheduleRespawnRecovery(player, deadCharacter or player.Character)
 		return
 	end
 
-	if self.controller
+	local wasController = self.controller
 		and self.controller.kind == "Player"
 		and self.controller.value == player
-	then
-		self.controller = nil
-		self:_moveEliminatedPlayerToLobby(player)
-		self:_broadcast()
+	local wasRunner = self.aliveRunners[player]
+	if not wasController and not wasRunner then
 		return
 	end
 
-	if self.aliveRunners[player] then
+	if wasController then
+		self.controller = nil
+	else
 		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
-		self:_moveEliminatedPlayerToLobby(player)
-		self:_broadcast()
 	end
+
+	player:SetAttribute("SkyfallRole", "Spectator")
+	player.ReplicationFocus = nil
+	self:_scheduleRespawnRecovery(player, deadCharacter or player.Character)
+	self:_broadcast()
 end
 
 function RoundService:Eliminate(player)
@@ -529,10 +590,12 @@ function RoundService:Eliminate(player)
 
 	self:_recordSurvival({kind = "Player", value = player})
 	self.aliveRunners[player] = nil
-	self:_moveEliminatedPlayerToLobby(player)
+	player:SetAttribute("SkyfallRole", "Spectator")
+	player.ReplicationFocus = nil
 
 	local character = player.Character
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	self:_scheduleRespawnRecovery(player, character)
 	if humanoid and humanoid.Health > 0 then
 		humanoid.Health = 0
 	end

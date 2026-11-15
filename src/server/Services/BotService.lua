@@ -710,11 +710,11 @@ function BotService:EliminateFallenRunners(outOfBoundsY)
 				or bot.root.Position.Y < outOfBoundsY
 			)
 		then
+			bot.alive = false
+			bot.targetTile = nil
 			if self.onBotDied then
 				self.onBotDied(bot)
 			end
-			bot.alive = false
-			bot.targetTile = nil
 
 			if not bot.humanoid or bot.humanoid.Health <= 0 or not bot.model or not bot.model.Parent then
 				self:_buildRig(bot)

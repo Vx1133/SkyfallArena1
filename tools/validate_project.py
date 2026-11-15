@@ -177,6 +177,8 @@ require("createFallbackHair" not in bot_source, "Procedural custom bot hair must
 for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
 require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
+fallen_bot_body = bot_source.split("function BotService:EliminateFallenRunners", 1)[1].split("function BotService:SendToLobby", 1)[0]
+require(fallen_bot_body.find("bot.alive = false") < fallen_bot_body.find("self.onBotDied(bot)"), "Bot elimination must update alive state before the round broadcasts")
 require("function BotService:_collectWarningTiles()" in bot_source, "Bot warning grid should be snapshotted once per decision")
 require("self:_warningDistance(gridX, gridZ, warningTiles)" in bot_source, "Bot target selection should use cached warning coordinates")
 require("math.clamp(" in bot_source, "Nearest tile lookup should be constant-time")
@@ -354,6 +356,7 @@ for feature in (
     "The one map restores the floor only when a new round loads",
     "The next-round map remains the one fixed Classic arena",
     "The active HUD count only includes living arena runners",
+    "A fallen bot is removed before the round broadcasts its survivor count",
     "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",
     "SKYFALL_CLOUD_TESTS_OK",

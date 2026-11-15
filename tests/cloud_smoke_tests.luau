@@ -580,7 +580,6 @@ runTest("Late joiners during an active round are routed to the observation lobby
 	local humanoid = Instance.new("Humanoid")
 	humanoid.Parent = character
 	character.PrimaryPart = root
-	character.Parent = Workspace
 	character:PivotTo(CFrame.new(0, 30, 0))
 
 	local fakePlayer = {
@@ -612,7 +611,21 @@ runTest("Late joiners during an active round are routed to the observation lobby
 	}, RoundService)
 
 	local expectedLobbySpawn = arena:GetLobbySpawnCFrame(1, 1, false)
-	harness:_onCharacterAdded(fakePlayer, character)
+	local placementFinished = false
+	task.spawn(function()
+		harness:_onCharacterAdded(fakePlayer, character)
+		placementFinished = true
+	end)
+	task.wait(0.05)
+	assert(character.Parent == nil, "CharacterAdded test must cover the engine's pre-Workspace stage")
+	character.Parent = Workspace
+	for _ = 1, 20 do
+		if placementFinished then
+			break
+		end
+		task.wait(0.05)
+	end
+	assert(placementFinished, "Character placement must finish after the model enters Workspace")
 	assert(fakePlayer.attributes.SkyfallRole == "Spectator", "A late joiner must not become a runner during an active round")
 	assert((character:GetPivot().Position - expectedLobbySpawn.Position).Magnitude < 0.1, "A late joiner must be placed on the lobby deck")
 	assert(fakePlayer.arenaStreamingFocus == arena:GetStreamingFocusPart(), "A lobby spectator must stream the live arena")

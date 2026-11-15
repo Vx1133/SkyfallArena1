@@ -183,23 +183,67 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	local separation = (Config.ARENA_CENTER - Config.LOBBY_CENTER).Magnitude
 	assert(separation > Config.ARENA_HALF_WIDTH + Config.LOBBY_SIZE / 2 + 10, "Lobby must be physically separated from the arena")
 
-	arena:CreateStrikeBeam(centerTile)
-	local atmosphereGlow = arena.root:FindFirstChild("LaserAtmosphereGlow")
-	local energyShell = arena.root:FindFirstChild("LaserEnergyShell")
-	local hotCore = arena.root:FindFirstChild("LaserHotCore")
-	local filament = arena.root:FindFirstChild("LaserFilament")
-	local energyFlow = arena.root:FindFirstChild("LaserEnergyFlow")
-	assert(atmosphereGlow and atmosphereGlow:IsA("Beam"), "The soft laser atmosphere pass is missing")
-	assert(energyShell and energyShell:IsA("Beam"), "The main laser energy shell is missing")
-	assert(hotCore and hotCore:IsA("Beam"), "The bright laser core is missing")
-	assert(filament and filament:IsA("Beam"), "The fine laser filament is missing")
-	assert(energyFlow and energyFlow:IsA("Beam"), "The animated energy texture pass is missing")
-	assert(energyFlow.Texture == "rbxasset://textures/particles/sparkles_main.dds", "The laser must use the built-in moving beam texture")
-	assert(energyFlow.TextureMode == Enum.TextureMode.Wrap and energyFlow.TextureSpeed < 0, "The energy texture must wrap and travel toward the target")
-	assert(energyShell.Attachment0 == arena.laserOrigin, "The laser must originate from the golden fuselage")
+	assert(arena:CreateStrikeBeam(centerTile), "The procedural laser VFX should accept a valid target")
+	task.wait(Config.LASER_EXTENSION_SECONDS + 0.06)
+	local vfxFolder
+	for _, child in ipairs(arena.root:GetChildren()) do
+		if string.sub(child.Name, 1, 13) == "LaserVFXShot_" then
+			vfxFolder = child
+			break
+		end
+	end
+	assert(vfxFolder, "A short-lived laser VFX container must be created")
+	assert(vfxFolder:GetAttribute("VisualLayerCount") == Config.LASER_LAYER_COUNT, "The visual stack must declare 24 layers")
+	assert(vfxFolder:GetAttribute("BeamLayerCount") == 14, "The beam stack must contain fourteen passes")
+	assert(vfxFolder:GetAttribute("ParticleLayerCount") == 4, "The effect must contain four manual particle emitters")
+	assert(vfxFolder:GetAttribute("LightLayerCount") == 2, "The effect must contain two temporary lights")
+	assert(vfxFolder:GetAttribute("PulseLayerCount") == 4, "The effect must contain four pulse spheres")
+
+	local beamCount = 0
+	local particleCount = 0
+	local pulseCount = 0
+	local forwardTextureCount = 0
+	for _, descendant in ipairs(vfxFolder:GetDescendants()) do
+		if descendant:IsA("Beam") then
+			beamCount += 1
+			assert(descendant.Attachment0 == arena.laserOrigin, "Each laser pass must originate from the drone optical axis")
+			assert(descendant.Attachment1 ~= nil, "Each laser pass must have an animated endpoint attachment")
+			if descendant.Texture ~= "" then
+				assert(descendant.Texture == "rbxasset://textures/particles/sparkles_main.dds", "Only the Roblox built-in beam texture should be used")
+				assert(descendant.TextureMode == Enum.TextureMode.Wrap and descendant.TextureSpeed > 0, "Energy texture must travel from source to target")
+				forwardTextureCount += 1
+			end
+		elseif descendant:IsA("ParticleEmitter") then
+			particleCount += 1
+			assert(descendant.Rate == 0 and descendant.Enabled == false, "Particles must be burst-only, never continuously emitted")
+		elseif descendant:IsA("BasePart") and string.sub(descendant.Name, 1, 11) == "LaserPulse_" then
+			pulseCount += 1
+			assert(descendant.CanCollide == false and descendant.CanTouch == false and descendant.CanQuery == false, "Pulse geometry must not affect gameplay")
+		end
+	end
+	assert(beamCount == 14, "Expected exactly fourteen Beam passes, got " .. tostring(beamCount))
+	assert(particleCount == 4, "Expected exactly four controlled particle emitters, got " .. tostring(particleCount))
+	assert(pulseCount == 4, "Expected exactly four visual pulse spheres, got " .. tostring(pulseCount))
+	assert(forwardTextureCount == 2, "Two animated energy-flow passes should be present")
+
+	local endpoint = vfxFolder:FindFirstChild("LaserBeamEndpoint")
+	assert(endpoint and endpoint:IsA("BasePart"), "The moving beam endpoint is missing")
+	assert(endpoint:GetAttribute("ExtensionDuration") == Config.LASER_EXTENSION_SECONDS, "Beam extension must use the configured smooth duration")
+	assert(endpoint:GetAttribute("StartPosition") ~= nil and endpoint:GetAttribute("TargetPosition") ~= nil, "The endpoint must store its source and destination for verification")
+	local muzzle = arena.aircraftModel:FindFirstChild("LaserMuzzleAttachment", true)
 	local impact = centerTile:FindFirstChild("LaserImpactAttachment")
-	assert(impact and impact:FindFirstChild("LaserImpactParticles"), "The hit should use a short spark burst, not a solid impact disc")
-	assert(impact:FindFirstChild("LaserImpactFlash"), "The hit should include a brief local light pulse")
+	assert(muzzle and impact, "Muzzle and impact attachments must be created")
+	local muzzleEmitters = 0
+	for _, child in ipairs(muzzle:GetChildren()) do
+		if child:IsA("ParticleEmitter") then
+			muzzleEmitters += 1
+		end
+	end
+	assert(muzzleEmitters == 2, "The muzzle must contain two one-shot particle emitters")
+	assert(impact:FindFirstChild("LaserParticles_ImpactSparks"), "Impact spark burst is missing")
+	assert(impact:FindFirstChild("LaserParticles_ImpactFragments"), "Impact fragment burst is missing")
+	assert(impact:FindFirstChild("LaserImpactLight"), "The impact needs a short local light pulse")
+	assert(muzzle:FindFirstChild("LaserMuzzleLight"), "The muzzle needs a short charge flash")
 	assert(centerTile:FindFirstChild("LaserImpactSound"), "A spatial laser impact sound should play")
 	assert(arena.root:FindFirstChild("BlueLaserImpact") == nil, "Legacy blue impact discs must not be created")
 	assert(arena.root:FindFirstChild("ImpactShockwave") == nil, "Legacy blue shockwave rings must not be created")

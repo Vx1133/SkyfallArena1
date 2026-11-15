@@ -1,10 +1,10 @@
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
-local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
 
 local ArenaService = {}
 ArenaService.__index = ArenaService
@@ -650,6 +650,7 @@ function ArenaService:Build()
 			or descendant.Name == "BlueLaserHalo"
 			or descendant.Name == "BlueLaserOuter"
 			or descendant.Name == "BlueLaserCore"
+			or string.sub(descendant.Name, 1, 13) == "LaserVFXShot_"
 		then
 			descendant:Destroy()
 		end
@@ -789,145 +790,7 @@ function ArenaService:ClearWarning(tile, token)
 end
 
 function ArenaService:CreateStrikeBeam(tile)
-	if not self.laserOrigin or not self.laserOrigin.Parent or not tile or not tile.Parent then
-		return
-	end
-
-	local target = Instance.new("Attachment")
-	target.Name = "LaserImpactAttachment"
-	target.Position = Vector3.new(0, 0.65, 0)
-	target.Parent = tile
-
-	local function createLaserPass(name, width0, width1, color, transparency, emission)
-		local beam = Instance.new("Beam")
-		beam.Name = name
-		beam.Attachment0 = self.laserOrigin
-		beam.Attachment1 = target
-		beam.FaceCamera = true
-		beam.Width0 = width0
-		beam.Width1 = width1
-		beam.Segments = 10
-		beam.LightEmission = emission
-		beam.LightInfluence = 0
-		beam.Color = color
-		beam.Transparency = transparency
-		beam.Parent = self.root
-		Debris:AddItem(beam, 0.52)
-		return beam
-	end
-
-	-- Four layered passes create a bright core with a soft energy envelope.
-	createLaserPass(
-		"LaserAtmosphereGlow",
-		4.8,
-		3.4,
-		ColorSequence.new(Color3.fromRGB(31, 115, 255), Color3.fromRGB(76, 209, 255)),
-		NumberSequence.new(0.82),
-		0.72
-	)
-	createLaserPass(
-		"LaserEnergyShell",
-		1.9,
-		1.25,
-		ColorSequence.new({
-			ColorSequenceKeypoint.new(0, Color3.fromRGB(44, 139, 255)),
-			ColorSequenceKeypoint.new(0.55, Color3.fromRGB(71, 198, 255)),
-			ColorSequenceKeypoint.new(1, Color3.fromRGB(142, 235, 255)),
-		}),
-		NumberSequence.new(0.24),
-		0.94
-	)
-	createLaserPass(
-		"LaserHotCore",
-		0.62,
-		0.4,
-		ColorSequence.new(Color3.fromRGB(221, 248, 255), Color3.fromRGB(255, 255, 255)),
-		NumberSequence.new(0.035),
-		1
-	)
-	createLaserPass(
-		"LaserFilament",
-		0.12,
-		0.08,
-		ColorSequence.new(Color3.fromRGB(255, 255, 255), Color3.fromRGB(187, 238, 255)),
-		NumberSequence.new(0.08),
-		1
-	)
-
-	-- A moving native texture adds directional energy motion without extra Parts.
-	local energyFlow = createLaserPass(
-		"LaserEnergyFlow",
-		0.92,
-		0.68,
-		ColorSequence.new(Color3.fromRGB(22, 116, 255), Color3.fromRGB(115, 235, 255)),
-		NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.2),
-			NumberSequenceKeypoint.new(0.88, 0.2),
-			NumberSequenceKeypoint.new(1, 1),
-		}),
-		1
-	)
-	energyFlow.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	energyFlow.TextureMode = Enum.TextureMode.Wrap
-	energyFlow.TextureLength = 2.4
-	energyFlow.TextureSpeed = -5.5
-	energyFlow.Segments = 20
-
-	local impactLight = Instance.new("PointLight")
-	impactLight.Name = "LaserImpactFlash"
-	impactLight.Color = Color3.fromRGB(121, 216, 255)
-	impactLight.Brightness = 3
-	impactLight.Range = 14
-	impactLight.Shadows = false
-	impactLight.Parent = target
-	TweenService:Create(
-		impactLight,
-		TweenInfo.new(0.24, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{Brightness = 0}
-	):Play()
-
-	local impactParticles = Instance.new("ParticleEmitter")
-	impactParticles.Name = "LaserImpactParticles"
-	impactParticles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
-	impactParticles.Rate = 0
-	impactParticles.Lifetime = NumberRange.new(0.16, 0.38)
-	impactParticles.Speed = NumberRange.new(13, 22)
-	impactParticles.Drag = 6
-	impactParticles.SpreadAngle = Vector2.new(180, 180)
-	impactParticles.Rotation = NumberRange.new(0, 360)
-	impactParticles.RotSpeed = NumberRange.new(-135, 135)
-	impactParticles.LightEmission = 0.9
-	impactParticles.LightInfluence = 0
-	impactParticles.Color = ColorSequence.new(
-		Color3.fromRGB(154, 227, 255),
-		Color3.fromRGB(255, 255, 255)
-	)
-	impactParticles.Size = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.42),
-		NumberSequenceKeypoint.new(0.3, 0.22),
-		NumberSequenceKeypoint.new(1, 0),
-	})
-	impactParticles.Transparency = NumberSequence.new({
-		NumberSequenceKeypoint.new(0, 0.02),
-		NumberSequenceKeypoint.new(1, 1),
-	})
-	impactParticles.Parent = target
-	impactParticles:Emit(22)
-
-	local impactSound = Instance.new("Sound")
-	impactSound.Name = "LaserImpactSound"
-	impactSound.SoundId = "rbxassetid://" .. Config.LASER_SOUND_ID
-	impactSound.Volume = Config.AUDIO_LASER_VOLUME
-	impactSound.RollOffMode = Enum.RollOffMode.Linear
-	impactSound.RollOffMinDistance = 10
-	impactSound.RollOffMaxDistance = 180
-	impactSound.EmitterSize = 8
-	impactSound.Parent = tile
-	impactSound:Play()
-
-	-- No persistent cylinder or expanding ring is spawned at the impact point.
-	Debris:AddItem(target, 0.9)
-	Debris:AddItem(impactSound, 3)
+	return LaserVFX.Create(self, tile)
 end
 
 function ArenaService:BreakTile(tile, token)

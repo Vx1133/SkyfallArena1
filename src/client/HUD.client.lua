@@ -164,10 +164,99 @@ local function getRole()
 	return player:GetAttribute("SkyfallRole") or "Waiting"
 end
 
+-- The cooldown meter is shown only to the human who currently controls the drone.
+local cooldownPanel = Instance.new("Frame")
+cooldownPanel.Name = "LaserCooldownPanel"
+cooldownPanel.AnchorPoint = Vector2.new(0.5, 1)
+cooldownPanel.Position = UDim2.new(0.5, 0, 1, -18)
+cooldownPanel.Size = UDim2.fromOffset(214, 42)
+cooldownPanel.BackgroundColor3 = Color3.fromRGB(16, 27, 39)
+cooldownPanel.BackgroundTransparency = 0.24
+cooldownPanel.BorderSizePixel = 0
+cooldownPanel.Visible = false
+cooldownPanel.Parent = screenGui
+
+local cooldownCorner = Instance.new("UICorner")
+cooldownCorner.CornerRadius = UDim.new(0, 10)
+cooldownCorner.Parent = cooldownPanel
+
+local cooldownStroke = Instance.new("UIStroke")
+cooldownStroke.Color = Color3.fromRGB(83, 179, 241)
+cooldownStroke.Transparency = 0.52
+cooldownStroke.Thickness = 1
+cooldownStroke.Parent = cooldownPanel
+
+local cooldownLabel = Instance.new("TextLabel")
+cooldownLabel.Name = "LaserCooldownLabel"
+cooldownLabel.Position = UDim2.fromOffset(8, 3)
+cooldownLabel.Size = UDim2.new(1, -16, 0, 20)
+cooldownLabel.BackgroundTransparency = 1
+cooldownLabel.Font = Enum.Font.GothamBold
+cooldownLabel.Text = "LASER READY"
+cooldownLabel.TextColor3 = Color3.fromRGB(167, 245, 255)
+cooldownLabel.TextSize = 10
+cooldownLabel.TextXAlignment = Enum.TextXAlignment.Left
+cooldownLabel.Parent = cooldownPanel
+
+local cooldownTrack = Instance.new("Frame")
+cooldownTrack.Name = "LaserCooldownTrack"
+cooldownTrack.Position = UDim2.fromOffset(8, 29)
+cooldownTrack.Size = UDim2.new(1, -16, 0, 5)
+cooldownTrack.BackgroundColor3 = Color3.fromRGB(39, 55, 70)
+cooldownTrack.BorderSizePixel = 0
+cooldownTrack.Parent = cooldownPanel
+
+local trackCorner = Instance.new("UICorner")
+trackCorner.CornerRadius = UDim.new(1, 0)
+trackCorner.Parent = cooldownTrack
+
+local cooldownFill = Instance.new("Frame")
+cooldownFill.Name = "LaserCooldownFill"
+cooldownFill.Size = UDim2.fromScale(1, 1)
+cooldownFill.BackgroundColor3 = Color3.fromRGB(80, 218, 197)
+cooldownFill.BorderSizePixel = 0
+cooldownFill.Parent = cooldownTrack
+
+local fillCorner = Instance.new("UICorner")
+fillCorner.CornerRadius = UDim.new(1, 0)
+fillCorner.Parent = cooldownFill
+
+local function updateLaserStatus()
+	local isActiveController = state.phase == "Active" and getRole() == "Controller"
+	cooldownPanel.Visible = isActiveController
+	if not isActiveController then
+		return
+	end
+
+	local readyAt = tonumber(player:GetAttribute("SkyfallLaserReadyAt")) or 0
+	local remaining = math.max(0, readyAt - Workspace:GetServerTimeNow())
+	local cooldown = Config.HUMAN_STRIKE_COOLDOWN_SECONDS
+	local progress = 1 - math.clamp(remaining / cooldown, 0, 1)
+	cooldownFill.Size = UDim2.fromScale(progress, 1)
+
+	if remaining > 0.01 then
+		cooldownLabel.Text = string.format("LASER RECHARGING  %.1fs", remaining)
+		cooldownLabel.TextColor3 = Color3.fromRGB(128, 206, 255)
+		cooldownFill.BackgroundColor3 = Color3.fromRGB(66, 151, 243)
+	else
+		cooldownLabel.Text = "LASER READY"
+		cooldownLabel.TextColor3 = Color3.fromRGB(167, 245, 255)
+		cooldownFill.BackgroundColor3 = Color3.fromRGB(80, 218, 197)
+	end
+end
+
+task.spawn(function()
+	while screenGui.Parent do
+		updateLaserStatus()
+		task.wait(0.1)
+	end
+end)
+
 local function updateHud()
 	local active = state.phase == "Active"
 	panel.Visible = active
 	updatePlayButton()
+	updateLaserStatus()
 	if not active then
 		return
 	end
@@ -237,6 +326,7 @@ end)
 
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
 player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
+player:GetAttributeChangedSignal("SkyfallLaserReadyAt"):Connect(updateLaserStatus)
 
 local controllerCameraActive = false
 local previousFieldOfView = nil

@@ -34,6 +34,7 @@ required_files = [
     "src/server/Services/BotService.lua",
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
+    "src/server/Services/LaserVFX.lua",
     "src/client/HUD.client.lua",
     "src/client/Audio.client.lua",
     "tests/cloud_smoke_tests.luau",
@@ -60,6 +61,10 @@ for setting in (
     "Config.MAP_COUNT = 1",
     "Config.ROUND_SECONDS = 180",
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
+    "Config.LASER_EXTENSION_SECONDS = 0.24",
+    "Config.LASER_HOLD_SECONDS = 0.08",
+    "Config.LASER_FADE_SECONDS = 0.14",
+    "Config.LASER_LAYER_COUNT = 24",
     "Config.CONTROLLER_CAMERA_FOV = 70",
     "Config.CONTROLLER_CAMERA_MARGIN = 8",
     "Config.CONTROLLER_CAMERA_MIN_HEIGHT = 132",
@@ -148,9 +153,6 @@ for neutral_setting in (
     "Lighting.EnvironmentSpecularScale = 1",
 ):
     require(neutral_setting in arena_source, f"Neutral lighting setting is missing: {neutral_setting}")
-require('"LaserEnergyShell"' in arena_source, "The layered laser energy shell is missing")
-require('"LaserHotCore"' in arena_source, "The high-intensity laser core is missing")
-require('"LaserFilament"' in arena_source, "The laser filament pass is missing")
 require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
 require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
 require("\t\t\t\t0.34," in arena_source, "Drone reticle must be placed on the outward underside of the lens")
@@ -165,12 +167,39 @@ require("function ArenaService:AimAircraftAt(tile)" in arena_source, "Whole-airc
 require("local opticalUp = -direction" in arena_source, "Aircraft aiming must align the lens local -Y optical axis with the target")
 require("local right = opticalUp:Cross(back).Unit" in arena_source, "Aircraft aim basis must remain orthonormal for all cardinal directions")
 require("function ArenaService:ReturnAircraftLensHome(token)" in arena_source, "Whole-aircraft return-home method is missing")
-require('energyFlow.Texture = "rbxasset://textures/particles/sparkles_main.dds"' in arena_source, "Animated native laser texture is missing")
-require("energyFlow.TextureSpeed = -5.5" in arena_source, "Laser texture must move toward the target")
 require("TweenService:Create" in arena_source and "aircraftHoverTween" in arena_source, "Drone body hover animation is missing")
-require("ParticleEmitter" in arena_source and "LaserImpactAttachment" in arena_source, "Laser impact sparks are missing")
-require("LaserAtmosphereGlow" in arena_source, "Layered laser atmosphere glow is missing")
 require("ImpactShockwave" in arena_source, "Legacy impact-ring cleanup is missing")
+require("function ArenaService:CreateStrikeBeam(tile)" in arena_source, "ArenaService must expose the procedural laser adapter")
+require("LaserVFX.Create(self, tile)" in arena_source, "ArenaService must delegate laser rendering to LaserVFX")
+laser_vfx_source = (ROOT / "src/server/Services/LaserVFX.lua").read_text(encoding="utf-8")
+for feature in (
+    "local LAYER_COUNT = 24",
+    "LaserOuterAtmosphere",
+    "LaserCyanEnvelope",
+    "LaserHotCore",
+    "LaserEnergyFlowPrimary",
+    "LaserEnergyFlowSecondary",
+    "LaserRefractionArcA",
+    "LaserRefractionArcD",
+    "LaserBeamEndpoint",
+    "Config.LASER_EXTENSION_SECONDS",
+    "Config.LASER_HOLD_SECONDS",
+    "Config.LASER_FADE_SECONDS",
+    "local FLOW_TEXTURE_SPEED = 3.2",
+    "LaserParticles_MuzzleSparks",
+    "LaserParticles_MuzzleMist",
+    "LaserParticles_ImpactSparks",
+    "LaserParticles_ImpactFragments",
+    "LaserMuzzleLight",
+    "LaserImpactLight",
+    "LaserPulse_Muzzle",
+    "LaserPulse_Impact",
+    "LaserPulse_WaveA",
+    "LaserPulse_WaveB",
+    "Debris:AddItem",
+):
+    require(feature in laser_vfx_source, f"Procedural laser VFX component is missing: {feature}")
+require("TextureSpeed = -5.5" not in laser_vfx_source, "Energy texture must move from source to target")
 require("function ArenaService:RepairTile(" not in arena_source, "Tiles should only be restored by the next round")
 map_set_body = arena_source.split("function ArenaService:SetMap(", 1)[1].split("function ArenaService:GetMapName(", 1)[0]
 require('tile:SetAttribute("IsBroken", false)' in map_set_body, "The next map must restore broken state")
@@ -254,6 +283,8 @@ for feature in (
 ):
     require(feature in laser_source, f"Laser feature is missing: {feature}")
 require("RepairTile" not in laser_source, "The laser must not repair damaged tiles")
+require('"SkyfallLaserReadyAt"' in laser_source and "workspace:GetServerTimeNow() + Config.HUMAN_STRIKE_COOLDOWN_SECONDS" in laser_source, "Accepted human shots must publish a synchronized ready timestamp")
+require("Config.LASER_EXTENSION_SECONDS + Config.LASER_HOLD_SECONDS" in laser_source, "Tile damage must wait for beam extension and impact hold")
 
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -291,6 +322,11 @@ for feature in (
     "previousFieldOfViewMode = camera.FieldOfViewMode",
     "camera.FieldOfView = previousFieldOfView",
     "targetRemote:FireServer(gridX, gridZ)",
+    "LaserCooldownPanel",
+    "LaserCooldownFill",
+    "SkyfallLaserReadyAt",
+    "GetServerTimeNow",
+    "LASER READY",
 ):
     require(feature in hud_source, f"Overhead two-stat HUD feature is missing: {feature}")
 for forbidden in ("RemainingLabel", "EliminatedLabel", "LEFT\\n", "OUT\\n", "cameraBack", "isPortrait"):
@@ -369,7 +405,7 @@ for feature in (
     "The longest-surviving runner is selected as the next controller",
     "three-second cooldown",
     "Four-cardinal lens aim tests",
-    "animated energy texture pass",
+    "The visual stack must declare 24 layers",
     "SKYFALL_CLOUD_TESTS_OK",
 ):
     require(feature in cloud_tests, f"Cloud smoke test is missing: {feature}")

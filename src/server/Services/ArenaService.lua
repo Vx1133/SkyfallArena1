@@ -526,7 +526,7 @@ function ArenaService:_buildAircraft()
 		lowerSeam.CastShadow = false
 	end
 
-	-- The lens sits slightly left of center on the sphere's equator and faces the arena.
+	-- The red lens is mounted under the sphere and its reticle faces straight down.
 	local lensNormal = Vector3.new(0, -1, 0)
 	local lensCenter = base + lensNormal * 7.05
 	local function lensFrameAt(position)
@@ -629,7 +629,7 @@ function ArenaService:_buildAircraft()
 		for index = 1, segmentCount do
 			local angle = (index - 1) * (2 * math.pi / segmentCount)
 			local localOffset = Vector3.new(
-				-0.34,
+				0.34,
 				math.cos(angle) * radius,
 				math.sin(angle) * radius
 			)
@@ -649,25 +649,25 @@ function ArenaService:_buildAircraft()
 	lensDetail(
 		"LensReticleHorizontal",
 		Vector3.new(0.09, 2.7, 0.1),
-		Vector3.new(-0.34, 0, 0),
+		Vector3.new(0.34, 0, 0),
 		reticleColor
 	)
 	lensDetail(
 		"LensReticleVertical",
 		Vector3.new(0.09, 0.1, 2.7),
-		Vector3.new(-0.34, 0, 0),
+		Vector3.new(0.34, 0, 0),
 		reticleColor
 	)
 	lensDetail(
 		"LensReticleCenter",
 		Vector3.new(0.12, 0.34, 0.34),
-		Vector3.new(-0.38, 0, 0),
+		Vector3.new(0.38, 0, 0),
 		Color3.fromRGB(255, 179, 162)
 	)
 	local highlightA = lensDetail(
 		"LensWhiteHighlightA",
 		Vector3.new(0.12, 0.82, 0.36),
-		Vector3.new(-0.4, -0.78, 0.48),
+		Vector3.new(0.4, -0.78, 0.48),
 		Color3.fromRGB(255, 255, 246)
 	)
 	highlightA.Shape = Enum.PartType.Ball
@@ -675,7 +675,7 @@ function ArenaService:_buildAircraft()
 	local highlightB = lensDetail(
 		"LensWhiteHighlightB",
 		Vector3.new(0.1, 0.46, 0.18),
-		Vector3.new(-0.4, 0.72, -0.68),
+		Vector3.new(0.4, 0.72, -0.68),
 		Color3.fromRGB(255, 255, 255)
 	)
 	highlightB.Shape = Enum.PartType.Ball

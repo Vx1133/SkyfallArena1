@@ -58,7 +58,6 @@ for setting in (
     "Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT = 130",
     "Config.CONTROLLER_CAMERA_LANDSCAPE_BACK = 130",
     "Config.CONTROLLER_CAMERA_LANDSCAPE_FOV = 44",
-    "Config.OVERTIME_START_SECONDS",
     "Config.RESPAWN_TIME",
 ):
     require(setting in config_source, f"Required gameplay setting is missing: {setting}")
@@ -80,7 +79,7 @@ for feature in (
     "SquareStud_",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
-require(arena_source.count("tileMaterial = Enum.Material.SmoothPlastic") == 5, "All five destructible floors must use the same clean studded plastic material")
+require(arena_source.count("tileMaterial = Enum.Material.SmoothPlastic") == 1, "The single destructible floor must use a clean studded plastic material")
 for feature in (
     '"ArmorPlate_" .. group.name .. "_"',
     'name = "Upper"',

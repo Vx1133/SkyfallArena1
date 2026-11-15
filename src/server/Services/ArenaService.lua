@@ -290,7 +290,6 @@ function ArenaService:_buildLobby()
 	local center = Config.LOBBY_CENTER
 	local size = Config.LOBBY_SIZE
 	local half = size / 2
-	local theme = self.theme
 
 	local platform = createPart(
 		decor,

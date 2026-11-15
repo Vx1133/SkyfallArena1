@@ -28,6 +28,12 @@ function RoundService.new(arenaService, stateRemote, botService)
 	self.roundRunners = {}
 	self.roundRunnerCount = 0
 	self.random = Random.new()
+
+	if self.botService then
+		self.botService.onBotDied = function(diedBot)
+			self:_recordSurvival({kind = "Bot", value = diedBot})
+		end
+	end
 	self.lastMapId = 0
 
 	Players.RespawnTime = Config.RESPAWN_TIME

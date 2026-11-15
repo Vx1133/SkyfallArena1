@@ -26,6 +26,7 @@ end
 
 local ArenaService = requireService("ArenaService")
 local RoundService = requireService("RoundService")
+local BotService = requireService("BotService")
 local StrikeService = requireService("StrikeService")
 local AdminFlightService = requireService("AdminFlightService")
 
@@ -300,6 +301,43 @@ runTest("The active HUD count only includes living arena runners", function()
 	aliveBotCount = 2
 	harness:_broadcast()
 	assert(capturedState.playerCount == 3, "HUD count must drop immediately when a human and bot are eliminated")
+end)
+
+runTest("A fallen bot is removed before the round broadcasts its survivor count", function()
+	local capturedState = nil
+	local bot = {
+		name = "FallenTestBot",
+		alive = true,
+		isController = false,
+		humanoid = {Health = 100},
+		root = {
+			Parent = Workspace,
+			Position = Vector3.new(0, -10, 0),
+		},
+		model = {
+			Parent = Workspace,
+			SetAttribute = function() end,
+			PivotTo = function() end,
+		},
+	}
+	local botHarness = setmetatable({
+		bots = {bot},
+		arena = arena,
+		_playAnimation = function() end,
+	}, BotService)
+	local roundHarness = RoundService.new(arena, {
+		FireAllClients = function(_, state)
+			capturedState = state
+		end,
+	}, botHarness, nil)
+	roundHarness.phase = "Active"
+	roundHarness.roundRunners[bot] = {kind = "Bot", value = bot}
+	roundHarness.roundRunnerCount = 1
+
+	botHarness:EliminateFallenRunners(0)
+	assert(bot.alive == false, "Fallen bot must be marked eliminated")
+	assert(capturedState ~= nil, "Bot elimination should trigger an immediate round-state broadcast")
+	assert(capturedState.playerCount == 0, "The eliminated bot must not remain in the active HUD count")
 end)
 
 runTest("Controller drone and arena remain free of neon materials", function()

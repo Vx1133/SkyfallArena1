@@ -11,18 +11,18 @@ ArenaService.__index = ArenaService
 local MAPS = {
 	{
 		id = 1,
-		name = "SKYFALL SUNSPIRE",
-		tileColor = Color3.fromRGB(218, 226, 218),
-		tileMaterial = Enum.Material.SmoothPlastic,
-		studColor = Color3.fromRGB(241, 246, 235),
-		warningColor = Color3.fromRGB(255, 54, 72),
-		brokenColor = Color3.fromRGB(61, 72, 78),
-		structure = Color3.fromRGB(235, 229, 211),
-		roof = Color3.fromRGB(190, 157, 103),
-		accent = Color3.fromRGB(197, 151, 77),
-		secondary = Color3.fromRGB(76, 151, 166),
-		ambient = Color3.fromRGB(180, 194, 187),
-		fogColor = Color3.fromRGB(205, 226, 232),
+		name = "SKYFALL CLASSIC ARENA",
+		tileColor = Color3.fromRGB(79, 170, 66),
+		tileMaterial = Enum.Material.Plastic,
+		studColor = Color3.fromRGB(112, 204, 83),
+		warningColor = Color3.fromRGB(255, 48, 58),
+		brokenColor = Color3.fromRGB(66, 76, 82),
+		structure = Color3.fromRGB(52, 116, 196),
+		roof = Color3.fromRGB(230, 61, 61),
+		accent = Color3.fromRGB(255, 207, 56),
+		secondary = Color3.fromRGB(64, 166, 220),
+		ambient = Color3.fromRGB(0, 0, 0),
+		fogColor = Color3.fromRGB(192, 192, 192),
 	},
 }
 
@@ -33,7 +33,7 @@ local function createPart(parent, name, size, position, color, material, canColl
 	part.Size = size
 	part.Position = position
 	part.Color = color
-	part.Material = material or Enum.Material.SmoothPlastic
+	part.Material = material or Enum.Material.Plastic
 	part.TopSurface = Enum.SurfaceType.Smooth
 	part.BottomSurface = Enum.SurfaceType.Smooth
 	part.CanCollide = canCollide ~= false
@@ -49,30 +49,29 @@ local function createFolder(parent, name)
 end
 
 local function addSquareStuds(basePart, color, studWidth, studHeight)
-	local width = studWidth or 0.85
-	local height = studHeight or 0.24
-	local insetX = math.max(0, basePart.Size.X / 2 - width * 1.65)
-	local insetZ = math.max(0, basePart.Size.Z / 2 - width * 1.65)
-	local offsets = {
-		Vector3.new(-insetX, 0, -insetZ),
-		Vector3.new(insetX, 0, -insetZ),
-		Vector3.new(-insetX, 0, insetZ),
-		Vector3.new(insetX, 0, insetZ),
-	}
+	local width = studWidth or 1.2
+	local height = studHeight or 0.28
+	local xSpacing = basePart.Size.X / 3
+	local zSpacing = basePart.Size.Z / 3
+	local index = 0
 
-	for index, offset in ipairs(offsets) do
-		local stud = createPart(
-			basePart,
-			"SquareStud_" .. tostring(index),
-			Vector3.new(width, height, width),
-			basePart.Position + Vector3.new(0, basePart.Size.Y / 2 + height / 2, 0) + offset,
-			color,
-			Enum.Material.SmoothPlastic,
-			false
-		)
-		stud.CanTouch = false
-		stud.CanQuery = false
-		stud.CastShadow = false
+	for row = -1, 1 do
+		for column = -1, 1 do
+			index += 1
+			local offset = Vector3.new(column * xSpacing, 0, row * zSpacing)
+			local stud = createPart(
+				basePart,
+				"SquareStud_" .. tostring(index),
+				Vector3.new(width, height, width),
+				basePart.Position + Vector3.new(0, basePart.Size.Y / 2 + height / 2, 0) + offset,
+				color,
+				Enum.Material.Plastic,
+				false
+			)
+			stud.CanTouch = false
+			stud.CanQuery = false
+			stud.CastShadow = false
+		end
 	end
 end
 
@@ -157,7 +156,7 @@ local function addSquareColumn(parent, name, position, width, height, bodyColor,
 		Vector3.new(width, height, width),
 		position + Vector3.new(0, height / 2, 0),
 		bodyColor,
-		Enum.Material.Marble,
+		Enum.Material.Plastic,
 		false
 	)
 	local base = createPart(
@@ -166,7 +165,7 @@ local function addSquareColumn(parent, name, position, width, height, bodyColor,
 		Vector3.new(width + 2, 1.2, width + 2),
 		position + Vector3.new(0, 0.6, 0),
 		capColor,
-		Enum.Material.SmoothPlastic,
+		Enum.Material.Plastic,
 		false
 	)
 	local cap = createPart(
@@ -175,7 +174,7 @@ local function addSquareColumn(parent, name, position, width, height, bodyColor,
 		Vector3.new(width + 2.2, 1.2, width + 2.2),
 		position + Vector3.new(0, height + 0.6, 0),
 		capColor,
-		Enum.Material.SmoothPlastic,
+		Enum.Material.Plastic,
 		false
 	)
 	addSquareStuds(cap, bodyColor, 0.72, 0.2)
@@ -183,109 +182,6 @@ local function addSquareColumn(parent, name, position, width, height, bodyColor,
 	base.CanQuery = false
 	cap.CanQuery = false
 	return body
-end
-
-local function addTower(parent, name, center, width, height, bodyColor, roofColor)
-	local body = createPart(
-		parent,
-		name,
-		Vector3.new(width, height, width),
-		center + Vector3.new(0, height / 2, 0),
-		bodyColor,
-		Enum.Material.Marble,
-		false
-	)
-	local lowerRoof = createPart(
-		parent,
-		name .. "_RoofBase",
-		Vector3.new(width + 5, 2, width + 5),
-		center + Vector3.new(0, height + 1, 0),
-		roofColor,
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	local upperRoof = createPart(
-		parent,
-		name .. "_RoofTop",
-		Vector3.new(width * 0.62, 3, width * 0.62),
-		center + Vector3.new(0, height + 3.5, 0),
-		roofColor,
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	addSquareStuds(lowerRoof, bodyColor, 0.75, 0.22)
-	body.CanQuery = false
-	lowerRoof.CanQuery = false
-	upperRoof.CanQuery = false
-end
-
-local function addHall(parent, name, basePosition, width, height, depth, bodyColor, roofColor, accentColor)
-	local wall = createPart(
-		parent,
-		name .. "_MainHall",
-		Vector3.new(width, height, depth),
-		basePosition + Vector3.new(0, height / 2, 0),
-		bodyColor,
-		Enum.Material.Marble,
-		false
-	)
-	local roof = createPart(
-		parent,
-		name .. "_Roof",
-		Vector3.new(width + 7, 2.2, depth + 6),
-		basePosition + Vector3.new(0, height + 1.1, 0),
-		roofColor,
-		Enum.Material.SmoothPlastic,
-		false
-	)
-	local upperRoof = createPart(
-		parent,
-		name .. "_UpperRoof",
-		Vector3.new(width * 0.72, 2.2, depth + 3),
-		basePosition + Vector3.new(0, height + 3.3, 0),
-		accentColor,
-		Enum.Material.Marble,
-		false
-	)
-	local frontZ = basePosition.Z + depth / 2 + 0.7
-	local doorway = createPart(
-		parent,
-		name .. "_Doorway",
-		Vector3.new(width * 0.2, height * 0.62, 0.7),
-		Vector3.new(basePosition.X, basePosition.Y + height * 0.32, frontZ),
-		Color3.fromRGB(82, 65, 49),
-		Enum.Material.Wood,
-		false
-	)
-	doorway.CanQuery = false
-
-	for side = -1, 1, 2 do
-		addSquareColumn(
-			parent,
-			name .. "_FrontColumn_" .. tostring(side),
-			Vector3.new(basePosition.X + side * width * 0.31, basePosition.Y, frontZ + 0.8),
-			math.max(3, width * 0.075),
-			height * 0.84,
-			bodyColor,
-			accentColor
-		)
-		local window = createPart(
-			parent,
-			name .. "_Window_" .. tostring(side),
-			Vector3.new(width * 0.1, height * 0.38, 0.32),
-			Vector3.new(basePosition.X + side * width * 0.19, basePosition.Y + height * 0.58, frontZ + 0.24),
-			Color3.fromRGB(111, 157, 177),
-			Enum.Material.Glass,
-			false
-		)
-		window.Transparency = 0.28
-		window.CanQuery = false
-	end
-
-	addSquareStuds(roof, accentColor, 0.9, 0.24)
-	wall.CanQuery = false
-	roof.CanQuery = false
-	upperRoof.CanQuery = false
 end
 
 local function addTree(parent, name, position, scale, trunkColor, leafColor)
@@ -299,24 +195,28 @@ local function addTree(parent, name, position, scale, trunkColor, leafColor)
 		Enum.Material.Wood,
 		false
 	)
-	trunk.Shape = Enum.PartType.Cylinder
-	trunk.CanQuery = false
-	trunk.CanTouch = false
-
-	for index = 1, 3 do
-		local angle = (index - 1) * math.pi * 2 / 3
-		local leaves = createPart(
-			parent,
-			name .. "_Canopy_" .. tostring(index),
-			Vector3.new(9 * scale, 7 * scale, 9 * scale),
-			position + Vector3.new(math.cos(angle) * 2.5 * scale, trunkHeight + 1.5 * scale, math.sin(angle) * 2.5 * scale),
-			leafColor,
-			Enum.Material.Grass,
-			false
-		)
-		leaves.Shape = Enum.PartType.Ball
-		leaves.CanQuery = false
-		leaves.CanTouch = false
+	local lowerLeaves = createPart(
+		parent,
+		name .. "_LowerLeaves",
+		Vector3.new(8 * scale, 5 * scale, 8 * scale),
+		position + Vector3.new(0, trunkHeight + 1.8 * scale, 0),
+		leafColor,
+		Enum.Material.Plastic,
+		false
+	)
+	local upperLeaves = createPart(
+		parent,
+		name .. "_UpperLeaves",
+		Vector3.new(5.5 * scale, 5 * scale, 5.5 * scale),
+		position + Vector3.new(0, trunkHeight + 5.2 * scale, 0),
+		leafColor:Lerp(Color3.new(1, 1, 1), 0.08),
+		Enum.Material.Plastic,
+		false
+	)
+	for _, part in ipairs({trunk, lowerLeaves, upperLeaves}) do
+		part.CanCollide = false
+		part.CanQuery = false
+		part.CanTouch = false
 	end
 end
 
@@ -328,7 +228,7 @@ local function addBench(parent, name, position, woodColor, stoneColor)
 		Vector3.new(10, 0.8, 2.8),
 		position + Vector3.new(0, 2.2, 0),
 		woodColor,
-		Enum.Material.WoodPlanks,
+		Enum.Material.Wood,
 		true
 	)
 	local back = createPart(
@@ -337,7 +237,7 @@ local function addBench(parent, name, position, woodColor, stoneColor)
 		Vector3.new(10, 2.8, 0.8),
 		position + Vector3.new(0, 3.7, 1),
 		woodColor,
-		Enum.Material.WoodPlanks,
+		Enum.Material.Wood,
 		false
 	)
 	for side = -1, 1, 2 do
@@ -347,36 +247,12 @@ local function addBench(parent, name, position, woodColor, stoneColor)
 			Vector3.new(1.1, 2.1, 2.1),
 			position + Vector3.new(side * 3.8, 1.05, 0),
 			stoneColor,
-			Enum.Material.Marble,
+			Enum.Material.Plastic,
 			false
 		)
 	end
 	seat.CanQuery = false
 	back.CanQuery = false
-end
-
-local function addPlanter(parent, name, position, stoneColor, leafColor)
-	local box = createPart(
-		parent,
-		name .. "_Box",
-		Vector3.new(9, 2, 9),
-		position + Vector3.new(0, 1, 0),
-		stoneColor,
-		Enum.Material.Marble,
-		false
-	)
-	local foliage = createPart(
-		parent,
-		name .. "_Plant",
-		Vector3.new(6, 5, 6),
-		position + Vector3.new(0, 4, 0),
-		leafColor,
-		Enum.Material.Grass,
-		false
-	)
-	foliage.Shape = Enum.PartType.Ball
-	box.CanQuery = false
-	foliage.CanQuery = false
 end
 
 function ArenaService.new()

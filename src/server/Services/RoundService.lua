@@ -625,6 +625,7 @@ function RoundService:_runRound()
 	end
 
 	self.roundNumber += 1
+	self.arena:SetMap(self:_chooseNextMapId())
 	self.aliveRunners = {}
 	self.survivalTimes = {}
 	self.roundRunners = {}
@@ -684,8 +685,7 @@ function RoundService:_runRound()
 
 	self.botService:StartRound(
 		botSpawnCFrames,
-		controllerBot,
-		self.arena:GetControllerSpawnCFrame()
+		controllerBot
 	)
 
 	self:_broadcast()

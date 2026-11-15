@@ -857,7 +857,7 @@ function ArenaService:_buildAircraft()
 end
 
 function ArenaService:_setLighting(theme)
-	Lighting.ClockTime = 14
+	Lighting.ClockTime = 10.5
 	Lighting.Brightness = 2.8
 	Lighting.ExposureCompensation = 0.03
 	Lighting.Ambient = theme.ambient

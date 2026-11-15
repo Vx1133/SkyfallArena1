@@ -738,6 +738,11 @@ function ArenaService:GetTile(gridX, gridZ)
 	return self.tiles[tileKey(gridX, gridZ)]
 end
 
+function ArenaService:GetStreamingFocusPart()
+	local centerIndex = math.floor((Config.GRID_SIZE + 1) / 2)
+	return self:GetTile(centerIndex, centerIndex)
+end
+
 function ArenaService:GetSafeTiles()
 	local safeTiles = {}
 	for _, tile in pairs(self.tiles) do
@@ -812,7 +817,29 @@ function ArenaService:BreakTile(tile, token)
 end
 
 function ArenaService:ResetTiles()
+	-- Cancel in-flight visual shots so delayed callbacks cannot leave effects on a clean round.
+	for _, child in ipairs(self.root:GetChildren()) do
+		if string.sub(child.Name, 1, 13) == "LaserVFXShot_" then
+			child:Destroy()
+		end
+	end
+
+	local aircraft = self.aircraftFolder and self.aircraftFolder:FindFirstChild("SkyfallLaserAircraft")
+	local muzzleAttachment = aircraft and aircraft:FindFirstChild("LaserMuzzleAttachment", true)
+	if muzzleAttachment then
+		muzzleAttachment:Destroy()
+	end
+
 	for _, tile in pairs(self.tiles) do
+		for _, child in ipairs(tile:GetChildren()) do
+			if child.Name == "LaserImpactAttachment"
+				or child.Name == "LaserImpactSound"
+				or child.Name == "TargetWarningLight"
+			then
+				child:Destroy()
+			end
+		end
+
 		local token = (tile:GetAttribute("StrikeToken") or 0) + 1
 		tile:SetAttribute("StrikeToken", token)
 		tile:SetAttribute("IsWarning", false)
@@ -835,7 +862,7 @@ function ArenaService:GetLobbySpawnCFrame(index, total, isBot)
 		5,
 		math.sin(angle) * radius
 	)
-	return CFrame.new(position)
+	return CFrame.lookAt(position, Config.ARENA_CENTER)
 end
 
 function ArenaService:GetRunnerSpawnCFrame(index, total)

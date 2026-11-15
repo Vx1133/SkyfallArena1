@@ -1,6 +1,6 @@
 # Skyfall Arena
 
-Skyfall Arena is a round-based Roblox survival game. Three AI runners and any human participants attempt to survive on one destructible arena while a controller pilots a hovering golden laser sphere. The runner who survives the longest becomes the next round's controller.
+Skyfall Arena is a round-based Roblox survival game. Three AI bots and human participants take part on one destructible arena while one participant controls a hovering golden laser sphere. The runner who survives the longest becomes the next round's controller.
 
 ## Current game design
 

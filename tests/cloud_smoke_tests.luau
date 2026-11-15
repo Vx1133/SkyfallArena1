@@ -81,8 +81,13 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Config.LOBBY_CENTER.Y - Config.ARENA_CENTER.Y >= 48, "The observation deck must be elevated at least 48 studs above the arena")
 	assert(lobbyPlatform.Position.Y - arena:GetTile(8, 8).Position.Y >= 48, "The waiting platform must be clearly above the arena floor")
 	local lobbySpawn = arena:GetLobbySpawnCFrame(1, 1, false)
-	local viewDirection = (Config.ARENA_CENTER - lobbySpawn.Position).Unit
-	assert(lobbySpawn.LookVector:Dot(viewDirection) > 0.99, "Lobby spawns must face toward the arena")
+	local horizontalViewTarget = Vector3.new(
+		Config.ARENA_CENTER.X,
+		lobbySpawn.Position.Y,
+		Config.ARENA_CENTER.Z
+	)
+	local viewDirection = (horizontalViewTarget - lobbySpawn.Position).Unit
+	assert(lobbySpawn.LookVector:Dot(viewDirection) > 0.99, "Lobby spawns must face toward the arena without tilting avatars")
 	assert(arena:GetStreamingFocusPart() == arena:GetTile(8, 8), "The arena streaming focus must stay at the center tile")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWater") == nil, "Lobby water surface must be removed")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign") == nil, "Floating lobby welcome board must be removed")

@@ -53,8 +53,8 @@ for setting in (
     "Config.TILE_GAP = 0",
     "Config.LOBBY_SIZE = 144",
     "Config.ADMIN_FLIGHT_SPEED = 52",
-    "Config.HUD_MAX_WIDTH = 360",
-    "Config.HUD_HEIGHT = 38",
+    "Config.HUD_MAX_WIDTH = 224",
+    "Config.HUD_HEIGHT = 30",
     "Config.GRID_SIZE = 15",
     "Config.MAX_PLAYER_CAPACITY = 30",
     "Config.MAP_COUNT = 1",
@@ -230,6 +230,15 @@ for feature in (
     require(feature in laser_source, f"Laser feature is missing: {feature}")
 require("RepairTile" not in laser_source, "The laser must not repair damaged tiles")
 
+round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
+for feature in (
+    "root.Anchored = false",
+    "root:SetNetworkOwner(player)",
+    "humanoid.PlatformStand = false",
+    "humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)",
+):
+    require(feature in round_source, f"Player movement recovery is missing: {feature}")
+
 hud_source = (ROOT / "src/client/HUD.client.lua").read_text(encoding="utf-8")
 for feature in (
     "TimeLabel",
@@ -237,6 +246,11 @@ for feature in (
     "ROUND\\n",
     "PLAYERS\\n",
     "panel.Visible = active",
+    "screenGui.IgnoreGuiInset = true",
+    "panel.Position = UDim2.new(0.5, 0, 0, 6)",
+    "panel.Size = UDim2.new(0.72, 0, 0, Config.HUD_HEIGHT)",
+    "camera.CameraType = Enum.CameraType.Custom",
+    "camera.CameraSubject = humanoid",
     "Config.CONTROLLER_CAMERA_FOV",
     "Config.CONTROLLER_CAMERA_MARGIN",
     "Config.CONTROLLER_CAMERA_MIN_HEIGHT",

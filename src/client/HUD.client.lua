@@ -240,6 +240,31 @@ local previousFieldOfViewMode = nil
 local cachedControllerCameraHeight = nil
 local cachedControllerViewport = Vector2.zero
 
+local function setControllerDroneHidden(hidden)
+	local arenaRoot = Workspace:FindFirstChild("SkyfallArena")
+	local environment = arenaRoot and arenaRoot:FindFirstChild("Environment")
+	local aircraftFolder = environment and environment:FindFirstChild("Aircraft")
+	local drone = aircraftFolder and aircraftFolder:FindFirstChild("SkyfallLaserAircraft")
+	if not drone then
+		return
+	end
+
+	for _, descendant in ipairs(drone:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.LocalTransparencyModifier = hidden and 1 or 0
+		end
+	end
+end
+
+Workspace.DescendantAdded:Connect(function(descendant)
+	if controllerCameraActive and descendant:IsA("BasePart") then
+		local drone = descendant:FindFirstAncestor("SkyfallLaserAircraft")
+		if drone then
+			descendant.LocalTransparencyModifier = 1
+		end
+	end
+end)
+
 RunService.RenderStepped:Connect(function()
 	local camera = Workspace.CurrentCamera
 	if not camera then
@@ -251,6 +276,7 @@ RunService.RenderStepped:Connect(function()
 		if not controllerCameraActive then
 			previousFieldOfView = camera.FieldOfView
 			previousFieldOfViewMode = camera.FieldOfViewMode
+			setControllerDroneHidden(true)
 		end
 
 		controllerCameraActive = true
@@ -273,7 +299,10 @@ RunService.RenderStepped:Connect(function()
 			local horizontalHalfFov = math.atan(math.tan(verticalHalfFov) * aspect)
 			local limitingHalfFov = math.min(verticalHalfFov, horizontalHalfFov)
 			local halfExtent = Config.ARENA_WIDTH * 0.5 + Config.CONTROLLER_CAMERA_MARGIN
-			cachedControllerCameraHeight = halfExtent / math.tan(limitingHalfFov)
+			cachedControllerCameraHeight = math.max(
+				halfExtent / math.tan(limitingHalfFov),
+				Config.CONTROLLER_CAMERA_MIN_HEIGHT
+			)
 			cachedControllerViewport = viewport
 		end
 		local cameraPosition = Config.ARENA_CENTER + Vector3.new(0, cachedControllerCameraHeight, 0)
@@ -285,6 +314,7 @@ RunService.RenderStepped:Connect(function()
 		camera.Focus = CFrame.new(Config.ARENA_CENTER)
 	elseif controllerCameraActive then
 		controllerCameraActive = false
+		setControllerDroneHidden(false)
 		cachedControllerCameraHeight = nil
 		cachedControllerViewport = Vector2.zero
 		camera.CameraType = Enum.CameraType.Custom

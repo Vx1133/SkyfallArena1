@@ -30,6 +30,7 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	self.roundRunners = {}
 	self.roundRunnerCount = 0
 	self.characterSerial = {}
+	self.arenaStreamingFocusPlayers = {}
 	self.random = Random.new()
 
 	if self.botService then
@@ -52,6 +53,7 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
+		self:_setArenaStreamingFocus(player, false)
 		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
 		self.readyPlayers[player] = nil
@@ -129,19 +131,76 @@ function RoundService:_lobbySpawnForPlayer(player)
 	return self.arena:GetLobbySpawnCFrame(index, #playerList, false)
 end
 
+function RoundService:_setArenaStreamingFocus(player, enabled)
+	if not player then
+		return false
+	end
+
+	local currentFocus = self.arenaStreamingFocusPlayers[player]
+	if enabled then
+		local focusPart = self.arena:GetStreamingFocusPart()
+		if not focusPart or not focusPart.Parent then
+			return false
+		end
+		if currentFocus == focusPart then
+			return true
+		end
+		if currentFocus then
+			pcall(function()
+				player:RemoveReplicationFocus(currentFocus)
+			end)
+			self.arenaStreamingFocusPlayers[player] = nil
+		end
+
+		local success, message = pcall(function()
+			player:AddReplicationFocus(focusPart)
+		end)
+		if not success then
+			warn("Skyfall could not add arena streaming focus for " .. player.Name .. ": " .. tostring(message))
+			return false
+		end
+
+		self.arenaStreamingFocusPlayers[player] = focusPart
+		return true
+	end
+
+	if currentFocus then
+		pcall(function()
+			player:RemoveReplicationFocus(currentFocus)
+		end)
+		self.arenaStreamingFocusPlayers[player] = nil
+	end
+	return true
+end
+
 function RoundService:_bindPlayer(player)
 	self:_setupStats(player)
 	player:SetAttribute("SkyfallRole", "Waiting")
 	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
 	self.characterSerial[player] = 0
+	self:_setArenaStreamingFocus(player, true)
 
 	player.CharacterAdded:Connect(function(character)
 		self:_onCharacterAdded(player, character)
 	end)
 
-	if player.Character then
+	if player.Character and player.Character.Parent then
 		task.defer(self._onCharacterAdded, self, player, player.Character)
+	else
+		-- CharacterAutoLoads is disabled, so the first character is loaded only after
+		-- the lobby placement handler is connected.
+		task.spawn(function()
+			if player.Parent ~= Players or player.Character then
+				return
+			end
+			local success, message = pcall(function()
+				player:LoadCharacterAsync()
+			end)
+			if not success then
+				warn("Skyfall initial character load failed for " .. player.Name .. ": " .. tostring(message))
+			end
+		end)
 	end
 end
 
@@ -324,9 +383,11 @@ function RoundService:_onCharacterAdded(player, character)
 			and self.controller.kind == "Player"
 			and self.controller.value == player
 		then
+			self:_setArenaStreamingFocus(player, false)
 			player:SetAttribute("SkyfallRole", "Controller")
 			self:_setPlayerControllerHidden(player, true, character)
 		elseif self.aliveRunners[player] then
+			self:_setArenaStreamingFocus(player, false)
 			player:SetAttribute("SkyfallRole", "Runner")
 			self:_placePlayer(
 				player,
@@ -334,10 +395,12 @@ function RoundService:_onCharacterAdded(player, character)
 				character
 			)
 		else
+			self:_setArenaStreamingFocus(player, true)
 			player:SetAttribute("SkyfallRole", "Spectator")
 			self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
 		end
 	else
+		self:_setArenaStreamingFocus(player, true)
 		player:SetAttribute("SkyfallRole", "Waiting")
 		self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
 	end
@@ -355,7 +418,7 @@ function RoundService:_scheduleRespawnRecovery(player, deadCharacter)
 	local serial = (self.characterSerial[player] or 0) + 1
 	self.characterSerial[player] = serial
 
-	task.delay(Config.RESPAWN_TIME + 3, function()
+	task.delay(Config.RESPAWN_TIME, function()
 		if player.Parent ~= Players or self.characterSerial[player] ~= serial then
 			return
 		end
@@ -552,6 +615,7 @@ function RoundService:_broadcast()
 end
 
 function RoundService:_moveEliminatedPlayerToLobby(player)
+	self:_setArenaStreamingFocus(player, true)
 	player:SetAttribute("SkyfallRole", "Spectator")
 	self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
 end
@@ -577,6 +641,7 @@ function RoundService:HandleDeath(player, deadCharacter)
 		self.aliveRunners[player] = nil
 	end
 
+	self:_setArenaStreamingFocus(player, true)
 	player:SetAttribute("SkyfallRole", "Spectator")
 	player.ReplicationFocus = nil
 	self:_scheduleRespawnRecovery(player, deadCharacter or player.Character)
@@ -590,6 +655,7 @@ function RoundService:Eliminate(player)
 
 	self:_recordSurvival({kind = "Player", value = player})
 	self.aliveRunners[player] = nil
+	self:_setArenaStreamingFocus(player, true)
 	player:SetAttribute("SkyfallRole", "Spectator")
 	player.ReplicationFocus = nil
 
@@ -762,6 +828,7 @@ end
 function RoundService:_placeAllPlayersInLobby()
 	local playerList = Players:GetPlayers()
 	for index, player in ipairs(playerList) do
+		self:_setArenaStreamingFocus(player, true)
 		player:SetAttribute("SkyfallRole", "Waiting")
 		self:_placePlayer(
 			player,
@@ -772,6 +839,10 @@ function RoundService:_placeAllPlayersInLobby()
 	if self.botService then
 		self.botService:SendToLobby()
 	end
+end
+
+function RoundService:_resetArenaAfterRound()
+	self.arena:ResetTiles()
 end
 
 function RoundService:_runRound()
@@ -810,9 +881,11 @@ function RoundService:_runRound()
 
 	for _, player in ipairs(playersInRound) do
 		if player == controllerPlayer then
+			self:_setArenaStreamingFocus(player, false)
 			player:SetAttribute("SkyfallRole", "Controller")
 			self:_setPlayerControllerHidden(player, true)
 		else
+			self:_setArenaStreamingFocus(player, false)
 			spawnIndex += 1
 			self.aliveRunners[player] = true
 			self.roundRunners[player] = {kind = "Player", value = player}
@@ -904,6 +977,7 @@ function RoundService:_runRound()
 	end
 
 	self.phase = canceled and "Waiting" or "Results"
+	self:_resetArenaAfterRound()
 	self.elapsedSeconds = math.min(
 		math.floor(os.clock() - self.roundStartedAt),
 		Config.ROUND_SECONDS

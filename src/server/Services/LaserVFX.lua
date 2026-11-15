@@ -288,7 +288,6 @@ function LaserVFX.Create(arena, tile)
 	endpointAttachment.Name = "LaserBeamEndpointAttachment"
 	endpointAttachment.Parent = endpoint
 
-	local beamTweens = {}
 	for _, layer in ipairs(BEAM_LAYERS) do
 		local beam = Instance.new("Beam")
 		beam.Name = layer.name
@@ -321,7 +320,6 @@ function LaserVFX.Create(arena, tile)
 				Width1 = layer.width1,
 			}
 		)
-		table.insert(beamTweens, widthTween)
 		widthTween:Play()
 	end
 

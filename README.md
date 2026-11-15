@@ -1,48 +1,52 @@
 # Skyfall Arena
 
-Skyfall Arena is a Roblox survival game built around a destructible 15 by 15 tile field, a golden downward-facing laser drone, and ten AI-controlled NPC participants.
+Skyfall Arena is a Roblox survival game built around a fixed 15 by 15 destructible arena, a gold laser drone, and ten AI-controlled NPC participants.
 
 ## Current design
 
 - The existing Roblox experience and Start Place are retained. Updates target Universe ID `7975091208` and Start Place ID `104752078056182`. The experience remains Private.
-- The only playable map is **Skyfall Classic Arena**. Its floor uses classic green Plastic tiles, zero designed gaps, and a regular raised-stud pattern.
-- The arena has a continuous island foundation below the out-of-bounds elimination line, classic block towers, a colorful gate, and block-built trees.
-- Players spawn in a separate Classic Roblox waiting lobby. Its 12 by 12 panels meet edge-to-edge, with a blue fountain, simple benches, block trees, colored pillars, and a waiting sign. There is no bridge to the active arena.
-- The environment restores neutral Roblox lighting values and removes the custom Sky, Atmosphere, Clouds, ColorCorrection, Bloom, and SunRays effects added by earlier versions. The default Roblox sky is not replaced.
-- The gold spherical drone keeps its armor plates, bands, bronze details, and red lens. The lens axis points vertically down toward the arena, and the laser still travels from the orb to a red-marked tile as a blue beam with a pale-blue core.
-- Ten bot NPCs are created using Roblox's built-in `HumanoidDescription` and `Players:CreateHumanoidModelFromDescriptionAsync` rig generator. No procedural hair, Creator Store model package, external character rig, or custom avatar asset import is used.
-- The ten bots cycle through three distinct survival behavior profiles, with different movement speed, reaction delay, jump power, caution, and path preferences. They use Roblox `PathfindingService`.
-- A player must explicitly press **PLAY** in the lobby. Joining the server by itself never starts an intermission or round. Players who do not press Play remain in the lobby.
-- The first solo round assigns a bot to control the drone so the human can learn as a runner. Later, the longest-surviving runner becomes the next controller.
-- Each active round lasts at most 180 seconds. A sole grounded survivor can end the round early. The next round resets the broken tiles.
-- The round HUD is a small translucent top bar inside the phone safe area. It displays TIME, PLAYERS, LEFT, and OUT during active rounds only. The lobby Play control is positioned near the top of the screen rather than over the movement joystick or jump button.
-- A separate **FLY** inspection control is shown only to the personal creator account of a user-owned experience. The server checks `game.CreatorType == Enum.CreatorType.User` and exact equality with `game.CreatorId`. Group-owned experiences do not automatically grant flight to group owners or members. Flight is speed-limited and forcibly disabled when the player requests Play, the round phase changes, or their character respawns.
+- The playable map is one deterministic, fixed Classic Roblox arena. It does not randomly choose or vary map layouts.
+- The green Plastic playfield has zero designed tile gaps. Native Roblox `Studs` top surfaces and `Inlet` undersides create the retro look without separate decorative stud Parts.
+- The waiting lobby is one connected green Classic Stud baseplate. Trees, water, seating, floating welcome board, and the old colored entrance posts are removed.
+- A continuous four-sided perimeter frame meets the playfield edges. Its corner supports overlap the edge beams, replacing disconnected blue posts and red gate pieces.
+- The golden drone, downward-facing red lens, blue laser, 225 breakable tiles, ten bots, and lobby-first Play flow are preserved.
+- Broken tiles hide their native stud surfaces and become non-collidable. Their studs return only when a new round resets the floor.
+- The drone controller uses a true vertical overhead camera. Camera height is calculated from viewport aspect ratio and arena size so the full map stays visible on portrait and landscape screens.
+- The active-round HUD shows only the round timer and participant count. It sits at the top safe area and is hidden outside the Active phase. The lobby Play control remains separate.
+- Low-volume background music, a round-start cue, a Play-button cue, and a positional laser impact sound are included.
+- Joining does not start a round. A player must press PLAY in the lobby before the intermission begins.
+- Each round lasts at most 180 seconds. The next round resets the broken tiles.
+
+## Mobile performance measures
+
+- Workspace instance streaming is enabled with a 64-stud high-priority radius, a bounded 384-stud target radius, Improved model streaming, and Opportunistic stream-out.
+- While a human controls the drone, replication focus follows the drone instead of the hidden character, keeping the overhead arena streamed in.
+- Static map Parts and NPC body Parts do not cast shadows. The red target warning uses the tile color rather than creating a dynamic PointLight for every target.
+- Native Studs/Inlet surfaces replace thousands of extra stud Parts and the 144 separate lobby floor panels.
+- Bot nearest-tile lookup is constant-time. Each bot snapshots warning coordinates once per target decision instead of rescanning the full grid for every candidate tile.
+- The ten bots and full 225-tile arena remain because they are core gameplay elements.
+
+These measures reduce avoidable rendering, instance, and repeated search work. They cannot guarantee that every phone will remain cool. Real temperature and frame rate still depend on hardware, graphics settings, network conditions, and live gameplay.
 
 ## Asset and permission safety
 
-The arena, lobby, studs, towers, trees, drone, laser, HUD, and flight constraints are generated by the repository's own Luau scripts. No unreviewed Creator Store model packages or executable imported scripts are inserted.
+The arena, lobby, drone, laser, HUD, and audio are controlled by project-owned Luau code. No unreviewed Creator Store model package or executable third-party model script is inserted. Sound assets use Roblox audio IDs; their access permissions and audible quality must still be confirmed in the private live experience.
 
-Bot rigs use Roblox's supported HumanoidDescription system, rather than downloaded model assets. Roblox's official documentation explains how the built-in player service generates a character model from a HumanoidDescription. The server remains authoritative for bot creation, player readiness, laser targeting, and admin flight.
-
-If the experience is group-owned, owner-only flight stays disabled by design. Do not hard-code an assumed UserId. To allow inspection flight for a group-owned experience, the personal UserId must be explicitly provided and reviewed first.
+Bot rigs continue to use Roblox's built-in HumanoidDescription system. The server remains authoritative for bot creation, player readiness, laser targeting, and creator flight.
 
 ## Development and release workflow
 
 - Luau source files in this repository are the source of truth.
-- Rojo 7.7.1 maps the source into a Roblox place file.
-- Rokit pins the build tools.
-- Feature branches and pull requests keep each update isolated. Pull requests run project structure validation, Selene Luau lint, and a Rojo build.
-- This update does not publish automatically. After review and merge, the separate manual upload workflow may publish to the same existing Start Place. It does not create another Roblox experience, change the Audience setting, or make the game public.
-- Previous Roblox place versions remain available in version history.
+- Rojo maps the source into a Roblox place file.
+- Feature branches and pull requests isolate each update. Pull requests run project validation, Selene lint, and a Rojo build.
+- This update does not publish automatically. After review and merge, the separate manual upload workflow may update only the existing Start Place. It does not create a new Roblox experience or make the game public.
 
 ## Validation limits
 
-CI can check source structure, Luau syntax/lint, and whether Rojo can build the place file. Cloud smoke tests cover the 15 by 15 grid, zero tile gap, connected waiting lobby, neutral lighting settings, downward drone lens, ten NPC rigs, readiness/Play flow, round timer, longest-survivor selection, and creator-only flight authorization.
+CI checks source structure, Luau lint, and whether Rojo can build the place file. Cloud smoke tests cover map layout, native Classic surfaces, removal of lobby clutter, connected perimeter geometry, streaming settings, ten NPC rigs, Play flow, and round timing.
 
-These checks cannot replace a private in-game playtest. Camera framing, visual quality, collision behavior, mobile touch movement, ten-NPC navigation load, and admin flight physics still need a real Roblox server test on a phone.
+These checks cannot replace a private in-game test. Camera framing on real phones, actual streaming behavior, audio permissions and audibility, touch input, physics, ten-NPC navigation load, and device temperature still need a live Roblox playtest.
 
 ## Publishing
 
-The separate manual workflow `Upload Skyfall Arena private test` requires the exact confirmation `UPLOAD_PRIVATE_TEST`. It targets the existing Universe ID `7975091208` and Start Place ID `104752078056182`. Keep the experience private. Publishing and cloud test credentials are stored only as GitHub Actions secrets.
-
-The cloud Luau execution test uses the separate `ROBLOX_LUAU_TEST_API_KEY` secret when configured. The existing `ROBLOX_API_KEY` remains reserved for the place upload flow.
+The manual workflow `Upload Skyfall Arena private test` targets Universe ID `7975091208` and Start Place ID `104752078056182`. Keep the experience private. Publishing and cloud test credentials remain in GitHub Actions secrets.

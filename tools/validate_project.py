@@ -264,6 +264,7 @@ require("characterOverride or player.Character" in round_source, "Character plac
 require("LoadCharacterAsync" in round_source, "Player respawn recovery must request a fresh character when Roblox respawn is missing")
 require('if self.phase ~= "Active" then\n\t\tself:_scheduleRespawnRecovery(player, deadCharacter or player.Character)' in round_source, "Players also need respawn recovery while in the waiting lobby")
 require("characterSerial" in round_source, "CharacterAdded placement must ignore stale character callbacks")
+require("local parentDeadline = os.clock() + 10" in round_source, "CharacterAdded placement must wait for the model to enter Workspace")
 round_run_body = round_source.split("function RoundService:_runRound()", 1)[1].split("function RoundService:_runLoop()", 1)[0]
 phase_end_index = round_run_body.find('self.phase = canceled and "Waiting" or "Results"')
 reset_end_index = round_run_body.find("self:_resetArenaAfterRound()")

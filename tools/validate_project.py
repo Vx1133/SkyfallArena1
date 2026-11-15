@@ -152,6 +152,9 @@ require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NP
 require("createFallbackHair" not in bot_source, "Procedural custom bot hair must not be used")
 for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
+require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
+fall_check = bot_source.split("function BotService:EliminateFallenRunners(", 1)[1].split("function BotService:", 1)[0]
+require("self.onBotDied(bot)" in fall_check, "A bot falling out of the arena must record its survival time")
 for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "MarketplaceService"):
     require(forbidden not in bot_source, f"Unwanted external asset or bot label code remains: {forbidden}")
 

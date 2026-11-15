@@ -57,7 +57,7 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Config.TILE_GAP == 0, "Destructible floor tiles must have no designed gap")
 	assert(Config.ROUND_SECONDS == 180, "Each round must last three minutes")
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
-	assert(Config.CONTROLLER_CAMERA_FOV == 90, "Controller camera should use a wide overhead field of view")
+	assert(Config.CONTROLLER_CAMERA_FOV == 70, "Controller camera should use a wide overhead field of view")
 	assert(Config.CONTROLLER_CAMERA_MARGIN == 8, "Controller camera should retain a small margin around the full arena")
 
 	arena = ArenaService.new()
@@ -111,7 +111,7 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Workspace.Terrain:FindFirstChild("SkyfallClouds") == nil, "Custom clouds must be removed")
 	assert(Workspace.StreamingEnabled == true, "Workspace streaming must be enabled")
 	assert(Workspace.StreamingMinRadius == 64, "Streaming minimum radius should remain conservative")
-	assert(Workspace.StreamingTargetRadius == 384, "Streaming target radius should be bounded for mobile")
+	assert(Workspace.StreamingTargetRadius == 192, "Streaming target radius should be bounded for mobile")
 	assert(Workspace.ModelStreamingBehavior == Enum.ModelStreamingBehavior.Improved, "Improved model streaming is required")
 	assert(Workspace.StreamOutBehavior == Enum.StreamOutBehavior.Opportunistic, "Opportunistic stream out is required")
 	assert(Workspace.StreamingIntegrityMode == Enum.StreamingIntegrityMode.PauseOutsideLoadedArea, "Streaming integrity protection is required")

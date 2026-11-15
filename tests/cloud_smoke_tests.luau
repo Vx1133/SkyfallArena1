@@ -46,14 +46,20 @@ end
 
 local arena
 
-runTest("Arena builds a 15x15 destructible grid for a 30-participant match", function()
+runTest("Arena builds one 15x15 destructible Sunspire map for a 30-player experience", function()
 	assert(Config.GRID_SIZE == 15, "Expected a 15x15 tile grid")
 	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
-	assert(Config.MAP_COUNT == 5, "Expected five original map layouts")
+	assert(Config.MAP_COUNT == 1, "The experience must contain exactly one playable map")
+	assert(Config.MAP_NAMES[1] == "SKYFALL SUNSPIRE", "The only map should be Skyfall Sunspire")
+	assert(Config.BOT_COUNT == 3, "Exactly three AI bots must remain")
+	assert(Config.ROUND_SECONDS == 180, "Each round must last three minutes")
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
-	assert(Config.CONTROLLER_CAMERA_HEIGHT == 170, "Controller camera must be close above the arena")
-	assert(Config.CONTROLLER_CAMERA_BACK == 24, "Controller camera must use a small rear offset")
-	assert(Config.CONTROLLER_CAMERA_FOV == 96, "Controller camera must frame the wide arena on mobile")
+	assert(Config.CONTROLLER_CAMERA_HEIGHT == 145, "Portrait controller camera must stay close to the arena")
+	assert(Config.CONTROLLER_CAMERA_BACK == 8, "Portrait controller camera must stay nearly overhead")
+	assert(Config.CONTROLLER_CAMERA_FOV == 110, "Portrait controller camera must fit the full arena width")
+	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT == 130, "Landscape controller camera height must bring the arena closer")
+	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_BACK == 130, "Landscape controller camera must use a balanced overhead angle")
+	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_FOV == 44, "Landscape controller camera must keep tiles large and readable")
 
 	arena = ArenaService.new()
 	arena:Build()
@@ -74,7 +80,35 @@ runTest("Arena builds a 15x15 destructible grid for a 30-participant match", fun
 	assert(water and water.Material == Enum.Material.Water, "Medium lobby water feature is missing")
 	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Golden controller sphere is missing")
 	assert(arena.aircraftModel:FindFirstChild("ControllerLens"), "Red controller lens is missing")
-	assert(arena.mapFolder:FindFirstChild("MapNameSign"), "Map name sign is missing")
+	for index = 1, 5 do
+		assert(arena.aircraftModel:FindFirstChild("ArmorPlate_Upper_" .. tostring(index)), "Upper sphere armor plate is missing")
+	end
+	for index = 1, 4 do
+		assert(arena.aircraftModel:FindFirstChild("ArmorPlate_Lower_" .. tostring(index)), "Lower sphere armor plate is missing")
+	end
+	assert(arena.aircraftModel:FindFirstChild("LensReticleRing_Outer_1"), "Outer lens reticle ring is missing")
+	assert(arena.aircraftModel:FindFirstChild("LensReticleRing_Inner_1"), "Inner lens reticle ring is missing")
+	local lensLight = arena.aircraftModel.ControllerLens:FindFirstChildOfClass("PointLight")
+	assert(not lensLight or lensLight.Range <= 5, "Red lens light must remain tightly contained")
+	assert(arena.mapFolder:FindFirstChild("SunspireMapNameSign"), "Sunspire map name sign is missing")
+	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign"), "Waiting garden sign is missing")
+	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "The waiting garden must stay separate from the arena")
+	assert(arena.aircraftModel:FindFirstChild("LaserOrigin"), "The golden drone laser origin attachment is missing")
+	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
+	local sky = Lighting:FindFirstChild("SkyfallSunriseSky")
+	assert(sky and sky:IsA("Sky"), "The custom six-face daytime sky is missing")
+	assert(sky.SkyboxBk ~= "" and sky.SkyboxDn ~= "" and sky.SkyboxFt ~= "", "Custom skybox faces are not assigned")
+	assert(sky.SkyboxLf ~= "" and sky.SkyboxRt ~= "" and sky.SkyboxUp ~= "", "All six custom skybox faces must be assigned")
+	assert(arena.mapDecorBuilt == true, "The single map decoration should be built once")
+	local separation = (Config.ARENA_CENTER - Config.LOBBY_CENTER).Magnitude
+	assert(separation > Config.ARENA_HALF_WIDTH + Config.LOBBY_SIZE / 2 + 10, "Lobby must be physically separated from the arena")
+
+	arena:CreateStrikeBeam(centerTile)
+	local blueOuter = arena.root:FindFirstChild("BlueLaserOuter")
+	local blueCore = arena.root:FindFirstChild("BlueLaserCore")
+	assert(blueOuter and blueOuter:IsA("Beam"), "The drone must create an outer blue Beam")
+	assert(blueCore and blueCore:IsA("Beam"), "The drone must create a blue-white core Beam")
+	assert(blueOuter.Attachment0 == arena.laserOrigin, "The visible laser must originate from the golden sphere")
 
 	for index = 1, Config.MAX_PLAYER_CAPACITY do
 		local runnerPosition = arena:GetRunnerSpawnCFrame(index, Config.MAX_PLAYER_CAPACITY).Position
@@ -87,22 +121,29 @@ runTest("Arena builds a 15x15 destructible grid for a 30-participant match", fun
 	end
 end)
 
-runTest("All five maps are daytime, have no neon decoration, and contain no arena rings", function()
+runTest("The single Sunspire map uses daytime lighting and contains no imported map clutter", function()
 	assert(arena ~= nil, "Arena setup did not complete")
+	assert(Config.MAP_COUNT == 1, "Map rotation must be disabled")
+	assert(arena:SetMap(1) == "SKYFALL SUNSPIRE", "The only playable map should be Sunspire")
+	assert(arena:GetMapName() == "SKYFALL SUNSPIRE", "Active map name is incorrect")
+	assert(arena:GetTile(8, 8).Material == Enum.Material.SmoothPlastic, "Destructible floor must use a clean studded plastic surface")
+	assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
+	assert(Lighting:FindFirstChild("SkyfallSunriseSky"), "The custom daytime sky was not retained")
+	assert(arena.mapFolder:FindFirstChild("SunspireRoyalGate"), "Sunspire gate architecture is missing")
+	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "A bridge to the lobby must not exist")
 
-	for mapId, expectedName in ipairs(Config.MAP_NAMES) do
-		assert(arena:SetMap(mapId) == expectedName, "Map name does not match map " .. tostring(mapId))
-		assert(arena:GetMapName() == expectedName, "Active map name is incorrect")
-		assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
-
-		for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
-			if descendant:IsA("BasePart") then
-				assert(descendant.Material ~= Enum.Material.Neon, "Neon material remains in map: " .. descendant:GetFullName())
-				assert(not string.find(descendant.Name, "RingSegment"), "Segmented ring barrier remains in the map")
-				assert(not string.find(descendant.Name, "ReactorRing"), "Circular reactor barrier remains in the map")
-			end
+	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			assert(descendant.Material ~= Enum.Material.Neon, "Neon material remains in map: " .. descendant:GetFullName())
+			assert(not string.find(descendant.Name, "RingSegment"), "Segmented ring barrier remains in the map")
+			assert(not string.find(descendant.Name, "ReactorRing"), "Circular reactor barrier remains in the map")
 		end
 	end
+
+	assert(arena.mapFolder:FindFirstChild("CloudspireSkyPalace") == nil, "Old Cloudspire map remains")
+	assert(arena.mapFolder:FindFirstChild("GoldenDunesTemple") == nil, "Old Golden Dunes map remains")
+	assert(arena.mapFolder:FindFirstChild("EmeraldGroveSanctuary") == nil, "Old Emerald Grove map remains")
+	assert(arena.mapFolder:FindFirstChild("AzureHarborFortress") == nil, "Old Azure Harbor map remains")
 end)
 
 runTest("Broken tiles remain broken until a new map is loaded", function()
@@ -120,6 +161,8 @@ runTest("Broken tiles remain broken until a new map is loaded", function()
 		assert(tile ~= nil, "Test tile is missing")
 		local token = arena:MarkTile(tile)
 		assert(token ~= nil, "A fresh tile should accept a laser warning")
+		assert(tile.Color == Color3.fromRGB(255, 55, 75), "A targeted tile must be marked red")
+		assert(tile:FindFirstChild("TargetWarningLight"), "A targeted tile must show a red warning light")
 		assert(arena:MarkTile(tile) == nil, "A tile already under warning must reject another strike")
 		arena:BreakTile(tile, token)
 		assert(tile:GetAttribute("IsBroken") == true, "Tile must be marked broken")
@@ -141,33 +184,59 @@ runTest("Broken tiles remain broken until a new map is loaded", function()
 	end
 end)
 
-runTest("Every new map restores the floor and invalidates stale laser tokens", function()
+runTest("The one map restores the floor only when a new round loads", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 	local tile = arena:GetTile(8, 8)
 	local staleToken = tile:GetAttribute("StrikeToken")
-
-	for mapId, expectedName in ipairs(Config.MAP_NAMES) do
-		assert(arena:SetMap(mapId) == expectedName, "Map rotation failed at map " .. tostring(mapId))
-		assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New map did not restore the full grid")
-		assert(tile:GetAttribute("IsBroken") == false, "New map did not clear broken state")
-		assert(tile.CanCollide == true, "New map did not restore floor collision")
-		arena:BreakTile(tile, staleToken)
-		assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after map reset")
-	end
+	assert(arena:SetMap(1) == "SKYFALL SUNSPIRE", "The single map failed to reload")
+	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New round did not restore the full grid")
+	assert(tile:GetAttribute("IsBroken") == false, "New round did not clear broken state")
+	assert(tile.CanCollide == true, "New round did not restore floor collision")
+	arena:BreakTile(tile, staleToken)
+	assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after reset")
 end)
 
-runTest("Random map selection never repeats the previous map", function()
+runTest("The next-round map remains the one fixed Sunspire arena", function()
 	local harness = setmetatable({
-		lastMapId = 0,
+		lastMapId = 1,
 		random = Random.new(73421),
 	}, RoundService)
 
 	for _ = 1, 100 do
-		local nextMapId = harness:_chooseNextMapId()
-		assert(nextMapId >= 1 and nextMapId <= Config.MAP_COUNT, "Selected map ID is outside the five-map range")
-		assert(nextMapId ~= harness.lastMapId, "The same map repeated in consecutive rounds")
-		harness.lastMapId = nextMapId
+		assert(harness:_chooseNextMapId() == 1, "The only map must always be selected")
 	end
+end)
+
+runTest("The round state counts down from 180 seconds and reports runner eliminations", function()
+	local capturedState = nil
+	local harness = setmetatable({
+		phase = "Active",
+		elapsedSeconds = 75,
+		countdownSeconds = 0,
+		roundRunnerCount = 4,
+		aliveRunners = {},
+		controller = nil,
+		winner = "",
+		roundNumber = 1,
+		botService = {
+			GetBotCount = function() return 3 end,
+			GetAliveCount = function() return 0 end,
+		},
+		arena = {
+			GetMapName = function() return "SKYFALL SUNSPIRE" end,
+		},
+		stateRemote = {
+			FireAllClients = function(_, state)
+				capturedState = state
+			end,
+		},
+	}, RoundService)
+
+	harness:_broadcast()
+	assert(capturedState ~= nil, "Round state should be broadcast")
+	assert(capturedState.remainingSeconds == 105, "Remaining time should count down from three minutes")
+	assert(capturedState.eliminatedPlayers == 4, "Eliminated runner count should be reported")
+	assert(capturedState.playerCount == #game:GetService("Players"):GetPlayers() + 3, "Total player count should include all three bots")
 end)
 
 runTest("Controller drone and arena remain free of neon materials", function()
@@ -227,6 +296,33 @@ runTest("Sole survivor and grounded checks distinguish air from floor", function
 	assert(harness:_isGrounded(survivor) == true, "A survivor touching a floor should be grounded")
 	testBot.humanoid.FloorMaterial = Enum.Material.Air
 	assert(harness:_isGrounded(survivor) == false, "A survivor in the air must not be treated as grounded")
+end)
+
+runTest("The longest-surviving runner is selected as the next controller", function()
+	local shortRunner = {
+		name = "ShortRunner",
+		model = {Parent = Workspace},
+	}
+	local longRunner = {
+		name = "LongRunner",
+		model = {Parent = Workspace},
+	}
+	local shortCandidate = {kind = "Bot", value = shortRunner}
+	local longCandidate = {kind = "Bot", value = longRunner}
+	local harness = setmetatable({
+		roundRunners = {
+			[shortRunner] = shortCandidate,
+			[longRunner] = longCandidate,
+		},
+		survivalTimes = {
+			[shortRunner] = 42,
+			[longRunner] = 137,
+		},
+		random = Random.new(12345),
+	}, RoundService)
+
+	local winner = harness:_getLongestSurvivor()
+	assert(winner and winner.value == longRunner, "The runner with the highest survival time should win")
 end)
 
 runTest("Human laser requests validate the controller, coordinates, phase, and three-second cooldown", function()

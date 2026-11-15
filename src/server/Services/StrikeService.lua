@@ -150,30 +150,11 @@ end
 function StrikeService:_runBotController()
 	while self.running do
 		if self.rounds:IsBotController() then
-			local strikeCount = self.rounds:IsOvertime()
-				and Config.OVERTIME_STRIKES_PER_WAVE
-				or 1
-
-			for index = 1, strikeCount do
-				if not self.rounds:IsBotController() then
-					break
-				end
-
-				local tile = self:_chooseTarget()
-				if tile then
-					self:_fireAtTile(tile)
-				end
-
-				if strikeCount > 1 and index < strikeCount then
-					task.wait(0.35)
-				end
+			local tile = self:_chooseTarget()
+			if tile then
+				self:_fireAtTile(tile)
 			end
-
-			local interval = Config.BOT_STRIKE_INTERVAL_SECONDS
-			if self.rounds:IsOvertime() then
-				interval = Config.OVERTIME_BOT_STRIKE_INTERVAL_SECONDS
-			end
-			task.wait(interval)
+			task.wait(Config.BOT_STRIKE_INTERVAL_SECONDS)
 		else
 			self.lastTarget = nil
 			task.wait(0.25)

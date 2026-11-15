@@ -21,10 +21,18 @@ function RoundService.new(arenaService, stateRemote, botService)
 	self.nextController = nil
 	self.roundNumber = 0
 	self.roundStartedAt = 0
-	self.overtime = false
 	self.running = false
 	self.stats = {}
+	self.survivalTimes = {}
+	self.roundRunners = {}
+	self.roundRunnerCount = 0
 	self.random = Random.new()
+
+	if self.botService then
+		self.botService.onBotDied = function(diedBot)
+			self:_recordSurvival({kind = "Bot", value = diedBot})
+		end
+	end
 	self.lastMapId = 0
 
 	Players.RespawnTime = Config.RESPAWN_TIME
@@ -34,8 +42,11 @@ function RoundService.new(arenaService, stateRemote, botService)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
+		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
 		self.stats[player] = nil
+		self.roundRunners[player] = nil
+		self.survivalTimes[player] = nil
 
 		if self.controller
 			and self.controller.kind == "Player"
@@ -119,7 +130,69 @@ function RoundService:_bindPlayer(player)
 	end
 end
 
+function RoundService:_setPlayerControllerHidden(player, hidden)
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	for _, descendant in ipairs(character:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			if hidden then
+				if descendant:GetAttribute("SkyfallStoredTransparency") == nil then
+					descendant:SetAttribute("SkyfallStoredTransparency", descendant.Transparency)
+					descendant:SetAttribute("SkyfallStoredCanCollide", descendant.CanCollide)
+					descendant:SetAttribute("SkyfallStoredCanTouch", descendant.CanTouch)
+					descendant:SetAttribute("SkyfallStoredCanQuery", descendant.CanQuery)
+					descendant:SetAttribute("SkyfallStoredCastShadow", descendant.CastShadow)
+				end
+				descendant.Transparency = 1
+				descendant.CanCollide = false
+				descendant.CanTouch = false
+				descendant.CanQuery = false
+				descendant.CastShadow = false
+			else
+				local transparency = descendant:GetAttribute("SkyfallStoredTransparency")
+				if transparency ~= nil then
+					descendant.Transparency = transparency
+					descendant.CanCollide = descendant:GetAttribute("SkyfallStoredCanCollide")
+					descendant.CanTouch = descendant:GetAttribute("SkyfallStoredCanTouch")
+					descendant.CanQuery = descendant:GetAttribute("SkyfallStoredCanQuery")
+					descendant.CastShadow = descendant:GetAttribute("SkyfallStoredCastShadow")
+					descendant:SetAttribute("SkyfallStoredTransparency", nil)
+					descendant:SetAttribute("SkyfallStoredCanCollide", nil)
+					descendant:SetAttribute("SkyfallStoredCanTouch", nil)
+					descendant:SetAttribute("SkyfallStoredCanQuery", nil)
+					descendant:SetAttribute("SkyfallStoredCastShadow", nil)
+				end
+			end
+		elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
+			if hidden then
+				if descendant:GetAttribute("SkyfallStoredTransparency") == nil then
+					descendant:SetAttribute("SkyfallStoredTransparency", descendant.Transparency)
+				end
+				descendant.Transparency = 1
+			else
+				local transparency = descendant:GetAttribute("SkyfallStoredTransparency")
+				if transparency ~= nil then
+					descendant.Transparency = transparency
+					descendant:SetAttribute("SkyfallStoredTransparency", nil)
+				end
+			end
+		end
+	end
+
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.Anchored = hidden
+	end
+	if hidden then
+		character:PivotTo(CFrame.new(Config.CONTROLLER_HIDDEN_POSITION))
+	end
+end
+
 function RoundService:_placePlayer(player, spawnCFrame)
+	self:_setPlayerControllerHidden(player, false)
 	local character = player.Character
 	if not character then
 		return
@@ -144,7 +217,7 @@ function RoundService:_onCharacterAdded(player, character)
 			and self.controller.value == player
 		then
 			player:SetAttribute("SkyfallRole", "Controller")
-			self:_placePlayer(player, self.arena:GetControllerSpawnCFrame())
+			self:_setPlayerControllerHidden(player, true)
 		elseif self.aliveRunners[player] then
 			player:SetAttribute("SkyfallRole", "Runner")
 			self:_placePlayer(
@@ -201,19 +274,23 @@ function RoundService:_isCandidateValid(candidate)
 end
 
 function RoundService:_chooseNextMapId()
-	if Config.MAP_COUNT <= 1 then
-		return 1
-	end
-
-	if self.lastMapId < 1 or self.lastMapId > Config.MAP_COUNT then
-		return self.random:NextInteger(1, Config.MAP_COUNT)
-	end
-
-	local offset = self.random:NextInteger(1, Config.MAP_COUNT - 1)
-	return ((self.lastMapId - 1 + offset) % Config.MAP_COUNT) + 1
+	return 1
 end
 
 function RoundService:_chooseController()
+	-- Give a solo human a fair first test as a runner, with a bot piloting the drone.
+	if self.roundNumber == 1 and #Players:GetPlayers() == 1 then
+		local botCandidates = {}
+		for _, bot in ipairs(self.botService:GetBots()) do
+			if self:_isCandidateValid({kind = "Bot", value = bot}) then
+				table.insert(botCandidates, {kind = "Bot", value = bot})
+			end
+		end
+		if #botCandidates > 0 then
+			return botCandidates[self.random:NextInteger(1, #botCandidates)]
+		end
+	end
+
 	if self:_isCandidateValid(self.nextController) then
 		local selected = self.nextController
 		self.nextController = nil
@@ -298,27 +375,29 @@ function RoundService:IsActive()
 	return self.phase == "Active"
 end
 
-function RoundService:IsOvertime()
-	return self.overtime
-end
-
 function RoundService:_broadcast()
 	local botCount = self.botService and self.botService:GetBotCount() or 0
+	local totalPlayers = #Players:GetPlayers() + botCount
 	local remainingPlayers = self:_aliveRunnerCount()
+	local remainingSeconds = self.phase == "Active"
+		and math.max(0, Config.ROUND_SECONDS - self.elapsedSeconds)
+		or self.countdownSeconds
 
 	self.stateRemote:FireAllClients({
 		phase = self.phase,
 		elapsedSeconds = self.elapsedSeconds,
+		remainingSeconds = remainingSeconds,
 		countdownSeconds = self.countdownSeconds,
 		aliveRunners = remainingPlayers,
 		remainingPlayers = remainingPlayers,
-		playerCount = #Players:GetPlayers() + botCount,
+		playerCount = totalPlayers,
 		botCount = botCount,
+		eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers),
 		winner = self.winner,
 		controllerName = self:_candidateName(self.controller),
 		controllerKind = self.controller and self.controller.kind or "",
 		roundNumber = self.roundNumber,
-		overtime = self.overtime,
+		overtime = false,
 		mapName = self.arena:GetMapName(),
 	})
 end
@@ -344,6 +423,7 @@ function RoundService:HandleDeath(player)
 	end
 
 	if self.aliveRunners[player] then
+		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
 		self:_moveEliminatedPlayerToLobby(player)
 		self:_broadcast()
@@ -355,6 +435,7 @@ function RoundService:Eliminate(player)
 		return
 	end
 
+	self:_recordSurvival({kind = "Player", value = player})
 	self.aliveRunners[player] = nil
 	self:_moveEliminatedPlayerToLobby(player)
 
@@ -442,39 +523,62 @@ function RoundService:_isGrounded(candidate)
 end
 
 function RoundService:_getLongestSurvivor()
-	local survivors = {}
+	local bestTime = -1
+	local bestCandidates = {}
 
+	for value, candidate in pairs(self.roundRunners) do
+		local isValid = candidate.kind == "Player"
+			and value.Parent == Players
+			or candidate.kind == "Bot"
+			and value.model
+			and value.model.Parent
+
+		if isValid then
+			local survivalTime = self.survivalTimes[value] or 0
+			if survivalTime > bestTime then
+				bestTime = survivalTime
+				bestCandidates = {candidate}
+			elseif survivalTime == bestTime then
+				table.insert(bestCandidates, candidate)
+			end
+		end
+	end
+
+	if #bestCandidates == 0 then
+		return nil
+	end
+	return bestCandidates[self.random:NextInteger(1, #bestCandidates)]
+end
+
+function RoundService:_recordSurvival(candidate)
+	if not candidate or not candidate.value or not self.roundRunners[candidate.value] then
+		return
+	end
+	local elapsed = math.max(0, math.floor(os.clock() - self.roundStartedAt))
+	self.survivalTimes[candidate.value] = math.max(
+		self.survivalTimes[candidate.value] or 0,
+		math.min(elapsed, Config.ROUND_SECONDS)
+	)
+end
+
+function RoundService:_updateSurvivalRecords()
+	local elapsed = math.min(
+		math.max(0, math.floor(os.clock() - self.roundStartedAt)),
+		Config.ROUND_SECONDS
+	)
 	for player in pairs(self.aliveRunners) do
 		if player.Parent == Players then
-			table.insert(survivors, {
-				kind = "Player",
-				value = player,
-			})
+			self.survivalTimes[player] = math.max(self.survivalTimes[player] or 0, elapsed)
+			local statSet = self.stats[player]
+			if statSet and statSet.bestTime then
+				statSet.bestTime.Value = math.max(statSet.bestTime.Value, elapsed)
+			end
+			player:SetAttribute("SkyfallSurvivalTime", elapsed)
 		end
 	end
 
 	for _, bot in ipairs(self.botService:GetAliveBots()) do
-		table.insert(survivors, {
-			kind = "Bot",
-			value = bot,
-		})
-	end
-
-	if #survivors == 0 then
-		return nil
-	end
-
-	return survivors[self.random:NextInteger(1, #survivors)]
-end
-
-function RoundService:_updateSurvivalRecords()
-	local elapsed = math.floor(os.clock() - self.roundStartedAt)
-	for player in pairs(self.aliveRunners) do
-		local statSet = self.stats[player]
-		if player.Parent == Players and statSet and statSet.bestTime then
-			statSet.bestTime.Value = math.max(statSet.bestTime.Value, elapsed)
-			player:SetAttribute("SkyfallSurvivalTime", elapsed)
-		end
+		self.survivalTimes[bot] = math.max(self.survivalTimes[bot] or 0, elapsed)
 	end
 end
 
@@ -522,14 +626,13 @@ function RoundService:_runRound()
 	end
 
 	self.roundNumber += 1
-	local nextMapId = self:_chooseNextMapId()
-	self.lastMapId = nextMapId
-	self.arena:SetMap(nextMapId)
-
+	self.arena:SetMap(self:_chooseNextMapId())
 	self.aliveRunners = {}
+	self.survivalTimes = {}
+	self.roundRunners = {}
+	self.roundRunnerCount = 0
 	self.elapsedSeconds = 0
 	self.countdownSeconds = 0
-	self.overtime = false
 	self.winner = ""
 	self.winnerCandidate = nil
 	self.roundStartedAt = os.clock()
@@ -545,20 +648,24 @@ function RoundService:_runRound()
 	local controllerBot = self.controller.kind == "Bot" and self.controller.value or nil
 	local botList = self.botService:GetBots()
 	local totalContestants = #playersInRound + #botList
+	local runnerCount = math.max(0, totalContestants - 1)
+	self.roundRunnerCount = runnerCount
 	local spawnIndex = 0
 
 	for _, player in ipairs(playersInRound) do
 		if player == controllerPlayer then
 			player:SetAttribute("SkyfallRole", "Controller")
-			self:_placePlayer(player, self.arena:GetControllerSpawnCFrame())
+			self:_setPlayerControllerHidden(player, true)
 		else
 			spawnIndex += 1
 			self.aliveRunners[player] = true
+			self.roundRunners[player] = {kind = "Player", value = player}
+			self.survivalTimes[player] = 0
 			player:SetAttribute("SkyfallRole", "Runner")
 			player:SetAttribute("SkyfallSurvivalTime", 0)
 			self:_placePlayer(
 				player,
-				self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(totalContestants - 1, 1))
+				self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(runnerCount, 1))
 			)
 		end
 	end
@@ -569,15 +676,16 @@ function RoundService:_runRound()
 			spawnIndex += 1
 			botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(
 				spawnIndex,
-				math.max(totalContestants - 1, 1)
+				math.max(runnerCount, 1)
 			)
+			self.roundRunners[bot] = {kind = "Bot", value = bot}
+			self.survivalTimes[bot] = 0
 		end
 	end
 
 	self.botService:StartRound(
 		botSpawnCFrames,
-		controllerBot,
-		self.arena:GetControllerSpawnCFrame()
+		controllerBot
 	)
 
 	self:_broadcast()
@@ -589,37 +697,40 @@ function RoundService:_runRound()
 			break
 		end
 
-		self.elapsedSeconds = math.floor(os.clock() - self.roundStartedAt)
-		self.overtime = self.elapsedSeconds >= Config.OVERTIME_START_SECONDS
+		self.elapsedSeconds = math.min(
+			math.floor(os.clock() - self.roundStartedAt),
+			Config.ROUND_SECONDS
+		)
+		self:_updateSurvivalRecords()
 		self:_eliminateFallenRunners()
 
 		if self.controller and not self:_isCandidateValid(self.controller) then
 			self.controller = nil
 		end
 
-		self:_updateSurvivalRecords()
 		self:_broadcast()
 
 		local aliveCount = self:_aliveRunnerCount()
-		if aliveCount == 1 then
+		if self.elapsedSeconds >= Config.ROUND_SECONDS then
+			break
+		elseif aliveCount == 0 or not self.controller then
+			break
+		elseif aliveCount == 1 then
 			local soleSurvivor = self:_getSoleSurvivor()
 			if self:_isGrounded(soleSurvivor) then
 				break
 			end
-		elseif aliveCount == 0 or not self.controller then
-			break
 		end
 
 		task.wait(1)
 	end
 
 	if not canceled then
+		self:_updateSurvivalRecords()
 		local aliveCount = self:_aliveRunnerCount()
 		if aliveCount == 1 then
 			self.winnerCandidate = self:_getSoleSurvivor()
-		elseif aliveCount == 0 and self.controller and self:_isCandidateValid(self.controller) then
-			self.winnerCandidate = self.controller
-		elseif aliveCount > 0 then
+		else
 			self.winnerCandidate = self:_getLongestSurvivor()
 		end
 
@@ -627,14 +738,20 @@ function RoundService:_runRound()
 			self.winner = self:_candidateName(self.winnerCandidate)
 			self.nextController = self.winnerCandidate
 			self:_awardWinner(self.winnerCandidate)
-		else
-			self.winner = "NO SURVIVORS"
+		elseif self.controller and self:_isCandidateValid(self.controller) then
+			self.winner = self:_candidateName(self.controller)
 			self.nextController = self.controller
+		else
+			self.winner = "NO WINNER"
+			self.nextController = nil
 		end
 	end
 
 	self.phase = canceled and "Waiting" or "Results"
-	self.elapsedSeconds = math.floor(os.clock() - self.roundStartedAt)
+	self.elapsedSeconds = math.min(
+		math.floor(os.clock() - self.roundStartedAt),
+		Config.ROUND_SECONDS
+	)
 
 	if not canceled then
 		for seconds = Config.RESULTS_SECONDS, 1, -1 do
@@ -647,8 +764,10 @@ function RoundService:_runRound()
 	self.phase = "Waiting"
 	self.elapsedSeconds = 0
 	self.countdownSeconds = 0
-	self.overtime = false
 	self.aliveRunners = {}
+	self.roundRunners = {}
+	self.survivalTimes = {}
+	self.roundRunnerCount = 0
 	self.controller = nil
 	self:_placeAllPlayersInLobby()
 	self:_broadcast()

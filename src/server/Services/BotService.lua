@@ -13,7 +13,6 @@ local BOT_PROFILES = {
 		name = "Atlas",
 		bodyColor = Color3.fromRGB(84, 166, 255),
 		hairColor = Color3.fromRGB(74, 47, 31),
-		hairId = 62234425,
 		hairStyle = "short",
 		walkSpeed = 15,
 		jumpPower = 48,
@@ -32,7 +31,6 @@ local BOT_PROFILES = {
 		name = "Nova",
 		bodyColor = Color3.fromRGB(67, 224, 192),
 		hairColor = Color3.fromRGB(232, 197, 103),
-		hairId = 233615637,
 		hairStyle = "long",
 		walkSpeed = 17,
 		jumpPower = 54,
@@ -51,7 +49,6 @@ local BOT_PROFILES = {
 		name = "Rook",
 		bodyColor = Color3.fromRGB(255, 172, 84),
 		hairColor = Color3.fromRGB(44, 34, 31),
-		hairId = 20573078,
 		hairStyle = "spiky",
 		walkSpeed = 16,
 		jumpPower = 51,
@@ -178,7 +175,6 @@ function BotService.new(arenaService)
 			name = profile.name,
 			bodyColor = profile.bodyColor,
 			hairColor = profile.hairColor,
-			hairId = profile.hairId,
 			hairStyle = profile.hairStyle,
 			walkSpeed = profile.walkSpeed,
 			jumpPower = profile.jumpPower,
@@ -310,7 +306,7 @@ function BotService:_buildRig(bot)
 	description.RightArmColor = bot.bodyColor
 	description.LeftLegColor = bot.bodyColor
 	description.RightLegColor = bot.bodyColor
-	description.HairAccessory = tostring(bot.hairId)
+	description.HairAccessory = ""
 	description.HeightScale = bot.name == "Rook" and 1.04 or 1
 	description.WidthScale = bot.name == "Nova" and 0.92 or 1
 	description.BodyTypeScale = 0.15
@@ -369,25 +365,6 @@ function BotService:_buildRig(bot)
 		root:SetNetworkOwner(nil)
 	end)
 
-	local nameplate = Instance.new("BillboardGui")
-	nameplate.Name = "BotNameplate"
-	nameplate.Size = UDim2.fromOffset(82, 18)
-	nameplate.StudsOffset = Vector3.new(0, 3.15, 0)
-	nameplate.AlwaysOnTop = true
-	nameplate.MaxDistance = 68
-	nameplate.Parent = root
-
-	local nameLabel = Instance.new("TextLabel")
-	nameLabel.Size = UDim2.fromScale(1, 1)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Font = Enum.Font.GothamBold
-	nameLabel.Text = bot.name
-	nameLabel.TextColor3 = Color3.fromRGB(239, 246, 255)
-	nameLabel.TextStrokeColor3 = Color3.fromRGB(12, 20, 33)
-	nameLabel.TextStrokeTransparency = 0.25
-	nameLabel.TextSize = 11
-	nameLabel.Parent = nameplate
-
 	bot.model = model
 	bot.humanoid = humanoid
 	bot.root = root
@@ -401,6 +378,10 @@ function BotService:_buildRig(bot)
 		bot.isController = false
 		bot.targetTile = nil
 		model:SetAttribute("SkyfallRole", "Spectator")
+
+		if self.onBotDied then
+			self.onBotDied(bot)
+		end
 
 		task.defer(function()
 			for index, candidate in ipairs(self.bots) do
@@ -691,7 +672,66 @@ function BotService:_runBot(bot)
 	end
 end
 
-function BotService:StartRound(spawnCFrames, controllerBot, controllerSpawnCFrame)
+function BotService:_setBotHidden(bot, hidden)
+	if not bot.model or not bot.model.Parent then
+		return
+	end
+
+	for _, descendant in ipairs(bot.model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			if hidden then
+				if descendant:GetAttribute("SkyfallStoredTransparency") == nil then
+					descendant:SetAttribute("SkyfallStoredTransparency", descendant.Transparency)
+					descendant:SetAttribute("SkyfallStoredCanCollide", descendant.CanCollide)
+					descendant:SetAttribute("SkyfallStoredCanTouch", descendant.CanTouch)
+					descendant:SetAttribute("SkyfallStoredCanQuery", descendant.CanQuery)
+					descendant:SetAttribute("SkyfallStoredCastShadow", descendant.CastShadow)
+				end
+				descendant.Transparency = 1
+				descendant.CanCollide = false
+				descendant.CanTouch = false
+				descendant.CanQuery = false
+				descendant.CastShadow = false
+			else
+				local transparency = descendant:GetAttribute("SkyfallStoredTransparency")
+				if transparency ~= nil then
+					descendant.Transparency = transparency
+					descendant.CanCollide = descendant:GetAttribute("SkyfallStoredCanCollide")
+					descendant.CanTouch = descendant:GetAttribute("SkyfallStoredCanTouch")
+					descendant.CanQuery = descendant:GetAttribute("SkyfallStoredCanQuery")
+					descendant.CastShadow = descendant:GetAttribute("SkyfallStoredCastShadow")
+					descendant:SetAttribute("SkyfallStoredTransparency", nil)
+					descendant:SetAttribute("SkyfallStoredCanCollide", nil)
+					descendant:SetAttribute("SkyfallStoredCanTouch", nil)
+					descendant:SetAttribute("SkyfallStoredCanQuery", nil)
+					descendant:SetAttribute("SkyfallStoredCastShadow", nil)
+				end
+			end
+		elseif descendant:IsA("Decal") or descendant:IsA("Texture") then
+			if hidden then
+				if descendant:GetAttribute("SkyfallStoredTransparency") == nil then
+					descendant:SetAttribute("SkyfallStoredTransparency", descendant.Transparency)
+				end
+				descendant.Transparency = 1
+			else
+				local transparency = descendant:GetAttribute("SkyfallStoredTransparency")
+				if transparency ~= nil then
+					descendant.Transparency = transparency
+					descendant:SetAttribute("SkyfallStoredTransparency", nil)
+				end
+			end
+		end
+	end
+
+	if bot.root and bot.root.Parent then
+		bot.root.Anchored = hidden
+	end
+	if hidden then
+		bot.model:PivotTo(CFrame.new(Config.CONTROLLER_HIDDEN_POSITION))
+	end
+end
+
+function BotService:StartRound(spawnCFrames, controllerBot)
 	for index, bot in ipairs(self.bots) do
 		if not bot.humanoid
 			or bot.humanoid.Health <= 0
@@ -714,12 +754,12 @@ function BotService:StartRound(spawnCFrames, controllerBot, controllerSpawnCFram
 				bot.model:SetAttribute("SkyfallRole", "Controller")
 				bot.humanoid.WalkSpeed = 0
 				bot.humanoid.JumpPower = 0
-				bot.root.Anchored = true
-				bot.model:PivotTo(controllerSpawnCFrame or self.arena:GetControllerSpawnCFrame())
+				self:_setBotHidden(bot, true)
 				self:_playAnimation(bot, "idle")
 			else
 				local spawnCFrame = spawnCFrames[index]
 				bot.isController = false
+				self:_setBotHidden(bot, false)
 				if spawnCFrame then
 					bot.alive = true
 					bot.model:SetAttribute("SkyfallRole", "Runner")
@@ -791,6 +831,7 @@ function BotService:SendToLobby()
 		end
 
 		if bot.model and bot.model.Parent and bot.humanoid and bot.root then
+			self:_setBotHidden(bot, false)
 			bot.model:SetAttribute("SkyfallRole", "Waiting")
 			bot.humanoid.Health = bot.humanoid.MaxHealth
 			bot.humanoid.PlatformStand = false

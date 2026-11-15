@@ -183,7 +183,8 @@ admin_source = (ROOT / "src/server/Services/AdminFlightService.lua").read_text(e
 for feature in (
     "function AdminFlightService.IsAuthorizedUserId(",
     "Enum.CreatorType.User",
-    "player.UserId == self.creatorId",
+    "AdminFlightService.IsAuthorizedUserId(player.UserId, self.creatorType, self.creatorId)",
+    "and userId == creatorId",
     "LinearVelocity",
     "AlignOrientation",
     "Config.ADMIN_FLIGHT_SPEED",

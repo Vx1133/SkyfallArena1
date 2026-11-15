@@ -259,12 +259,29 @@ function RoundService:_placePlayer(player, spawnCFrame)
 		return
 	end
 
-	character:PivotTo(spawnCFrame)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	local root = character:FindFirstChild("HumanoidRootPart")
+	if root then
+		root.Anchored = false
+	end
+
+	character:PivotTo(spawnCFrame)
+
 	if root then
 		root.Anchored = false
 		root.AssemblyLinearVelocity = Vector3.zero
 		root.AssemblyAngularVelocity = Vector3.zero
+		local canSetOwner = root:CanSetNetworkOwnership()
+		if canSetOwner then
+			root:SetNetworkOwner(player)
+		end
+	end
+
+	if humanoid then
+		humanoid.PlatformStand = false
+		humanoid.Sit = false
+		humanoid.AutoRotate = true
+		humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
 	end
 end
 

@@ -98,19 +98,25 @@ function StrikeService:_fireAtTile(tile)
 	end
 
 	self.lastTarget = tile
+	local aimToken = self.arena:AimAircraftAt(tile)
 
 	task.delay(Config.WARNING_SECONDS, function()
 		if not self.rounds:IsActive() then
 			self.arena:ClearWarning(tile, token)
+			self.arena:ReturnAircraftLensHome(aimToken)
 			return
 		end
 
 		if not self.arena:IsStrikeCurrent(tile, token) then
+			self.arena:ReturnAircraftLensHome(aimToken)
 			return
 		end
 
 		self.arena:CreateStrikeBeam(tile)
 		self.arena:BreakTile(tile, token)
+		task.delay(0.72, function()
+			self.arena:ReturnAircraftLensHome(aimToken)
+		end)
 	end)
 
 	return true

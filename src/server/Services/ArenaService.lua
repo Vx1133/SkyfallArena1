@@ -1,6 +1,7 @@
 local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local Debris = game:GetService("Debris")
+local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
@@ -93,6 +94,11 @@ function ArenaService.new()
 	self.theme = MAPS[1]
 	self.aircraftModel = nil
 	self.aircraftBasePosition = Config.CONTROL_CENTER
+	self.aircraftHoverTween = nil
+	self.lensMotor = nil
+	self.lensHomeC0 = nil
+	self.lensAimTween = nil
+	self.aircraftAimToken = 0
 	self.mapDecorBuilt = false
 	self.laserOrigin = nil
 	return self
@@ -133,15 +139,9 @@ function ArenaService:_buildAircraft()
 		false
 	)
 	orb.Shape = Enum.PartType.Ball
-	orb.Reflectance = 0
+	orb.Reflectance = 0.08
 	orb.CastShadow = false
 	model.PrimaryPart = orb
-
-	local laserOrigin = Instance.new("Attachment")
-	laserOrigin.Name = "LaserOrigin"
-	laserOrigin.Position = Vector3.new(0, -7.65, 0)
-	laserOrigin.Parent = orb
-	self.laserOrigin = laserOrigin
 
 	local armorGroups = {
 		{
@@ -245,6 +245,42 @@ function ArenaService:_buildAircraft()
 		return CFrame.fromMatrix(position, lensNormal, Vector3.new(0, 0, -1), Vector3.new(1, 0, 0))
 	end
 
+	local lensParts = {}
+	local lensPartSet = {}
+	local lensPosition = lensCenter + lensNormal * 0.95
+	local lensPivot = createPart(
+		model,
+		"ControllerLensPivot",
+		Vector3.new(0.18, 0.18, 0.18),
+		lensPosition,
+		Color3.fromRGB(15, 15, 18),
+		Enum.Material.SmoothPlastic,
+		false
+	)
+	lensPivot.CFrame = lensFrameAt(lensPosition)
+	lensPivot.Transparency = 1
+	lensPivot.CanCollide = false
+	lensPivot.CanTouch = false
+	lensPivot.CanQuery = false
+	lensPivot.Massless = true
+	lensPivot.Anchored = false
+
+	local lensMotor = Instance.new("Motor6D")
+	lensMotor.Name = "ControllerLensGimbal"
+	lensMotor.Part0 = orb
+	lensMotor.Part1 = lensPivot
+	lensMotor.C0 = orb.CFrame:ToObjectSpace(lensPivot.CFrame)
+	lensMotor.C1 = CFrame.identity
+	lensMotor.Parent = orb
+	self.lensMotor = lensMotor
+	self.lensHomeC0 = lensMotor.C0
+
+	local laserOrigin = Instance.new("Attachment")
+	laserOrigin.Name = "LaserOrigin"
+	laserOrigin.Position = Vector3.new(0.62, 0, 0)
+	laserOrigin.Parent = lensPivot
+	self.laserOrigin = laserOrigin
+
 	local function lensDisc(name, thickness, diameter, position, color, material)
 		local disc = createPart(
 			model,
@@ -260,6 +296,8 @@ function ArenaService:_buildAircraft()
 		disc.CastShadow = false
 		disc.CanQuery = false
 		disc.CanTouch = false
+		lensPartSet[disc] = true
+		table.insert(lensParts, disc)
 		return disc
 	end
 
@@ -291,7 +329,6 @@ function ArenaService:_buildAircraft()
 		Enum.Material.Metal
 	)
 
-	local lensPosition = lensCenter + lensNormal * 0.95
 	local lens = createPart(
 		model,
 		"ControllerLens",
@@ -308,6 +345,8 @@ function ArenaService:_buildAircraft()
 	lens.CastShadow = false
 	lens.CanQuery = false
 	lens.CanTouch = false
+	lensPartSet[lens] = true
+	table.insert(lensParts, lens)
 
 	local lensLight = Instance.new("PointLight")
 	lensLight.Color = Color3.fromRGB(255, 69, 72)
@@ -330,6 +369,8 @@ function ArenaService:_buildAircraft()
 		detail.CanQuery = false
 		detail.CanTouch = false
 		detail.CastShadow = false
+		lensPartSet[detail] = true
+		table.insert(lensParts, detail)
 		return detail
 	end
 
@@ -410,7 +451,79 @@ function ArenaService:_buildAircraft()
 		slot.CanTouch = false
 	end
 
+	-- Join the shell to its anchored core, while the lens remains on its own aiming joint.
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") and descendant ~= orb and descendant ~= lensPivot then
+			descendant.Anchored = false
+			descendant.Massless = true
+			local joint = Instance.new("WeldConstraint")
+			joint.Part0 = lensPartSet[descendant] and lensPivot or orb
+			joint.Part1 = descendant
+			joint.Parent = joint.Part0
+		end
+	end
+
 	self.aircraftModel = model
+	self.aircraftAimToken = 0
+	local hoverGoal = orb.CFrame
+		* CFrame.new(0, 0.42, 0)
+		* CFrame.Angles(0, math.rad(1.2), 0)
+	self.aircraftHoverTween = TweenService:Create(
+		orb,
+		TweenInfo.new(3.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
+		{CFrame = hoverGoal}
+	)
+	self.aircraftHoverTween:Play()
+end
+
+function ArenaService:AimAircraftAt(tile)
+	local motor = self.lensMotor
+	local root = self.aircraftModel and self.aircraftModel.PrimaryPart
+	if not motor or not motor.Parent or not motor.Part1 or not root then
+		return nil
+	end
+
+	self.aircraftAimToken += 1
+	local aimToken = self.aircraftAimToken
+	local targetC0 = self.lensHomeC0
+
+	if tile and tile.Parent then
+		local origin = motor.Part1.Position
+		local targetPosition = tile.Position + Vector3.new(0, 0.65, 0)
+		local direction = targetPosition - origin
+		if direction.Magnitude > 0.01 then
+			direction = direction.Unit
+			local referenceUp = Vector3.new(0, 0, -1)
+			local up = referenceUp - direction * referenceUp:Dot(direction)
+			if up.Magnitude < 0.05 then
+				local worldUp = Vector3.yAxis
+				up = worldUp - direction * worldUp:Dot(direction)
+			end
+			up = up.Unit
+			local back = direction:Cross(up).Unit
+			local aimFrame = CFrame.fromMatrix(origin, direction, up, back)
+			targetC0 = root.CFrame:ToObjectSpace(aimFrame)
+		end
+	end
+
+	if self.lensAimTween then
+		self.lensAimTween:Cancel()
+	end
+	self.lensAimTween = TweenService:Create(
+		motor,
+		TweenInfo.new(tile and 0.42 or 0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+		{C0 = targetC0}
+	)
+	self.lensAimTween:Play()
+	return aimToken
+end
+
+function ArenaService:ReturnAircraftLensHome(token)
+	if token ~= self.aircraftAimToken then
+		return false
+	end
+	self:AimAircraftAt(nil)
+	return true
 end
 
 function ArenaService:_setLighting(_theme)
@@ -452,16 +565,18 @@ function ArenaService:_buildMapDecoration(theme)
 	local half = Config.ARENA_HALF_WIDTH
 	local width = Config.ARENA_WIDTH
 
-	-- This support foundation stays below the fall-elimination threshold.
+	-- A thin visual foundation cannot catch a runner who falls through the arena.
 	local support = createPart(
 		folder,
 		"ClassicArenaSupport",
-		Vector3.new(width + 26, 20, width + 26),
+		Vector3.new(width + 26, 2, width + 26),
 		center + Vector3.new(0, -60, 0),
 		Color3.fromRGB(82, 68, 52),
 		Enum.Material.Plastic,
-		true
+		false
 	)
+	support.CanCollide = false
+	support.CanTouch = false
 	support.CanQuery = false
 
 	-- The trim touches the tile grid underside but remains non-collidable.

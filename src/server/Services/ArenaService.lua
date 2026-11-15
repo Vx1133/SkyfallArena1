@@ -245,7 +245,6 @@ function ArenaService:_buildAircraft()
 		return CFrame.fromMatrix(position, lensNormal, Vector3.new(0, 0, -1), Vector3.new(1, 0, 0))
 	end
 
-	local lensParts = {}
 	local lensPartSet = {}
 	local lensPosition = lensCenter + lensNormal * 0.95
 	local lensPivot = createPart(
@@ -297,7 +296,6 @@ function ArenaService:_buildAircraft()
 		disc.CanQuery = false
 		disc.CanTouch = false
 		lensPartSet[disc] = true
-		table.insert(lensParts, disc)
 		return disc
 	end
 
@@ -346,7 +344,6 @@ function ArenaService:_buildAircraft()
 	lens.CanQuery = false
 	lens.CanTouch = false
 	lensPartSet[lens] = true
-	table.insert(lensParts, lens)
 
 	local lensLight = Instance.new("PointLight")
 	lensLight.Color = Color3.fromRGB(255, 69, 72)
@@ -370,7 +367,6 @@ function ArenaService:_buildAircraft()
 		detail.CanTouch = false
 		detail.CastShadow = false
 		lensPartSet[detail] = true
-		table.insert(lensParts, detail)
 		return detail
 	end
 

@@ -184,6 +184,14 @@ function RoundService:_clearReadyPlayers()
 end
 
 function RoundService:_setPlayerControllerHidden(player, hidden)
+	if hidden then
+		local aircraft = self.arena and self.arena.aircraftModel
+		local focusPart = aircraft and aircraft.PrimaryPart
+		player.ReplicationFocus = focusPart and focusPart.Parent and focusPart or nil
+	else
+		player.ReplicationFocus = nil
+	end
+
 	local character = player.Character
 	if not character then
 		return

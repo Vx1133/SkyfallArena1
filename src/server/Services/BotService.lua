@@ -243,6 +243,11 @@ function BotService:_buildRig(bot)
 	end
 
 	local model = modelOrError
+	for _, descendant in ipairs(model:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.CastShadow = false
+		end
+	end
 	local humanoid = model:FindFirstChildOfClass("Humanoid")
 	local root = model:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not root then
@@ -374,24 +379,23 @@ function BotService:SetWinner(winnerBot)
 end
 
 function BotService:_nearestTile(position)
-	local nearest = nil
-	local nearestDistance = math.huge
-
-	for gridX = 1, Config.GRID_SIZE do
-		for gridZ = 1, Config.GRID_SIZE do
-			local tile = self.arena:GetTile(gridX, gridZ)
-			if tile then
-				local delta = Vector2.new(tile.Position.X - position.X, tile.Position.Z - position.Z)
-				local distance = delta.Magnitude
-				if distance < nearestDistance then
-					nearest = tile
-					nearestDistance = distance
-				end
-			end
-		end
+	if not position then
+		return nil
 	end
 
-	return nearest
+	local spacing = Config.TILE_SIZE + Config.TILE_GAP
+	local halfGrid = (Config.GRID_SIZE - 1) / 2
+	local gridX = math.clamp(
+		math.floor((position.X - Config.ARENA_CENTER.X) / spacing + halfGrid + 1.5),
+		1,
+		Config.GRID_SIZE
+	)
+	local gridZ = math.clamp(
+		math.floor((position.Z - Config.ARENA_CENTER.Z) / spacing + halfGrid + 1.5),
+		1,
+		Config.GRID_SIZE
+	)
+	return self.arena:GetTile(gridX, gridZ)
 end
 
 function BotService:_isSafeTile(tile)
@@ -402,19 +406,25 @@ function BotService:_isSafeTile(tile)
 		and not tile:GetAttribute("IsWarning")
 end
 
-function BotService:_warningDistance(gridX, gridZ)
-	local nearestDistance = Config.GRID_SIZE * 2
-
-	for x = 1, Config.GRID_SIZE do
-		for z = 1, Config.GRID_SIZE do
-			local tile = self.arena:GetTile(x, z)
+function BotService:_collectWarningTiles()
+	local warningTiles = {}
+	for gridX = 1, Config.GRID_SIZE do
+		for gridZ = 1, Config.GRID_SIZE do
+			local tile = self.arena:GetTile(gridX, gridZ)
 			if tile and tile:GetAttribute("IsWarning") then
-				local distance = math.abs(gridX - x) + math.abs(gridZ - z)
-				nearestDistance = math.min(nearestDistance, distance)
+				table.insert(warningTiles, {x = gridX, z = gridZ})
 			end
 		end
 	end
+	return warningTiles
+end
 
+function BotService:_warningDistance(gridX, gridZ, warningTiles)
+	local nearestDistance = Config.GRID_SIZE * 2
+	for _, warningTile in ipairs(warningTiles) do
+		local distance = math.abs(gridX - warningTile.x) + math.abs(gridZ - warningTile.z)
+		nearestDistance = math.min(nearestDistance, distance)
+	end
 	return nearestDistance
 end
 
@@ -436,13 +446,14 @@ function BotService:_chooseSafeTile(bot)
 	local currentTile = self:_nearestTile(root.Position)
 	local bestTile = nil
 	local bestScore = -math.huge
+	local warningTiles = self:_collectWarningTiles()
 
 	for gridX = 1, Config.GRID_SIZE do
 		for gridZ = 1, Config.GRID_SIZE do
 			local tile = self.arena:GetTile(gridX, gridZ)
 			if self:_isSafeTile(tile) then
 				local distance = (tile.Position - root.Position).Magnitude
-				local warningDistance = self:_warningDistance(gridX, gridZ)
+				local warningDistance = self:_warningDistance(gridX, gridZ, warningTiles)
 				local edgeDistance = math.min(
 					gridX - 1,
 					gridZ - 1,

@@ -33,7 +33,7 @@ screenGui.Parent = playerGui
 local panel = Instance.new("Frame")
 panel.Name = "RoundStatusBar"
 panel.AnchorPoint = Vector2.new(0.5, 0)
-panel.Position = UDim2.new(0.5, 0, 0, 3)
+panel.Position = UDim2.fromScale(0.5, 0)
 panel.Size = UDim2.new(0.96, 0, 0, Config.HUD_HEIGHT)
 panel.BackgroundColor3 = Color3.fromRGB(22, 35, 45)
 panel.BackgroundTransparency = 0.46
@@ -67,18 +67,16 @@ sizeConstraint.Parent = panel
 
 local cellLabels = {}
 local cellStyles = {
-	{name = "TimeLabel", title = "TIME", value = "03:00", color = Color3.fromRGB(255, 236, 196)},
-	{name = "PlayersLabel", title = "PLAYERS", value = "04", color = Color3.fromRGB(220, 237, 245)},
-	{name = "RemainingLabel", title = "LEFT", value = "03", color = Color3.fromRGB(187, 237, 210)},
-	{name = "EliminatedLabel", title = "OUT", value = "00", color = Color3.fromRGB(255, 197, 187)},
+	{name = "TimeLabel", title = "ROUND", value = "03:00", color = Color3.fromRGB(255, 236, 196)},
+	{name = "PlayersLabel", title = "PLAYERS", value = "11", color = Color3.fromRGB(220, 237, 245)},
 }
 
 for index, style in ipairs(cellStyles) do
 	local label = Instance.new("TextLabel")
 	label.Name = style.name
 	label.AnchorPoint = Vector2.new(0, 0)
-	label.Position = UDim2.fromScale((index - 1) * 0.25, 0)
-	label.Size = UDim2.fromScale(0.25, 1)
+	label.Position = UDim2.fromScale((index - 1) * 0.5, 0)
+	label.Size = UDim2.fromScale(0.5, 1)
 	label.BackgroundTransparency = 1
 	label.Font = Enum.Font.GothamBold
 	label.Text = style.title .. "\n" .. style.value
@@ -101,7 +99,7 @@ for index, style in ipairs(cellStyles) do
 		local divider = Instance.new("Frame")
 		divider.Name = "CellDivider_" .. tostring(index)
 		divider.AnchorPoint = Vector2.new(0.5, 0.5)
-		divider.Position = UDim2.fromScale(index * 0.25, 0.5)
+		divider.Position = UDim2.fromScale(index * 0.5, 0.5)
 		divider.Size = UDim2.fromOffset(1, 22)
 		divider.BackgroundColor3 = Color3.fromRGB(226, 214, 190)
 		divider.BackgroundTransparency = 0.76
@@ -177,20 +175,12 @@ local function updateHud()
 	local totalPlayers = typeof(state.playerCount) == "number"
 		and state.playerCount
 		or #Players:GetPlayers()
-	local remainingPlayers = typeof(state.remainingPlayers) == "number"
-		and state.remainingPlayers
-		or 0
-	local eliminatedPlayers = typeof(state.eliminatedPlayers) == "number"
-		and state.eliminatedPlayers
-		or 0
 	local remainingSeconds = typeof(state.remainingSeconds) == "number"
 		and state.remainingSeconds
 		or Config.ROUND_SECONDS
 
-	cellLabels.TimeLabel.Text = "TIME\n" .. formatTime(remainingSeconds)
+	cellLabels.TimeLabel.Text = "ROUND\n" .. formatTime(remainingSeconds)
 	cellLabels.PlayersLabel.Text = "PLAYERS\n" .. tostring(math.max(0, totalPlayers))
-	cellLabels.RemainingLabel.Text = "LEFT\n" .. tostring(math.max(0, remainingPlayers))
-	cellLabels.EliminatedLabel.Text = "OUT\n" .. tostring(math.max(0, eliminatedPlayers))
 end
 
 local function targetAt(screenPosition)
@@ -246,6 +236,34 @@ player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
 
 local controllerCameraActive = false
 local previousFieldOfView = nil
+local previousFieldOfViewMode = nil
+local cachedControllerCameraHeight = nil
+local cachedControllerViewport = Vector2.zero
+
+local function setControllerDroneHidden(hidden)
+	local arenaRoot = Workspace:FindFirstChild("SkyfallArena")
+	local environment = arenaRoot and arenaRoot:FindFirstChild("Environment")
+	local aircraftFolder = environment and environment:FindFirstChild("Aircraft")
+	local drone = aircraftFolder and aircraftFolder:FindFirstChild("SkyfallLaserAircraft")
+	if not drone then
+		return
+	end
+
+	for _, descendant in ipairs(drone:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			descendant.LocalTransparencyModifier = hidden and 1 or 0
+		end
+	end
+end
+
+Workspace.DescendantAdded:Connect(function(descendant)
+	if controllerCameraActive and descendant:IsA("BasePart") then
+		local drone = descendant:FindFirstAncestor("SkyfallLaserAircraft")
+		if drone then
+			descendant.LocalTransparencyModifier = 1
+		end
+	end
+end)
 
 RunService.RenderStepped:Connect(function()
 	local camera = Workspace.CurrentCamera
@@ -257,32 +275,53 @@ RunService.RenderStepped:Connect(function()
 	if shouldUseControllerCamera then
 		if not controllerCameraActive then
 			previousFieldOfView = camera.FieldOfView
+			previousFieldOfViewMode = camera.FieldOfViewMode
+			setControllerDroneHidden(true)
 		end
 
 		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
 
-		local isPortrait = camera.ViewportSize.X < camera.ViewportSize.Y
-		local cameraHeight = Config.CONTROLLER_CAMERA_HEIGHT
-		local cameraBack = Config.CONTROLLER_CAMERA_BACK
-		local cameraFov = Config.CONTROLLER_CAMERA_FOV
-		if not isPortrait then
-			cameraHeight = Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT
-			cameraBack = Config.CONTROLLER_CAMERA_LANDSCAPE_BACK
-			cameraFov = Config.CONTROLLER_CAMERA_LANDSCAPE_FOV
+		-- True vertical overhead view. Recalculate fit only when the viewport changes.
+		if camera.FieldOfViewMode ~= Enum.FieldOfViewMode.Vertical then
+			camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical
 		end
-
-		camera.FieldOfView = cameraFov
-		local cameraPosition = Config.ARENA_CENTER + Vector3.new(
-			0,
-			cameraHeight,
-			-cameraBack
+		if camera.FieldOfView ~= Config.CONTROLLER_CAMERA_FOV then
+			camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
+		end
+		local viewport = camera.ViewportSize
+		if cachedControllerCameraHeight == nil
+			or viewport.X ~= cachedControllerViewport.X
+			or viewport.Y ~= cachedControllerViewport.Y
+		then
+			local aspect = math.max(viewport.X, 1) / math.max(viewport.Y, 1)
+			local verticalHalfFov = math.rad(Config.CONTROLLER_CAMERA_FOV * 0.5)
+			local horizontalHalfFov = math.atan(math.tan(verticalHalfFov) * aspect)
+			local limitingHalfFov = math.min(verticalHalfFov, horizontalHalfFov)
+			local halfExtent = Config.ARENA_WIDTH * 0.5 + Config.CONTROLLER_CAMERA_MARGIN
+			cachedControllerCameraHeight = math.max(
+				halfExtent / math.tan(limitingHalfFov),
+				Config.CONTROLLER_CAMERA_MIN_HEIGHT
+			)
+			cachedControllerViewport = viewport
+		end
+		local cameraPosition = Config.ARENA_CENTER + Vector3.new(0, cachedControllerCameraHeight, 0)
+		camera.CFrame = CFrame.lookAt(
+			cameraPosition,
+			Config.ARENA_CENTER,
+			Vector3.new(0, 0, -1)
 		)
-		camera.CFrame = CFrame.lookAt(cameraPosition, Config.ARENA_CENTER)
 		camera.Focus = CFrame.new(Config.ARENA_CENTER)
 	elseif controllerCameraActive then
 		controllerCameraActive = false
+		setControllerDroneHidden(false)
+		cachedControllerCameraHeight = nil
+		cachedControllerViewport = Vector2.zero
 		camera.CameraType = Enum.CameraType.Custom
+		if previousFieldOfViewMode then
+			camera.FieldOfViewMode = previousFieldOfViewMode
+			previousFieldOfViewMode = nil
+		end
 		if previousFieldOfView then
 			camera.FieldOfView = previousFieldOfView
 			previousFieldOfView = nil

@@ -57,12 +57,8 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Config.TILE_GAP == 0, "Destructible floor tiles must have no designed gap")
 	assert(Config.ROUND_SECONDS == 180, "Each round must last three minutes")
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
-	assert(Config.CONTROLLER_CAMERA_HEIGHT == 145, "Portrait controller camera must stay close to the arena")
-	assert(Config.CONTROLLER_CAMERA_BACK == 8, "Portrait controller camera must stay nearly overhead")
-	assert(Config.CONTROLLER_CAMERA_FOV == 110, "Portrait controller camera must fit the full arena width")
-	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_HEIGHT == 130, "Landscape controller camera height must bring the arena closer")
-	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_BACK == 130, "Landscape controller camera must use a balanced overhead angle")
-	assert(Config.CONTROLLER_CAMERA_LANDSCAPE_FOV == 44, "Landscape controller camera must keep tiles large and readable")
+	assert(Config.CONTROLLER_CAMERA_FOV == 70, "Controller camera should use a wide overhead field of view")
+	assert(Config.CONTROLLER_CAMERA_MARGIN == 8, "Controller camera should retain a small margin around the full arena")
 
 	arena = ArenaService.new()
 	arena:Build()
@@ -73,15 +69,24 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 
 	local centerTile = arena:GetTile(8, 8)
 	assert(centerTile ~= nil, "Center tile is missing")
-	assert(centerTile:FindFirstChild("SquareStud_9"), "Each floor tile should contain a nine-stud classic pattern")
-	local stud = centerTile:FindFirstChild("SquareStud_1")
-	assert(stud:IsA("BasePart") and stud.Shape == Enum.PartType.Block, "Floor studs must be square blocks")
-	assert(math.abs(stud.Size.X - stud.Size.Z) < 0.001, "Floor studs must have square footprints")
+	assert(centerTile.TopSurface == Enum.SurfaceType.Studs, "Tile tops should use Roblox native Classic Stud surfaces")
+	assert(centerTile.BottomSurface == Enum.SurfaceType.Inlet, "Tile undersides should use native Inlet surfaces")
+	assert(#centerTile:GetChildren() == 0, "Native Stud surfaces must not generate extra child Parts")
 
-	assert(arena.lobbyFolder:FindFirstChild("WaitingPlatform"), "Classic waiting baseplate is missing")
-	assert(arena.lobbyFolder:FindFirstChild("LobbyFloorPanel_12_12"), "The connected lobby stud floor is missing")
-	local water = arena.lobbyFolder:FindFirstChild("LobbyWater")
-	assert(water and water.Material == Enum.Material.Water, "Classic lobby fountain is missing")
+	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
+	assert(lobbyPlatform, "Classic waiting baseplate is missing")
+	assert(lobbyPlatform.TopSurface == Enum.SurfaceType.Studs, "Lobby baseplate must use native Classic Studs")
+	assert(arena.lobbyFolder:FindFirstChild("LobbyWater") == nil, "Lobby water surface must be removed")
+	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign") == nil, "Floating lobby welcome board must be removed")
+	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
+		local name = string.lower(descendant.Name)
+		assert(not string.find(name, "tree"), "All trees must be removed")
+		assert(not string.find(name, "bench") and not string.find(name, "chair"), "All seating must be removed")
+		assert(descendant:IsA("BasePart") == false or descendant.Material ~= Enum.Material.Water, "Water surfaces must be removed")
+	end
+	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Continuous perimeter beams are missing")
+	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterEastWest_1"), "Perpendicular edge beams are missing")
+	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterCornerPost_1_1"), "Integrated corner supports are missing")
 	assert(arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"), "Golden controller sphere is missing")
 	assert(arena.aircraftModel:FindFirstChild("ControllerLens"), "Red controller lens is missing")
 	for index = 1, 5 do
@@ -94,8 +99,7 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(arena.aircraftModel:FindFirstChild("LensReticleRing_Inner_1"), "Inner lens reticle ring is missing")
 	local lensLight = arena.aircraftModel.ControllerLens:FindFirstChildOfClass("PointLight")
 	assert(not lensLight or lensLight.Range <= 5, "Red lens light must remain tightly contained")
-	assert(arena.mapFolder:FindFirstChild("ClassicArenaNameSign"), "Classic arena name sign is missing")
-	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign"), "Waiting garden sign is missing")
+	assert(arena.mapFolder:FindFirstChild("ClassicArenaNameSign") == nil, "Old floating arena sign should not remain")
 	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "The waiting garden must stay separate from the arena")
 	assert(arena.aircraftModel:FindFirstChild("LaserOrigin"), "The golden drone laser origin attachment is missing")
 	assert(arena.aircraftModel:FindFirstChild("PilotPlatform") == nil, "A visible pilot platform must not be built")
@@ -105,6 +109,12 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(Lighting:FindFirstChild("SkyfallBloom") == nil, "Custom Bloom must be removed")
 	assert(Lighting:FindFirstChild("SkyfallSunRays") == nil, "Custom SunRays must be removed")
 	assert(Workspace.Terrain:FindFirstChild("SkyfallClouds") == nil, "Custom clouds must be removed")
+	assert(Workspace.StreamingEnabled == true, "Workspace streaming must be enabled")
+	assert(Workspace.StreamingMinRadius == 64, "Streaming minimum radius should remain conservative")
+	assert(Workspace.StreamingTargetRadius == 192, "Streaming target radius should be bounded for mobile")
+	assert(Workspace.ModelStreamingBehavior == Enum.ModelStreamingBehavior.Improved, "Improved model streaming is required")
+	assert(Workspace.StreamOutBehavior == Enum.StreamOutBehavior.Opportunistic, "Opportunistic stream out is required")
+	assert(Workspace.StreamingIntegrityMode == Enum.StreamingIntegrityMode.PauseOutsideLoadedArea, "Streaming integrity protection is required")
 	assert(Lighting.Brightness == 2, "Lighting brightness should be neutral")
 	assert(Lighting.ClockTime == 14, "Lighting time should be the neutral daytime default")
 	assert(Lighting.Ambient == Color3.fromRGB(0, 0, 0), "Ambient light should be neutral")
@@ -121,6 +131,8 @@ runTest("Arena builds one 15x15 destructible Classic arena for a 30-player exper
 	assert(blueOuter and blueOuter:IsA("Beam"), "The drone must create an outer blue Beam")
 	assert(blueCore and blueCore:IsA("Beam"), "The drone must create a blue-white core Beam")
 	assert(blueOuter.Attachment0 == arena.laserOrigin, "The visible laser must originate from the golden sphere")
+	local impact = arena.root:FindFirstChild("BlueLaserImpact")
+	assert(impact and impact:FindFirstChild("LaserImpactSound"), "A light spatial laser sound should play on impact")
 
 	for index = 1, Config.MAX_PLAYER_CAPACITY do
 		local runnerPosition = arena:GetRunnerSpawnCFrame(index, Config.MAX_PLAYER_CAPACITY).Position
@@ -156,7 +168,8 @@ runTest("The Classic arena uses neutral lighting and connected stud geometry", f
 	assert(math.abs(leftTile.Size.X - Config.TILE_SIZE) < 0.001, "Tile width must match its grid spacing")
 	assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "No custom Sky instance should be retained")
-	assert(arena.mapFolder:FindFirstChild("ClassicArenaGate"), "Classic arena gate is missing")
+	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Classic arena perimeter frame is missing")
+	assert(arena.mapFolder:FindFirstChild("ClassicArenaGate") == nil, "Separate gate pillars and red header should be removed")
 	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "A bridge to the lobby must not exist")
 
 	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
@@ -189,16 +202,13 @@ runTest("Broken tiles remain broken until a new map is loaded", function()
 		local token = arena:MarkTile(tile)
 		assert(token ~= nil, "A fresh tile should accept a laser warning")
 		assert(tile.Color == Color3.fromRGB(255, 55, 75), "A targeted tile must be marked red")
-		assert(tile:FindFirstChild("TargetWarningLight"), "A targeted tile must show a red warning light")
+		assert(tile:GetAttribute("IsWarning") == true, "A targeted tile must report its warning state")
 		assert(arena:MarkTile(tile) == nil, "A tile already under warning must reject another strike")
 		arena:BreakTile(tile, token)
 		assert(tile:GetAttribute("IsBroken") == true, "Tile must be marked broken")
 		assert(tile.CanCollide == false, "Broken tile must not collide")
-		for _, child in ipairs(tile:GetChildren()) do
-			if child.Name == "SquareStud_1" or string.match(child.Name, "^SquareStud_") then
-				assert(child.Transparency == 1, "Square studs on a broken tile must be hidden")
-			end
-		end
+		assert(tile.TopSurface == Enum.SurfaceType.Smooth, "Broken tile must hide native studs")
+		assert(tile.BottomSurface == Enum.SurfaceType.Smooth, "Broken tile must hide native inlets")
 	end
 
 	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE - 4, "Four broken tiles should be excluded from safe tiles")
@@ -219,6 +229,7 @@ runTest("The one map restores the floor only when a new round loads", function()
 	assert(#arena:GetSafeTiles() == Config.GRID_SIZE * Config.GRID_SIZE, "New round did not restore the full grid")
 	assert(tile:GetAttribute("IsBroken") == false, "New round did not clear broken state")
 	assert(tile.CanCollide == true, "New round did not restore floor collision")
+	assert(tile.TopSurface == Enum.SurfaceType.Studs, "New round did not restore native Stud surfaces")
 	arena:BreakTile(tile, staleToken)
 	assert(tile:GetAttribute("IsBroken") == false, "A stale laser token broke a tile after reset")
 end)

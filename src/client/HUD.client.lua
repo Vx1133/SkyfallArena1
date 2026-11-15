@@ -237,6 +237,8 @@ player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
 local controllerCameraActive = false
 local previousFieldOfView = nil
 local previousFieldOfViewMode = nil
+local cachedControllerCameraHeight = nil
+local cachedControllerViewport = Vector2.zero
 
 RunService.RenderStepped:Connect(function()
 	local camera = Workspace.CurrentCamera
@@ -254,18 +256,27 @@ RunService.RenderStepped:Connect(function()
 		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
 
-		-- True vertical overhead view. Compute the minimum camera height needed to
-		-- fit the full square playfield on both portrait and landscape displays.
-		camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical
-		camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
+		-- True vertical overhead view. Recalculate fit only when the viewport changes.
+		if camera.FieldOfViewMode ~= Enum.FieldOfViewMode.Vertical then
+			camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical
+		end
+		if camera.FieldOfView ~= Config.CONTROLLER_CAMERA_FOV then
+			camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
+		end
 		local viewport = camera.ViewportSize
-		local aspect = math.max(viewport.X, 1) / math.max(viewport.Y, 1)
-		local verticalHalfFov = math.rad(camera.FieldOfView * 0.5)
-		local horizontalHalfFov = math.atan(math.tan(verticalHalfFov) * aspect)
-		local limitingHalfFov = math.min(verticalHalfFov, horizontalHalfFov)
-		local halfExtent = Config.ARENA_WIDTH * 0.5 + Config.CONTROLLER_CAMERA_MARGIN
-		local cameraHeight = halfExtent / math.tan(limitingHalfFov)
-		local cameraPosition = Config.ARENA_CENTER + Vector3.new(0, cameraHeight, 0)
+		if cachedControllerCameraHeight == nil
+			or viewport.X ~= cachedControllerViewport.X
+			or viewport.Y ~= cachedControllerViewport.Y
+		then
+			local aspect = math.max(viewport.X, 1) / math.max(viewport.Y, 1)
+			local verticalHalfFov = math.rad(Config.CONTROLLER_CAMERA_FOV * 0.5)
+			local horizontalHalfFov = math.atan(math.tan(verticalHalfFov) * aspect)
+			local limitingHalfFov = math.min(verticalHalfFov, horizontalHalfFov)
+			local halfExtent = Config.ARENA_WIDTH * 0.5 + Config.CONTROLLER_CAMERA_MARGIN
+			cachedControllerCameraHeight = halfExtent / math.tan(limitingHalfFov)
+			cachedControllerViewport = viewport
+		end
+		local cameraPosition = Config.ARENA_CENTER + Vector3.new(0, cachedControllerCameraHeight, 0)
 		camera.CFrame = CFrame.lookAt(
 			cameraPosition,
 			Config.ARENA_CENTER,
@@ -274,6 +285,8 @@ RunService.RenderStepped:Connect(function()
 		camera.Focus = CFrame.new(Config.ARENA_CENTER)
 	elseif controllerCameraActive then
 		controllerCameraActive = false
+		cachedControllerCameraHeight = nil
+		cachedControllerViewport = Vector2.zero
 		camera.CameraType = Enum.CameraType.Custom
 		if previousFieldOfViewMode then
 			camera.FieldOfViewMode = previousFieldOfViewMode

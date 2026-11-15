@@ -21,7 +21,6 @@ function RoundService.new(arenaService, stateRemote, botService)
 	self.nextController = nil
 	self.roundNumber = 0
 	self.roundStartedAt = 0
-	self.overtime = false
 	self.running = false
 	self.stats = {}
 	self.survivalTimes = {}
@@ -376,10 +375,6 @@ function RoundService:IsActive()
 	return self.phase == "Active"
 end
 
-function RoundService:IsOvertime()
-	return self.overtime
-end
-
 function RoundService:_broadcast()
 	local botCount = self.botService and self.botService:GetBotCount() or 0
 	local totalPlayers = #Players:GetPlayers() + botCount
@@ -638,7 +633,6 @@ function RoundService:_runRound()
 	self.roundRunnerCount = 0
 	self.elapsedSeconds = 0
 	self.countdownSeconds = 0
-	self.overtime = false
 	self.winner = ""
 	self.winnerCandidate = nil
 	self.roundStartedAt = os.clock()
@@ -770,7 +764,6 @@ function RoundService:_runRound()
 	self.phase = "Waiting"
 	self.elapsedSeconds = 0
 	self.countdownSeconds = 0
-	self.overtime = false
 	self.aliveRunners = {}
 	self.roundRunners = {}
 	self.survivalTimes = {}

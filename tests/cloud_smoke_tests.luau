@@ -823,6 +823,8 @@ runTest("Owner debug control overrides first-round bot selection and can take ov
 		"The owner should become the active controller immediately")
 	assert(activeHarness.aliveRunners[debugPlayer] == nil, "A debug controller must be removed from the runner roster")
 	assert(activeHarness.recordedDebugSurvival == debugPlayer, "Survival time should be recorded before the takeover")
+	assert(activeHarness.roundRunners[debugPlayer] == nil, "The debug controller must not remain in the winner pool")
+	assert(activeHarness.roundRunnerCount == 0, "The runner count should be reduced when a runner becomes controller")
 	assert(priorController.attributes.SkyfallRole == "Spectator", "The replaced controller should be moved out of the controller role")
 
 	assert(activeHarness:RequestDebugController(debugPlayer, false), "The owner should be able to release active debug control")

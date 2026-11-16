@@ -32,6 +32,7 @@ required_files = [
     "src/shared/MapRotation.lua",
     "src/shared/DebugControllerPolicy.lua",
     "tests/lune/update_019_policy.luau",
+    "tests/lune/update_023_control_state.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
     "src/server/Services/CyberpunkPillarService.lua",
@@ -649,11 +650,28 @@ for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallEleme
     require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
 
 pilot_policy_source = (ROOT / "src/shared/PilotOptInPolicy.lua").read_text(encoding="utf-8")
+control_policy_test = (ROOT / "tests/lune/update_023_control_state.luau").read_text(encoding="utf-8")
 require("function PilotOptInPolicy.Filter(" in pilot_policy_source, "Explicit human pilot opt-in policy is missing")
+require("function PilotOptInPolicy.ResolveCandidates(" in pilot_policy_source, "Manual-human/bot candidate resolver is missing")
+require("UPDATE_023_CONTROL_STATE_TESTS_OK" in control_policy_test, "Update #23 control-state Lune test is missing")
 require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Players must default to no pilot opt-in")
 require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
 require('PilotOptInPolicy.Filter(readyPlayers' in round_source, "Controller selection must filter explicit pilot opt-ins")
 require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
+require("PilotOptInPolicy.ResolveCandidates(" in round_source, "Controller selection must resolve manual humans separately from bot fallback")
+require('player:SetAttribute("SkyfallAircraftControlActive", false)' in round_source, "Player aircraft control state must default to off")
+require('player:SetAttribute("SkyfallAircraftControlActive", hidden == true)' in round_source, "Server must own the aircraft-control active state")
+require('player:GetAttribute("SkyfallAircraftControlActive") == true' in hud_source, "The client camera must require explicit server aircraft-control state")
+clear_ready_source = round_source.split("function RoundService:_clearReadyPlayers()", 1)[1].split(
+    "function RoundService:_setPlayerControllerHidden", 1
+)[0]
+require('debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)' in clear_ready_source, "Owner debug mode must reset at round cleanup")
+require("self.readyPlayers[debugPlayer] = true" not in clear_ready_source, "Owner debug mode must not auto-ready across rounds")
+require("self.debugControllerPlayer = nil" in clear_ready_source, "Owner debug pointer must clear at round cleanup")
+require("SkyfallPilotOptIn" in clear_ready_source, "Manual aircraft opt-in must be cleared at round cleanup")
+require('Name = "AircraftModeIcon"' in hud_source, "A compact manual aircraft mode icon is missing")
+require('aircraftModeButton.Text = "✈"' in hud_source, "Manual aircraft control must be selected from an icon, not the removed text status")
+require('local shouldUseControllerCamera = isAircraftController()' in hud_source, "The aircraft camera must use the explicit control-state guard")
 require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
 require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
 

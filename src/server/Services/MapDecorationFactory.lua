@@ -1,7 +1,7 @@
 --!strict
 -- Shared low-level construction helpers. Geometry identity stays in the map builders.
 
-local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
+local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService", 8))
 
 local MapDecorationFactory = {}
 

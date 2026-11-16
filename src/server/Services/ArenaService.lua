@@ -10,6 +10,7 @@ local ElementIntegrationService = require(script.Parent:WaitForChild("ElementInt
 local ClassicNatureMapBuilder = require(script.Parent:WaitForChild("ClassicNatureMapBuilder", 8))
 local CyberpunkMapBuilder = require(script.Parent:WaitForChild("CyberpunkMapBuilder", 8))
 local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService", 8))
+local ArenaStartupPolicy = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("ArenaStartupPolicy", 8))
 
 local ArenaService = {}
 ArenaService.__index = ArenaService
@@ -175,6 +176,7 @@ function ArenaService.new()
 	self.aircraftAimTween = nil
 	self.aircraftAimToken = 0
 	self.mapDecorBuilt = false
+	self.coreArenaReady = false
 	self.laserOrigin = nil
 	self.lobbyFloor = nil
 	self.mapRootFolder = nil
@@ -686,9 +688,45 @@ function ArenaService:Build()
 
 	self:_buildLobby()
 	self:_buildAircraft()
+
+	local tileCount = 0
+	for _ in pairs(self.tiles) do
+		tileCount += 1
+	end
+	self.coreArenaReady = self.lobbyFloor ~= nil
+		and self.lobbyFloor.Parent == self.lobbyFolder
+		and tileCount == Config.GRID_SIZE * Config.GRID_SIZE
+	self.root:SetAttribute("SkyfallCoreArenaReady", self.coreArenaReady)
+	self.root:SetAttribute("SkyfallArenaReady", false)
+	if not self.coreArenaReady then
+		error(string.format(
+			"Skyfall core arena build failed: lobbyReady=%s, tiles=%d/%d",
+			tostring(self.lobbyFloor ~= nil and self.lobbyFloor.Parent == self.lobbyFolder),
+			tileCount,
+			Config.GRID_SIZE * Config.GRID_SIZE
+		))
+	end
+	print(string.format("[SkyfallArenaBuild] CORE_READY tiles=%d lobby=%s", tileCount, self.lobbyFloor:GetFullName()))
 	self:SetMap(1)
 end
-function ArenaService:SetMap(mapId)
+
+local function runOptionalArenaStage(stageName: string, callback: () -> any): (boolean, any)
+	local success, result = xpcall(callback, debug.traceback)
+	if success then
+		print("[SkyfallArenaBuild] OPTIONAL_STAGE_READY " .. stageName)
+	else
+		warn("[SkyfallArenaBuild] OPTIONAL_STAGE_FAILED " .. stageName .. ": " .. tostring(result))
+	end
+	return success, result
+end
+
+function ArenaService:IsGameplayReady(): boolean
+	return self.coreArenaReady == true
+		and self.root ~= nil
+		and self.root:GetAttribute("SkyfallArenaReady") == true
+end
+
+function ArenaService:SetMap(mapId: number): string
 	local selected = MAPS[mapId] or MAPS[1]
 	local theme = table.clone(selected)
 	local lobbyFloor = self.lobbyFloor
@@ -701,10 +739,11 @@ function ArenaService:SetMap(mapId)
 	if not profile then
 		error("Skyfall requires a valid Lobby.WaitingPlatform before selecting a playable map")
 	end
-	-- Both maps inherit the full lobby surface finish. Their colors remain independent.
+
+	-- The lobby and destructible tile grid are core gameplay. Decoration,
+	-- element overlays, audits, and lighting are optional visual enhancements.
 	theme.floorAppearanceProfile = profile
 	theme.tileMaterial = profile.Material
-
 	self.currentMapId = selected.id
 	self.theme = theme
 
@@ -722,26 +761,82 @@ function ArenaService:SetMap(mapId)
 		end
 	end
 
-	-- Rebuild deterministically on every selection so a changed lobby profile can never leave stale map surfaces.
 	self.mapFolder:ClearAllChildren()
-	local partCount = self:_buildMapDecoration(theme)
-	local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, lobbyFloor, theme.tileColor)
-	if not success then
-		error("Skyfall element visual integration failed: " .. tostring(countOrError))
-	end
-	self.elementTransitionCount = countOrError
-	self.mapDecorBuilt = true
+	self.mapFolder:SetAttribute("SkyfallMapBuildStatus", "Building")
+	self.mapDecorBuilt = false
+	self.elementTransitionCount = 0
 
-	local auditedMapParts = FloorAppearanceService.Audit(self.mapFolder, profile)
-	local auditedTiles = FloorAppearanceService.Audit(self.tilesFolder, profile)
-	if auditedTiles ~= Config.GRID_SIZE * Config.GRID_SIZE then
-		error("Skyfall expected to audit exactly " .. tostring(Config.GRID_SIZE * Config.GRID_SIZE)
-			.. " floor tiles, audited " .. tostring(auditedTiles))
+	local mapSuccess, partCountOrError = runOptionalArenaStage("MapGeometry", function()
+		return self:_buildMapDecoration(theme)
+	end)
+	local partCount = 0
+	if mapSuccess then
+		partCount = partCountOrError
+		self.mapDecorBuilt = true
+	else
+		-- Discard partial map visuals, but keep the lobby and every collision tile.
+		self.mapFolder:ClearAllChildren()
 	end
-	self.mapFolder:SetAttribute("SkyfallAuditedSurfaceCount", auditedMapParts)
-	self.tilesFolder:SetAttribute("SkyfallAuditedSurfaceCount", auditedTiles)
+
+	local elementSuccess, elementCountOrError = false, 0
+	if mapSuccess then
+		elementSuccess, elementCountOrError = runOptionalArenaStage("ElementTransitions", function()
+			return ElementIntegrationService.Build(self.mapFolder, lobbyFloor, theme.tileColor)
+		end)
+	end
+	if elementSuccess then
+		self.elementTransitionCount = elementCountOrError
+	else
+		local transitionFolder = self.mapFolder:FindFirstChild("ElementTransitions")
+		if transitionFolder then
+			transitionFolder:Destroy()
+		end
+	end
+
+	local mapAuditSuccess, auditedMapParts = runOptionalArenaStage("MapSurfaceAudit", function()
+		return FloorAppearanceService.Audit(self.mapFolder, profile)
+	end)
+	local tileAuditSuccess, auditedTiles = runOptionalArenaStage("TileSurfaceAudit", function()
+		return FloorAppearanceService.Audit(self.tilesFolder, profile)
+	end)
+	if tileAuditSuccess and auditedTiles ~= Config.GRID_SIZE * Config.GRID_SIZE then
+		tileAuditSuccess = false
+		warn(string.format(
+			"[SkyfallArenaBuild] TILE_AUDIT_COUNT_MISMATCH actual=%d expected=%d",
+			auditedTiles,
+			Config.GRID_SIZE * Config.GRID_SIZE
+		))
+	end
+
 	self.mapFolder:SetAttribute("SkyfallGeometryPartCount", partCount)
-	self:_setLighting()
+	self.mapFolder:SetAttribute("SkyfallAuditedSurfaceCount", mapAuditSuccess and auditedMapParts or 0)
+	self.mapFolder:SetAttribute("SkyfallMapBuildStatus", mapSuccess and "Ready" or "Fallback")
+	self.mapFolder:SetAttribute("SkyfallElementIntegrationStatus", elementSuccess and "Ready" or "Skipped")
+	self.tilesFolder:SetAttribute("SkyfallAuditedSurfaceCount", tileAuditSuccess and auditedTiles or 0)
+
+	local lightingSuccess = runOptionalArenaStage("LightingProfile", function()
+		return self:_setLighting()
+	end)
+	self.root:SetAttribute("SkyfallLightingStatus", lightingSuccess and "Ready" or "Fallback")
+
+	local readiness = ArenaStartupPolicy.Resolve(self.coreArenaReady, mapSuccess)
+	self.root:SetAttribute("SkyfallArenaReady", readiness.GameplayReady)
+	self.root:SetAttribute("SkyfallMapDecorationStatus", readiness.DecorationStatus)
+	self.root:SetAttribute("SkyfallArenaMapId", selected.id)
+	self.root:SetAttribute("SkyfallSurfaceAuditStatus", mapAuditSuccess and tileAuditSuccess and "Ready" or "Warning")
+
+	if readiness.GameplayReady then
+		print(string.format(
+			"[SkyfallArenaBuild] ARENA_READY map=%s decoration=%s elements=%s lighting=%s",
+			theme.name,
+			readiness.DecorationStatus,
+			elementSuccess and "Ready" or "Skipped",
+			lightingSuccess and "Ready" or "Fallback"
+		))
+	else
+		warn("[SkyfallArenaBuild] CORE_NOT_READY")
+	end
+
 	return theme.name
 end
 function ArenaService:GetMapName()

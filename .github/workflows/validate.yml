@@ -47,6 +47,7 @@ jobs:
           lune run tests/lune/update_023_control_state.luau
           lune run tests/lune/update_024_startup_guard.luau
           lune run tests/lune/update_025_startup_guard.luau
+          lune run tests/lune/update_026_arena_bootstrap_guard.luau
 
       - name: Validate repository structure
         run: python tools/validate_project.py

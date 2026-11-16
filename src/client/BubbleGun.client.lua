@@ -115,7 +115,7 @@ local function bindTool(instance)
 	end)
 end
 
-local backpack = player:WaitForChild("Backpack")
+-- Backpack was resolved through the bounded startup dependency check above.
 for _, child in ipairs(backpack:GetChildren()) do
 	bindTool(child)
 end

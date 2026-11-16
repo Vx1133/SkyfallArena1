@@ -274,6 +274,7 @@ function RoundService:_activateDebugController(player)
 		and self.controller.kind == "Player"
 		and self.controller.value == player
 	then
+		self.debugPreviousController = {kind = "Player", value = player}
 		return true
 	end
 
@@ -349,7 +350,6 @@ function RoundService:RequestDebugController(player, enabled)
 			and self.controller
 			and self.controller.kind == "Player"
 			and self.controller.value == player
-			and self.debugPreviousController
 		then
 			self:_restoreDebugController(player)
 		end

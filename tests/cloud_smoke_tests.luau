@@ -1053,6 +1053,83 @@ runTest("One human and ten bots default to a bot controller until the human manu
 	)
 end)
 
+runTest("Ten bots remain independently assigned as one Controller and nine Runners", function()
+	local bots = {}
+	local models = {}
+	local spawnCFrames = {}
+
+	for index = 1, 10 do
+		local model = Instance.new("Model")
+		model.Name = "IndependentRoundBot_" .. tostring(index)
+
+		local root = Instance.new("Part")
+		root.Name = "HumanoidRootPart"
+		root.Size = Vector3.new(2, 2, 1)
+		root.Parent = model
+
+		local humanoid = Instance.new("Humanoid")
+		humanoid.Parent = model
+		model.PrimaryPart = root
+		model.Parent = Workspace
+		table.insert(models, model)
+
+		bots[index] = {
+			name = model.Name,
+			model = model,
+			root = root,
+			humanoid = humanoid,
+			walkSpeed = 16,
+			jumpPower = 50,
+			alive = false,
+			isController = false,
+			tracks = {},
+			currentAnimation = nil,
+		}
+		if index > 1 then
+			spawnCFrames[index] = CFrame.new(100 + index * 5, 80, 0)
+		end
+	end
+
+	local harness = setmetatable({
+		bots = bots,
+		_playAnimation = function() end,
+	}, BotService)
+	harness:StartRound(spawnCFrames, bots[1])
+
+	assert(#bots == 10, "The full ten-bot roster must be processed")
+	assert(
+		bots[1].isController == true
+			and bots[1].alive == false
+			and bots[1].model:GetAttribute("SkyfallRole") == "Controller"
+			and bots[1].root.Anchored == true,
+		"Exactly the selected bot should occupy the hidden Controller role"
+	)
+
+	for index = 2, 10 do
+		local bot = bots[index]
+		assert(
+			bot.isController == false
+				and bot.alive == true
+				and bot.model:GetAttribute("SkyfallRole") == "Runner",
+			"Every non-controller bot must remain an independent Runner"
+		)
+		assert(
+			bot.root.Anchored == false
+				and (bot.model:GetPivot().Position - spawnCFrames[index].Position).Magnitude < 0.1,
+			"Every non-controller bot must be placed at its own runner spawn"
+		)
+		assert(
+			bot.humanoid.WalkSpeed == bot.walkSpeed
+				and bot.humanoid.JumpPower == bot.jumpPower,
+			"Runner movement settings must remain independent from controller state"
+		)
+	end
+
+	for _, model in ipairs(models) do
+		model:Destroy()
+	end
+end)
+
 runTest("Legacy nextController cannot select an unready player", function()
 	local previousWinner = makeFakePlayer("PreviousWinner", "Winner")
 	local harness = setmetatable({

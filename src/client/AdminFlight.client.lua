@@ -57,6 +57,17 @@ local flyButton = makeButton(
 	Color3.fromRGB(36, 93, 160)
 )
 
+local debugButton = makeButton(
+	"DebugDroneToggle",
+	"DRONE",
+	UDim2.fromOffset(10, 94),
+	UDim2.fromOffset(68, 36),
+	Color3.fromRGB(91, 77, 54)
+)
+debugButton.TextSize = 10
+
+local debugRequested = player:GetAttribute("SkyfallDebugDroneEnabled") == true
+
 local upButton = makeButton(
 	"AdminFlightUp",
 	"UP",
@@ -85,6 +96,11 @@ local function updateControls()
 	local waiting = state.phase == "Waiting" and player:GetAttribute("SkyfallReady") ~= true
 	local admin = isAdmin()
 	flyButton.Visible = admin and waiting
+	debugButton.Visible = admin
+	debugButton.Text = debugRequested and "TEST ON" or "DRONE"
+	debugButton.BackgroundColor3 = debugRequested
+		and Color3.fromRGB(157, 112, 42)
+		or Color3.fromRGB(91, 77, 54)
 	upButton.Visible = admin and waiting and isFlying()
 	downButton.Visible = admin and waiting and isFlying()
 	flyButton.Text = isFlying() and "STOP FLY" or "FLY"
@@ -92,6 +108,20 @@ local function updateControls()
 		and Color3.fromRGB(158, 82, 43)
 		or Color3.fromRGB(36, 93, 160)
 end
+
+debugButton.Activated:Connect(function()
+	if not isAdmin() then
+		return
+	end
+	debugRequested = not debugRequested
+	updateControls()
+	flightRemote:FireServer("DebugController", debugRequested)
+end)
+
+player:GetAttributeChangedSignal("SkyfallDebugDroneEnabled"):Connect(function()
+	debugRequested = player:GetAttribute("SkyfallDebugDroneEnabled") == true
+	updateControls()
+end)
 
 flyButton.Activated:Connect(function()
 	if not isAdmin() or state.phase ~= "Waiting" then

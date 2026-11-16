@@ -1,4 +1,7 @@
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 
 local PilotPriorityService = {}
 PilotPriorityService.__index = PilotPriorityService
@@ -53,7 +56,7 @@ function PilotPriorityService:_award(player, roundNumber, amount)
 end
 
 function PilotPriorityService:AwardElimination(player, roundNumber, elapsedSeconds)
-	local reward = elapsedSeconds >= 54 and 5 or 0
+	local reward = elapsedSeconds >= Config.PILOT_PRIORITY_ELIMINATION_THRESHOLD_SECONDS and 5 or 0
 	return self:_award(player, roundNumber, reward)
 end
 

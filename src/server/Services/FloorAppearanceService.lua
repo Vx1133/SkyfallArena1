@@ -59,11 +59,11 @@ function FloorAppearanceService.Apply(target: BasePart, profile: AppearanceProfi
 		return false
 	end
 
-	FloorAppearanceService.ApplySurface(target, profile)
+	local surfaceApplied = FloorAppearanceService.ApplySurface(target, profile)
 	target.Color = profile.Color
 	target.TopSurface = profile.TopSurface
 	target.BottomSurface = profile.BottomSurface
-	return true
+	return surfaceApplied
 end
 
 return FloorAppearanceService

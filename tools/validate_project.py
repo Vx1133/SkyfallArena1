@@ -148,51 +148,77 @@ for forbidden in (
     "AZURE HARBOR FORTRESS",
 ):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
-for forbidden_lighting in (
-    'Instance.new("Clouds")',
+lighting_profile_source = (ROOT / "src/shared/LightingProfile.lua").read_text(encoding="utf-8")
+lighting_service_source = (ROOT / "src/server/Services/LightingProfileService.lua").read_text(encoding="utf-8")
+lighting_test_source = (ROOT / "tests/lune/update_023_lighting_profile.luau").read_text(encoding="utf-8")
+require('local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))' in arena_source,
+        "ArenaService must use the centralized lighting profile service")
+require("LightingProfileService.Apply()" in arena_source, "Every ArenaService map selection must apply the shared lighting profile")
+require('local Lighting = game:GetService("Lighting")' not in arena_source, "ArenaService must not write global Lighting directly")
+for map_lighting_key in (
+    "ambient = Color3.fromRGB",
+    "outdoorAmbient = Color3.fromRGB",
+    "brightness = ",
+    "clockTime = ",
+    "exposureCompensation = ",
+    "useCyberpunkLighting",
 ):
-    require(forbidden_lighting not in arena_source, f"Unsupported global lighting effect must be removed: {forbidden_lighting}")
-for daylight_feature in (
-    'Instance.new("Sky")',
-    'Instance.new("SunRaysEffect")',
-    'daySky.StarCount = 0',
-    'daySky.MoonAngularSize = 0',
-    'Lighting.ClockTime = theme.clockTime or 14',
+    require(map_lighting_key not in arena_source, f"Map-specific global lighting override remains: {map_lighting_key}")
+for feature in (
+    "Lighting.Brightness = Profile.Brightness",
+    "Lighting.ClockTime = Profile.ClockTime",
+    "Lighting.ExposureCompensation = Profile.ExposureCompensation",
+    "Lighting.Ambient = colorFromRgb(Profile.Ambient)",
+    "Lighting.OutdoorAmbient = colorFromRgb(Profile.OutdoorAmbient)",
+    "Lighting.ShadowSoftness = Profile.ShadowSoftness",
+    "Lighting.LightingStyle = Enum.LightingStyle.Realistic",
+    "Lighting.PrioritizeLightingQuality = Profile.PrioritizeLightingQuality",
+    'getOrCreateManagedEffect("Atmosphere", "SkyfallAtmosphere")',
+    'getOrCreateManagedEffect("SunRaysEffect", "SkyfallSunRays")',
+    'getOrCreateManagedEffect("BloomEffect", "SkyfallBloom")',
+    'getOrCreateManagedEffect("ColorCorrectionEffect", "SkyfallColorCorrection")',
+    'Profile.Sky.Name',
 ):
-    require(daylight_feature in arena_source, f"Daylight sky profile is missing: {daylight_feature}")
-require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
-require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
-require("local function setTileSurface(tile, theme, hidden)" in arena_source, "Theme-aware tile surface reset is missing")
-require("part.CastShadow = false" in arena_source, "Static map part shadows should be disabled")
-require("warningLight.Brightness" not in arena_source, "Per-target dynamic warning lights should be removed")
-for neutral_setting in (
-    "Lighting.Brightness = theme.brightness or 2",
-    "Lighting.ClockTime = theme.clockTime or 14",
-    "Lighting.Ambient = theme.ambient or Color3.fromRGB(0, 0, 0)",
-    "Lighting.OutdoorAmbient = theme.outdoorAmbient or Color3.fromRGB(0, 0, 0)",
-    "Lighting.ExposureCompensation = theme.exposureCompensation or 0",
-    "Lighting.EnvironmentDiffuseScale = theme.environmentDiffuseScale or 1",
-    "Lighting.EnvironmentSpecularScale = theme.environmentSpecularScale or 1",
+    require(feature in lighting_service_source, f"Central lighting implementation is missing: {feature}")
+for profile_value in (
+    "Brightness = 2.15",
+    "ExposureCompensation = -0.05",
+    "Ambient = { 78, 86, 100 }",
+    "OutdoorAmbient = { 122, 133, 149 }",
+    'LightingStyle = "Realistic"',
+    "PrioritizeLightingQuality = false",
+    "Density = 0.07",
+    "Glare = 0.035",
+    "Intensity = 0.12",
+    "Threshold = 1.65",
 ):
-    require(neutral_setting in arena_source, f"Neutral lighting setting is missing: {neutral_setting}")
-require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
-require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
-require("localOffset = Vector3.new(0.34, math.cos(angle) * radius, math.sin(angle) * radius)" in arena_source,
-        "Drone reticle must be placed on the outward underside of the lens")
-require("localOffset = Vector3.new(-0.34," not in arena_source,
-        "Drone reticle must not be hidden inside the sphere")
-cyberpunk_decoration = arena_source.split("function ArenaService:_buildCyberpunkDecoration(theme)", 1)[1].split(
-    "function ArenaService:_buildMapDecoration(theme)", 1
-)[0]
-classic_decoration = arena_source.split("function ArenaService:_buildClassicDecoration(theme)", 1)[1].split(
-    "local function createVisualPart", 1
-)[0]
-require("Enum.Material.Neon" not in classic_decoration, "Classic decoration must remain free of Neon surfaces")
-require(cyberpunk_decoration.count("Enum.Material.Neon") == 3, "Cyberpunk accents must use only the perimeter strips and pylon accents")
-for effect in ('Instance.new("Atmosphere")', 'Instance.new("BloomEffect")', 'Instance.new("ColorCorrectionEffect")'):
-    require(effect in arena_source, f"Cyberpunk Lighting effect is missing: {effect}")
-for cleanup_name in ("SkyfallAtmosphere", "SkyfallBloom", "SkyfallColorCorrection", "SkyfallSunRays"):
-    require(cleanup_name in arena_source, f"Map lighting cleanup is missing: {cleanup_name}")
+    require(profile_value in lighting_profile_source, f"Shared lighting value is missing: {profile_value}")
+require("UPDATE_023_LIGHTING_PROFILE_TESTS_OK" in lighting_test_source, "Update #23 lighting regression test is missing")
+require("AmbientOcclusionEffect" not in lighting_service_source, "Do not use a fictitious scriptable AmbientOcclusionEffect")
+lighting_write_tokens = (
+    "Lighting.Brightness =",
+    "Lighting.ClockTime =",
+    "Lighting.ExposureCompensation =",
+    "Lighting.Ambient =",
+    "Lighting.OutdoorAmbient =",
+    "Lighting.EnvironmentDiffuseScale =",
+    "Lighting.EnvironmentSpecularScale =",
+    "Lighting.GlobalShadows =",
+    "Lighting.ShadowSoftness =",
+    "Lighting.FogColor =",
+    "Lighting.FogStart =",
+    "Lighting.FogEnd =",
+    "Lighting.LightingStyle =",
+    "Lighting.PrioritizeLightingQuality =",
+)
+managed_lighting_path = ROOT / "src/server/Services/LightingProfileService.lua"
+for lua_path in (ROOT / "src").rglob("*.lua"):
+    if lua_path == managed_lighting_path:
+        continue
+    source_text = lua_path.read_text(encoding="utf-8")
+    for token in lighting_write_tokens:
+        require(token not in source_text, f"Global Lighting write outside LightingProfileService: {token} in {lua_path.relative_to(ROOT)}")
+require('Instance.new("Clouds")' not in arena_source, "Unsupported global Clouds effect must remain absent")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
 require("Vector3.new(width + 26, 2, width + 26)" in arena_source, "The arena foundation must be thin")
 require("support.CanCollide = false" in arena_source, "The foundation must not catch falling players")

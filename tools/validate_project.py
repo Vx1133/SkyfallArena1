@@ -788,4 +788,11 @@ require("paletteColor(CYBERPUNK_PALETTE.PrimaryTile)" in arena_source, "Cyberpun
 require("paletteColor(CYBERPUNK_PALETTE.AlternateTile)" in arena_source, "Cyberpunk alternate blue-white tile palette is missing")
 
 
+hud_source = (ROOT / "src/client/HUD.client.lua").read_text(encoding="utf-8")
+require('Workspace:WaitForChild("SkyfallArena"):WaitForChild("Tiles")' not in hud_source,
+        "HUD startup must not wait indefinitely for streamed arena tiles")
+require("local function getTileFolder()" in hud_source,
+        "HUD must resolve streamed arena tiles lazily when controller targeting is requested")
+require("local tileFolder = getTileFolder()" in hud_source,
+        "Controller targeting must safely handle arena tiles that are not streamed yet")
 print("Skyfall Arena structural and gameplay validation passed.")

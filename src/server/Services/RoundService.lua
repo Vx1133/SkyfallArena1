@@ -1085,14 +1085,14 @@ function RoundService:_awardWinners(candidates)
 				local isCurrentController = self.controller
 					and self.controller.kind == "Player"
 					and self.controller.value == player
-				if isCurrentController then
-					self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
-				end
 				local statSet = self.stats[player]
 				if statSet and statSet.wins then
 					statSet.wins.Value += 1
 				end
 				player:SetAttribute("SkyfallRole", "Winner")
+				if isCurrentController then
+					self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
+				end
 				local character = player.Character
 				local root = character and character:FindFirstChild("HumanoidRootPart")
 				if root then

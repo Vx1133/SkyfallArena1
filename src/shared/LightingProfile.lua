@@ -24,7 +24,7 @@ local Profile = {
     -- Realistic enables engine-generated contact shading/AO where supported.
     -- Roblox can scale lighting quality down on lower-end devices.
     LightingStyle = "Realistic",
-    PrioritizeLightingQuality = false,
+    PrioritizeLightingQuality = true,
 
     Sky = {
         Name = "SkyfallGlobalDaySky",

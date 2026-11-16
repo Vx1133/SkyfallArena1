@@ -656,7 +656,6 @@ require("function PilotOptInPolicy.ResolveCandidates(" in pilot_policy_source, "
 require("UPDATE_023_CONTROL_STATE_TESTS_OK" in control_policy_test, "Update #23 control-state Lune test is missing")
 require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Players must default to no pilot opt-in")
 require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
-require("PilotOptInPolicy.ResolveCandidates(" in round_source, "Controller selection must resolve explicit human opt-in separately from bot fallback")
 require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
 require("PilotOptInPolicy.ResolveCandidates(" in round_source, "Controller selection must resolve manual humans separately from bot fallback")
 require('player:SetAttribute("SkyfallAircraftControlActive", false)' in round_source, "Player aircraft control state must default to off")

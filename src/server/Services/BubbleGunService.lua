@@ -739,7 +739,7 @@ function BubbleGunService:_handleShot(player, direction)
 		return true
 	end
 	if target.humanoid and self.holdsByHumanoid[target.humanoid] then
-		self:_fireProjectile(player, origin, unitDirection, hit, nil)
+		self:_fireProjectile(player, origin, unitDirection, hit, nil, tool, activeRound)
 		return true
 	end
 

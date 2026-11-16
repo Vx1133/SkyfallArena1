@@ -1263,7 +1263,8 @@ function RoundService:_runRound()
 	local botList = self.botService:GetBots()
 	self.roundHumanCount = #playersInRound
 	self.winnerCandidates = {}
-	local totalContestants = #playersInRound + #botList
+	local readyBotCount = self.botService:GetReadyBotCount()
+	local totalContestants = #playersInRound + readyBotCount
 	local runnerCount = math.max(0, totalContestants - 1)
 	self.roundRunnerCount = runnerCount
 	local spawnIndex = 0
@@ -1293,7 +1294,7 @@ function RoundService:_runRound()
 
 	local botSpawnCFrames = {}
 	for index, bot in ipairs(botList) do
-		if bot ~= controllerBot then
+		if bot ~= controllerBot and self.botService:IsRigReady(bot) then
 			spawnIndex += 1
 			botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(runnerCount, 1))
 			self.roundRunners[bot] = { kind = "Bot", value = bot }

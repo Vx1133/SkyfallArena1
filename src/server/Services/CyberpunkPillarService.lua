@@ -166,7 +166,7 @@ function CyberpunkPillarService.Build(
 				folder,
 				"PylonCrownBase_" .. key,
 				Vector3.new(9, 1.5, 9),
-				at(29),
+				at(28.6),
 				silver,
 				profile
 			)
@@ -174,7 +174,7 @@ function CyberpunkPillarService.Build(
 				folder,
 				"PylonCrownCap_" .. key,
 				Vector3.new(7.2, 0.9, 7.2),
-				at(30.2),
+				at(29.65),
 				theme.roof,
 				profile
 			)

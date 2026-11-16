@@ -6,6 +6,7 @@ local Config = require(sharedFolder:WaitForChild("GameConfig", 8))
 local MapRotation = require(sharedFolder:WaitForChild("MapRotation", 8))
 local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy", 8))
 local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy", 8))
+local StartupReadinessPolicy = require(sharedFolder:WaitForChild("StartupReadinessPolicy", 8))
 
 local RoundService = {}
 RoundService.__index = RoundService
@@ -1394,10 +1395,9 @@ function RoundService:_runLoop()
 		-- A normal round needs one fully created bot controller. Avatar creation is
 		-- now asynchronous, so keep the game responsive while the first rig loads.
 		-- A human can still proceed by explicitly opting into aircraft control.
-		local hasReadyBot = not self.botService
-			or self.botService:GetReadyBotCount() > 0
+		local readyBotCount = self.botService and self.botService:GetReadyBotCount() or 0
 		local hasManualPilot = false
-		if not hasReadyBot then
+		if readyBotCount == 0 then
 			for _, readyPlayer in ipairs(self:_getReadyPlayers()) do
 				if readyPlayer:GetAttribute("SkyfallPilotOptIn") == true then
 					hasManualPilot = true
@@ -1406,7 +1406,7 @@ function RoundService:_runLoop()
 			end
 		end
 
-		if not hasReadyBot and not hasManualPilot then
+		if not StartupReadinessPolicy.CanBeginIntermission(readyBotCount, hasManualPilot) then
 			self.phase = "Waiting"
 			self.countdownSeconds = 0
 			self:_broadcast()

@@ -93,7 +93,7 @@ Updated `tools/validate_project.py`:
 ## 6. CI results
 
 Latest successful PR validation run:
-[GitHub Actions run #581](https://github.com/Vx1133/SkyfallArena1/actions/runs/43935755946)
+[GitHub Actions run #581](https://github.com/Vx1133/SkyfallArena1/actions/runs/43936283555)
 
 All steps passed:
 - Install pinned Roblox tools

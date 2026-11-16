@@ -5,9 +5,9 @@
 > Base: `main`
 
 ## 1. Repository review and implementation plan
-- [ ] Read current GameConfig, Bootstrap, RoundService, StrikeService, BotService, HUD, Audio, Rojo project mapping, and cloud smoke tests.
-- [ ] Confirm lobby spawn geometry and available bot target interfaces.
-- [ ] Record implementation plan and exact files to change.
+- [x] Read current GameConfig, Bootstrap, RoundService, StrikeService, BotService, HUD, Audio, Rojo project mapping, and cloud smoke tests. Evidence: fetched all requested files from `main`; RoundService (1,229 lines), BotService (808 lines), and cloud smoke tests (981 lines) reviewed in sections.
+- [x] Confirm lobby spawn geometry and available bot target interfaces. Evidence: lobby platform is `ArenaService.lobbyFolder/WaitingPlatform`, spawn radius is 49 studs, and `BotService:GetAliveBots()` exposes live Runner bot models and Humanoids.
+- [x] Record implementation plan and exact files to change. Plan: isolate session scoring in `PilotPriorityService`; isolate Tool, lobby station, projectile, target validation, and hold cleanup in `BubbleGunService`; wire lifecycle callbacks through `RoundService`; keep input/reticle in a client script; keep HUD changes isolated to `HUD.client.lua`.
 - [ ] Confirm protected systems: golden drone model, lens, laser visuals, map count, round duration, and publishing workflow remain unchanged.
 
 ## 2. Bubble Blaster asset and free trial station
@@ -109,3 +109,4 @@
 | Tests | Pending |
 | Device / multiplayer runtime | Pending |
 | Review | Pending |
+\n## Implementation plan (approved scope from the supplied specification)\n- `src/shared/GameConfig.lua`: add only bubble and Pilot Priority constants, preserving `ROUND_SECONDS = 180` and all laser/drone values.\n- `src/server/Bootstrap.server.lua`: create the BubbleShot remote, require/start the two new services, and connect RoundService lifecycle callbacks.\n- `src/server/Services/PilotPriorityService.lua` (new): own in-memory per-human scores, one-reward-per-round guard, tie-breaking timestamps, and selection.\n- `src/server/Services/BubbleGunService.lua` (new): build the trusted native Tool and lobby station, centralize grants, validate shots on the server, create projectile/bubble visuals, and restore held targets on every cleanup path.\n- `src/server/Services/RoundService.lua`: delegate score/selection, grant the Tool to Runners only, remove nextController bypass, reward eliminations/winners, and broadcast all human co-winners.\n- `src/client/BubbleGun.client.lua` (new): connect standard Tool equip/Activated input, camera aim, and a compact equipped reticle.\n- `src/client/HUD.client.lua`: add only the small DRONE percentage text, update on the score attribute, and keep it away from thumbstick/safe-area edges.\n- `tests/cloud_smoke_tests.luau` and `tools/validate_project.py`: add regression and structural checks.\n- Reviewed but planned unchanged: `StrikeService.lua`, `BotService.lua`, `Audio.client.lua`, `default.project.json`, and `ArenaService.lua`. Their current interfaces already support the requested integration. No external models, DataStore, map edits, laser edits, or publishing workflow changes.\n

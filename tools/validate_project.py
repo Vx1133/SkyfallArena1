@@ -433,6 +433,7 @@ for feature in (
     "Players remain in the lobby until they request Play",
     "Creator flight authorization only grants the personal experience owner",
     "Owner debug control overrides first-round bot selection and can take over an active round",
+    "Bot controller can be hidden and restored after a debug takeover",
     "Broken tiles remain broken",
     "Round-end cleanup instantly restores every destructible tile",
     "Lobby streaming focus is added and removed once without changing global radius",

@@ -535,6 +535,7 @@ for feature in (
     "Bubble Blaster server asset, lobby station, and training target exist",
     "Bubble Blaster grants one copy and accepts only the lobby training target while waiting",
     "Bubble Blaster server rejects invalid aim and enforces its cooldown",
+    "Bubble projectile revalidates and hits the training target after travel",
     "Bubble hold restores movement and physics state exactly once",
     "three-second cooldown",
     "Four-cardinal lens aim tests",

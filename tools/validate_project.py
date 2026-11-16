@@ -620,6 +620,8 @@ for feature in (
     "The active HUD count only includes living arena runners",
     "A fallen bot is removed before the round broadcasts its survivor count",
     "Pilot Priority selects only manually opted-in humans and prevents a legacy controller override",
+    "One human and ten bots default to a bot controller until the human manually opts in",
+    "Ten bots remain independently assigned as one Controller and nine Runners",
     "Legacy nextController cannot select an unready player",
     "Pilot Priority rewards use 54-second threshold, one reward per round, and cap at 100",
     "Pilot Priority tie-break favors the player who waited longest and avoids an immediate repeat",
@@ -648,6 +650,16 @@ for feature in ("function FloorAppearanceService.Capture(", "source.MaterialVari
 element_integration_source = (ROOT / "src/server/Services/ElementIntegrationService.lua").read_text(encoding="utf-8")
 for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallElementType", "Fire", "Water", "Earth", "Air", "TweenService:Create", "CanCollide = false", "CanQuery = false"):
     require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
+
+bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function BotService:StartRound(spawnCFrames, controllerBot)",
+    "bot.isController = true",
+    "bot.isController = false",
+    'bot.model:SetAttribute("SkyfallRole", "Runner")',
+    "bot.root:SetNetworkOwner(nil)",
+):
+    require(feature in bot_source, f"Bot runner/controller isolation is missing: {feature}")
 
 pilot_policy_source = (ROOT / "src/shared/PilotOptInPolicy.lua").read_text(encoding="utf-8")
 control_policy_test = (ROOT / "tests/lune/update_023_control_state.luau").read_text(encoding="utf-8")

@@ -619,7 +619,7 @@ for feature in (
     "A departing debug controller restores its previous live controller",
     "The active HUD count only includes living arena runners",
     "A fallen bot is removed before the round broadcasts its survivor count",
-    "Pilot Priority selects humans by score and prevents a legacy controller override",
+    "Pilot Priority selects only manually opted-in humans and prevents a legacy controller override",
     "Legacy nextController cannot select an unready player",
     "Pilot Priority rewards use 54-second threshold, one reward per round, and cap at 100",
     "Pilot Priority tie-break favors the player who waited longest and avoids an immediate repeat",
@@ -656,7 +656,7 @@ require("function PilotOptInPolicy.ResolveCandidates(" in pilot_policy_source, "
 require("UPDATE_023_CONTROL_STATE_TESTS_OK" in control_policy_test, "Update #23 control-state Lune test is missing")
 require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Players must default to no pilot opt-in")
 require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
-require('PilotOptInPolicy.Filter(readyPlayers' in round_source, "Controller selection must filter explicit pilot opt-ins")
+require("PilotOptInPolicy.ResolveCandidates(" in round_source, "Controller selection must resolve explicit human opt-in separately from bot fallback")
 require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
 require("PilotOptInPolicy.ResolveCandidates(" in round_source, "Controller selection must resolve manual humans separately from bot fallback")
 require('player:SetAttribute("SkyfallAircraftControlActive", false)' in round_source, "Player aircraft control state must default to off")

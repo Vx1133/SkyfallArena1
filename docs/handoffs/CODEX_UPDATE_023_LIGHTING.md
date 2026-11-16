@@ -27,12 +27,13 @@ The previous ArenaService map table supplied separate Lighting values. Classic u
 
 1. Confirm every current map and the lobby call the same global Lighting profile.
 2. Confirm no other source file writes global Lighting properties or creates competing map-specific post-processing effects.
-3. Confirm property names and enum values against current Roblox API documentation. Do not invent an AmbientOcclusionEffect class or undocumented AO property.
-4. Keep `LightingStyle.Realistic` as the engine AO/contact-shading path only if current API/runtime support is confirmed. Roblox may lower lighting quality on mobile devices; verify both high and low graphics settings.
-5. Confirm Bloom threshold/intensity do not wash out the white Cyberpunk surfaces or cyan Neon strips.
-6. Confirm the Classic map is no longer too dark after ambient fill is raised, while the Cyberpunk map is no longer excessively bright.
-7. Do not force `Lighting.Technology = Future`; do not add high-frequency client loops, many new lights, or expensive post effects.
-8. Preserve all existing geometry, gameplay, tile logic, HUD behavior, and server authority.
+3. Confirm the managed profile removes duplicate/legacy environment post-effects before applying its one known effect stack.
+4. Confirm property names and enum values against current Roblox API documentation. Do not invent an AmbientOcclusionEffect class or undocumented AO property.
+5. Keep `LightingStyle.Realistic` as the engine AO/contact-shading path only if current API/runtime support is confirmed. Roblox may lower lighting quality on mobile devices; verify both high and low graphics settings.
+6. Confirm Bloom threshold/intensity do not wash out the white Cyberpunk surfaces or cyan Neon strips.
+7. Confirm the Classic map is no longer too dark after ambient fill is raised, while the Cyberpunk map is no longer excessively bright.
+8. Do not force `Lighting.Technology = Future`; do not add high-frequency client loops, many new lights, or expensive post effects.
+9. Preserve all existing geometry, gameplay, tile logic, HUD behavior, and server authority.
 
 ## Required checks
 

@@ -909,6 +909,52 @@ runTest("If no Runner remains, a valid human Controller receives the win and pri
 		"A human Controller winner must receive one win and ten Pilot Priority points")
 end)
 
+runTest("Dead stale human Runners cannot win through survivor fallback", function()
+	local function checkDeadRunnerFallback(elapsedSeconds)
+		local deadRunner = makeFakePlayer("StaleDeadRunner", "Runner")
+		deadRunner.Character.Humanoid.Health = 0
+		local controller = makeFakePlayer("FallbackController", "Controller")
+		local priority = PilotPriorityService.new(Random.new(37))
+		priority:Initialize(deadRunner)
+		priority:Initialize(controller)
+		local deadWins = {Value = 0}
+		local controllerWins = {Value = 0}
+		local harness = setmetatable({
+			elapsedSeconds = elapsedSeconds,
+			aliveRunners = {[deadRunner] = true},
+			roundRunners = {[deadRunner] = {kind = "Player", value = deadRunner}},
+			survivalTimes = {[deadRunner] = Config.ROUND_SECONDS},
+			controller = {kind = "Player", value = controller},
+			botService = {GetAliveBots = function()
+				return {}
+			end},
+			stats = {
+				[deadRunner] = {wins = deadWins},
+				[controller] = {wins = controllerWins},
+			},
+			pilotPriority = priority,
+			random = Random.new(41),
+			_placePlayer = function()
+				return true
+			end,
+			_lobbySpawnForPlayer = function()
+				return CFrame.new()
+			end,
+		}, RoundService)
+
+		local winners = harness:_resolveWinners(1)
+		assert(#winners == 1 and winners[1].value == controller,
+			"Only the valid Controller may win when the roster contains no living Runner")
+		assert(deadWins.Value == 0 and priority:GetScore(deadRunner) == 0,
+			"A dead stale Runner must not receive a win or priority points")
+		assert(controllerWins.Value == 1 and priority:GetScore(controller) == 10,
+			"The fallback Controller must receive one win and ten priority points")
+	end
+
+	checkDeadRunnerFallback(45)
+	checkDeadRunnerFallback(Config.ROUND_SECONDS)
+end)
+
 runTest("A winning human Controller is restored from hidden drone state", function()
 	local controller = makeFakePlayer("HiddenController", "Controller")
 	local priority = PilotPriorityService.new(Random.new(31))

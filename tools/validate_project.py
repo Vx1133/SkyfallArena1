@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tomllib
 from pathlib import Path
 
@@ -30,6 +31,8 @@ require(tools.get("selene") == "Kampfkarren/selene@0.32.0", "Selene must remain 
 required_files = [
     "src/shared/GameConfig.lua",
     "src/shared/MapRotation.lua",
+    "src/shared/StartupReadinessPolicy.lua",
+    "tests/lune/update_024_startup_guard.luau",
     "src/shared/WorldDesignProfile.lua",
     "tests/lune/update_023_world_design.luau",
     "src/shared/DebugControllerPolicy.lua",
@@ -64,6 +67,17 @@ for relative_path in required_files:
     require(path.is_file(), f"Required project file is missing: {relative_path}")
     require(path.stat().st_size > 0, f"Required project file is empty: {relative_path}")
 
+# A single-argument WaitForChild has no failure deadline and may yield forever.
+unbounded_wait_pattern = re.compile(
+    r":WaitForChild\(\s*(?:\"[^\"]+\"|'[^']+'|[A-Za-z_][A-Za-z0-9_]*)\s*\)"
+)
+for source_path in list((ROOT / "src").rglob("*.lua")) + list((ROOT / "src").rglob("*.luau")):
+    source_text = source_path.read_text(encoding="utf-8")
+    require(
+        not unbounded_wait_pattern.search(source_text),
+        f"Unbounded WaitForChild remains in {source_path.relative_to(ROOT)}",
+    )
+
 world_design_source = (ROOT / "src/shared/WorldDesignProfile.lua").read_text(encoding="utf-8")
 world_design_test = (ROOT / "tests/lune/update_023_world_design.luau").read_text(encoding="utf-8")
 for feature in (
@@ -82,7 +96,7 @@ for feature in (
 require("UPDATE_023_WORLD_DESIGN_TESTS_OK" in world_design_test, "World design regression test is missing")
 
 config_source = (ROOT / "src/shared/GameConfig.lua").read_text(encoding="utf-8")
-require('local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile"))' in config_source,
+require('local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile", 8))' in config_source,
         "Lobby size and spawn radii must use central world design tokens")
 for setting in (
     "Config.MIN_PLAYERS = 1",
@@ -173,7 +187,7 @@ for forbidden in (
 lighting_profile_source = (ROOT / "src/shared/LightingProfile.lua").read_text(encoding="utf-8")
 lighting_service_source = (ROOT / "src/server/Services/LightingProfileService.lua").read_text(encoding="utf-8")
 lighting_test_source = (ROOT / "tests/lune/update_023_lighting_profile.luau").read_text(encoding="utf-8")
-require('local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))' in arena_source,
+require('local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService", 8))' in arena_source,
         "ArenaService must use the centralized lighting profile service")
 require("LightingProfileService.Apply()" in arena_source, "Every ArenaService map selection must apply the shared lighting profile")
 require('local Lighting = game:GetService("Lighting")' not in arena_source, "ArenaService must not write global Lighting directly")
@@ -301,6 +315,11 @@ for bot_name in ("Atlas", "Nova", "Rook"):
     require(f'name = "{bot_name}"' in bot_source, f"AI bot profile is missing: {bot_name}")
 require("for botIndex = 1, Config.BOT_COUNT do" in bot_source, "BotService must construct all configured NPCs")
 require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NPCs must use Roblox's built-in HumanoidDescription rig generator")
+require("self.rigBuildTimeoutSeconds = 14" in bot_source, "Bot rig generation must have a bounded timeout")
+require("function BotService:_queueRigBuild(" in bot_source, "Bot rig generation must use the asynchronous build queue")
+require("function BotService:GetReadyBotCount()" in bot_source, "Round startup must count only completed bot rigs")
+require("queuedBot.rigBuildToken += 1" in bot_source, "Timed-out bot rig requests must be invalidated")
+require(bot_source.count("self:_buildRig(") == 1, "Bot rigs must only be built inside the asynchronous queue")
 require("createFallbackHair" not in bot_source, "Procedural custom bot hair must not be used")
 for feature in ("function BotService:_setBotHidden(", "function BotService:SetController(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
@@ -319,8 +338,8 @@ for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "Ma
 bootstrap_source = (ROOT / "src/server/Bootstrap.server.lua").read_text(encoding="utf-8")
 for feature in (
     'getOrCreateRemote(remotesFolder, "BubbleShot")',
-    'WaitForChild("PilotPriorityService")',
-    'WaitForChild("BubbleGunService")',
+    'requireService(servicesFolder, "PilotPriorityService")',
+    'requireService(servicesFolder, "BubbleGunService")',
     "BubbleGunService.new(",
     "bubbleGun:Start()",
 ):
@@ -488,7 +507,7 @@ for feature in (
 
 bubble_client_source = (ROOT / "src/client/BubbleGun.client.lua").read_text(encoding="utf-8")
 for feature in (
-    'WaitForChild("BubbleShot")',
+    'waitForChildOrWarn(remotes, "BubbleShot")',
     "instance.Activated:Connect(function()",
     "camera.CFrame.LookVector",
     'reticleGui.Name = "SkyfallBubbleReticle"',
@@ -541,7 +560,9 @@ for feature in (
     require(feature in hud_source, f"Overhead two-stat HUD feature is missing: {feature}")
 for forbidden in ("RemainingLabel", "EliminatedLabel", "LEFT\\n", "OUT\\n", "cameraBack", "isPortrait"):
     require(forbidden not in hud_source, f"Unwanted HUD statistic or angled-camera code remains: {forbidden}")
-require('remotes:WaitForChild("PlayRequest")' in hud_source, "Lobby Play remote is missing from mobile HUD")
+require('waitForChildOrWarn(remotes, "PlayRequest")' in hud_source, "Lobby Play remote is missing from mobile HUD")
+require('Workspace:WaitForChild("SkyfallArena")' not in hud_source, "HUD startup must not wait for streamed Workspace geometry")
+require('Workspace:FindFirstChild("SkyfallArena")' in hud_source, "Controller targeting must resolve streamed arena geometry lazily")
 require('playButton.Name = "PlayButton"' in hud_source, "Lobby Play button is missing")
 require("playRemote:FireServer()" in hud_source, "Lobby Play button does not request a round")
 require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile HUD must remain translucent")
@@ -591,7 +612,7 @@ require(workspace_properties.get("StreamingIntegrityMode") == "PauseOutsideLoade
 
 admin_client_source = (ROOT / "src/client/AdminFlight.client.lua").read_text(encoding="utf-8")
 for feature in (
-    'remotes:WaitForChild("AdminFlight")',
+    'waitForChildOrWarn(remotes, "AdminFlight")',
     'flightRemote:FireServer("Enable")',
     'flightRemote:FireServer("Disable")',
     'flightRemote:FireServer("Move", direction, camera.CFrame.LookVector)',
@@ -705,6 +726,26 @@ require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source.split(
 require('player:SetAttribute("SkyfallAircraftControlActive", false)' in round_source, "Player aircraft control state must default to off")
 require('player:SetAttribute("SkyfallAircraftControlActive", hidden == true)' in round_source, "Server must own the aircraft-control active state")
 require('player:GetAttribute("SkyfallAircraftControlActive") == true' in hud_source, "The client camera must require explicit server aircraft-control state")
+startup_policy_source = (ROOT / "src/shared/StartupReadinessPolicy.lua").read_text(encoding="utf-8")
+startup_policy_test = (ROOT / "tests/lune/update_024_startup_guard.luau").read_text(encoding="utf-8")
+require("StartupReadinessPolicy.CanBeginIntermission(" in round_source, "Round startup must wait for a valid controller candidate")
+require("GetReadyBotCount()" in round_source, "Round startup must use fully constructed bots, not configured bot count")
+require("task.wait(0.5)" in round_source.split("function RoundService:_runLoop()", 1)[1], "Waiting for bot readiness must yield instead of spinning")
+require("function StartupReadinessPolicy.CanBeginIntermission(" in startup_policy_source, "Startup readiness decision must be isolated in a pure policy")
+require("UPDATE_024_STARTUP_GUARD_TESTS_OK" in startup_policy_test, "Update #24 startup regression test is missing")
+
+bootstrap_source = (ROOT / "src/server/Bootstrap.server.lua").read_text(encoding="utf-8")
+for feature in (
+    "function waitForRequiredChild(",
+    "function requireService(",
+    "function runStartupStage(",
+    "[SkyfallStartup] BEGIN",
+    "[SkyfallStartup] FAILED",
+    'runStartupStage("ArenaBuild"',
+    'runStartupStage("StartGameServices"',
+):
+    require(feature in bootstrap_source, f"Bounded startup diagnostics are missing: {feature}")
+
 clear_ready_source = round_source.split("function RoundService:_clearReadyPlayers()", 1)[1].split(
     "function RoundService:_setPlayerControllerHidden", 1
 )[0]

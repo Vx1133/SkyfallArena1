@@ -53,12 +53,20 @@ end
 local arena
 
 local function makeFakePlayer(name, role)
+	local fakeHumanoid = {Health = 100}
+	local fakeCharacter = {}
+	function fakeCharacter:FindFirstChildOfClass(className)
+		return className == "Humanoid" and fakeHumanoid or nil
+	end
+	function fakeCharacter:FindFirstChild()
+		return nil
+	end
 	local fakePlayer = {
 		Name = name,
 		DisplayName = name,
 		Parent = Players,
 		attributes = {SkyfallRole = role},
-		Character = nil,
+		Character = fakeCharacter,
 	}
 	function fakePlayer:SetAttribute(attributeName, value)
 		self.attributes[attributeName] = value

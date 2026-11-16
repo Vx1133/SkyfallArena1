@@ -3,7 +3,7 @@ local PathfindingService = game:GetService("PathfindingService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("GameConfig", 8))
 
 local BotService = {}
 BotService.__index = BotService

@@ -36,6 +36,8 @@ required_files = [
     "tests/lune/update_025_startup_guard.luau",
     "docs/updates/024-global-startup-freeze-fix.md",
     "docs/handoffs/CODEX_UPDATE_024_STARTUP_FREEZE.md",
+    "docs/updates/025-startup-readiness-gate.md",
+    "docs/handoffs/CODEX_UPDATE_025_STARTUP_READINESS.md",
     "src/shared/WorldDesignProfile.lua",
     "tests/lune/update_023_world_design.luau",
     "src/shared/DebugControllerPolicy.lua",
@@ -748,6 +750,8 @@ require('GetAttributeChangedSignal("SkyfallGameReady")' in hud_source, "HUD must
 require('GetAttributeChangedSignal("SkyfallCharacterReady")' in hud_source, "HUD must react when the player character is ready")
 require('player:SetAttribute("SkyfallCharacterReady", false)' in round_source, "Players must remain unready until their character is loaded")
 require('player:SetAttribute("SkyfallCharacterReady", true)' in round_source, "Players must be marked ready only after character placement")
+require('player:GetAttribute("SkyfallCharacterReady") == true' in round_source.split("function RoundService:_readyPlayerCount()", 1)[1], "Round readiness must count only players with loaded characters")
+require('player:GetAttribute("SkyfallCharacterReady") == true' in round_source.split("function RoundService:_getReadyPlayers()", 1)[1], "Round roster must exclude players still spawning")
 require('player:GetAttribute("SkyfallCharacterReady") ~= true' in round_source, "Server must reject Play requests before character readiness")
 
 bootstrap_source = (ROOT / "src/server/Bootstrap.server.lua").read_text(encoding="utf-8")
@@ -759,8 +763,8 @@ for feature in (
     "[SkyfallStartup] BEGIN",
     "[SkyfallStartup] TIMEOUT",
     "[SkyfallStartup] FAILED",
-    'runStartupStage("ArenaBuild", 20',
-    'runStartupStage("StartGameServices", 10',
+    'runStartupStage("ArenaBuild", 45',
+    'runStartupStage("StartGameServices", 20',
 ):
     require(feature in bootstrap_source, f"Bounded startup diagnostics are missing: {feature}")
 

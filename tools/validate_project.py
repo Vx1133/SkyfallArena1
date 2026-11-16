@@ -675,16 +675,19 @@ for feature in (
 
 require("CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)" in arena_source, "Arena must build the four integrated corner pillars")
 for feature in (
-    'clockTime = 14.2',
-    'fogColor = Color3.fromRGB(190, 220, 242)',
-    'daySky.Name = "SkyfallDaySky"',
-    "daySky.StarCount = 0",
-    "daySky.MoonAngularSize = 0",
-    "atmosphere.Density = 0.12",
-    "atmosphere.Haze = 0.7",
-    "FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)",
+    'FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)',
 ):
-    require(feature in arena_source, f"Daylight and all-face lobby material sync are missing: {feature}")
+    require(feature in arena_source, f"Cyberpunk architecture surface profile is missing: {feature}")
+for feature in (
+    'ClockTime = 14',
+    'daySky.Name' ,
+    'StarCount = 0',
+    'MoonAngularSize = 0',
+    'Density = 0.07',
+    'Haze = 0.42',
+    'Glare = 0.035',
+):
+    require(feature in lighting_profile_source, f"Shared daylight profile is missing: {feature}")
 require("function FloorAppearanceService.ApplySurface(" in floor_appearance_source, "Surface-only lobby material profile application is missing")
 
 print("Skyfall Arena structural and gameplay validation passed.")

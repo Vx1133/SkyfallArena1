@@ -8,7 +8,7 @@
 - [x] Read current GameConfig, Bootstrap, RoundService, StrikeService, BotService, HUD, Audio, Rojo project mapping, and cloud smoke tests. Evidence: fetched all requested files from `main`; RoundService (1,229 lines), BotService (808 lines), and cloud smoke tests (981 lines) reviewed in sections.
 - [x] Confirm lobby spawn geometry and available bot target interfaces. Evidence: lobby platform is `ArenaService.lobbyFolder/WaitingPlatform`, spawn radius is 49 studs, and `BotService:GetAliveBots()` exposes live Runner bot models and Humanoids.
 - [x] Record implementation plan and exact files to change. Plan: isolate session scoring in `PilotPriorityService`; isolate Tool, lobby station, projectile, target validation, and hold cleanup in `BubbleGunService`; wire lifecycle callbacks through `RoundService`; keep input/reticle in a client script; keep HUD changes isolated to `HUD.client.lua`.
-- [ ] Confirm protected systems: golden drone model, lens, laser visuals, map count, round duration, and publishing workflow remain unchanged.
+- [x] Confirm protected systems: golden drone model, lens, laser visuals, map count, round duration, and publishing workflow remain unchanged. Evidence: branch comparison lists only the 10 planned Update #18 files; protected services/workflows and `default.project.json` are absent from the diff. `ROUND_SECONDS = 180` and `MAP_COUNT = 1` remain unchanged.
 
 ## 2. Bubble Blaster asset and free trial station
 - [ ] Add configurable bubble weapon settings: 2.5s hold, 8s cooldown, 60-stud range.
@@ -86,19 +86,19 @@
 - [ ] Add controller selection tests for priority, tie-break, random final tie, score reset, no immediate repeat, solo first round, and bot fallback.
 - [ ] Add multiple-winner tests for 0, 1, and multiple human survivors at timeout, including stats and reward correctness.
 - [ ] Add HUD structural checks for visibility, text, update behavior, and safe-area anchoring.
-- [ ] Run cloud smoke tests and project structural validation.
-- [ ] Run Selene on `src` and `tests`.
-- [ ] Run `rojo build default.project.json`.
-- [ ] Review diff for protected drone, lens, laser, map, round duration, and publish workflow changes.
+- [ ] Run cloud smoke tests (private Roblox upload and live execution still pending).\n- [x] Run project structural validation. Evidence: GitHub Actions run `43887761737`, commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`, step `Validate repository structure` passed.
+- [x] Run Selene on `src` and `tests`. Evidence: GitHub Actions run `43887761737`, Selene completed with 0 errors, 0 warnings, and 0 parse errors.
+- [x] Run `rojo build default.project.json`. Evidence: GitHub Actions run `43887761737`, Rojo build completed successfully and produced the `SkyfallArena-place` artifact.
+- [x] Review diff for protected drone, lens, laser, map, round duration, and publish workflow changes. Evidence: base-to-branch comparison lists only the 10 intended Update #18 files; protected modules, project mapping, and upload workflow are unchanged.
 - [ ] Record each test result and any untestable device/runtime behavior below.
 - [ ] Verify Device Simulator and a real phone for touch, Safe Area, Tool equip/fire, and thumbstick overlap (mark unverified if unavailable).
 - [ ] Verify multiplayer behavior with at least two real clients when available (mark unverified if unavailable).
 
 ## 9. Review and delivery
-- [ ] Perform an independent code review or documented self-review if no reviewer agent is available.
-- [ ] Resolve all critical and important findings.
+- [x] Perform an independent code review or documented self-review if no reviewer agent is available. Evidence: self-review found and fixed a dead stale human Runner fallback issue, plus two CI blockers (an extra `end` and seven Luau style warnings); see latest recovery checkpoint.
+- [x] Resolve all critical and important findings found in the self-review. Runtime/device findings remain unverified, not assumed clear.
 - [ ] Create a Pull Request against `main`.
-- [ ] Confirm CI results for structural validation, Selene, and Rojo build.
+- [x] Confirm CI results for structural validation, Selene, and Rojo build. Evidence: GitHub Actions run `43887761737` succeeded on commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
 - [ ] Do not merge or publish this update.
 
 ## Evidence log
@@ -197,3 +197,41 @@ The work below is saved on `feat/018-bubble-blaster-pilot-priority`. Continue on
 - Merge/upload/publication: not performed.
 
 Do not mark implementation or test items complete based only on source inspection. The source-level work is not a substitute for a successful build, lint, Roblox runtime test, or phone test.
+
+
+## Recovery checkpoint (2026-11-16, latest CI and self-review)
+
+Continue from this branch and commit. Do not restart the Update #18 implementation.
+
+### Saved source state
+- Latest reviewed implementation commit: `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
+- Current branch: `feat/018-bubble-blaster-pilot-priority`.
+- Base: `main`, comparison: 47 commits ahead, 0 behind.
+- Exactly 10 changed files in the branch comparison: this checklist, BubbleGun client/service, HUD, Bootstrap, PilotPriorityService, RoundService, GameConfig, cloud smoke tests, and `tools/validate_project.py`.
+- Protected systems remain outside the diff: `StrikeService.lua`, `BotService.lua`, `ArenaService.lua`, `Audio.client.lua`, `default.project.json`, and `.github/workflows/upload-private-test.yml`. Round duration remains 180 seconds and map count remains 1.
+
+### CI evidence on the reviewed source commit
+- GitHub Actions run: [43887761737](https://github.com/Vx1133/SkyfallArena1/actions/runs/43887761737), head `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
+- Result: **success**.
+- `python tools/validate_project.py`: passed.
+- `selene src tests`: passed, 0 errors, 0 warnings, 0 parse errors.
+- `rojo build default.project.json`: passed.
+- Build artifact: `SkyfallArena-place`, artifact ID `14234913431`, created by this run.
+
+### Issues found and repaired during final review
+- Updated the stale validator assertion for the first solo-human controller exception to match the current `readyPlayers` flow.
+- Added a structural guard for balanced duplicate-Tool cleanup, then removed the extra `end` that Selene had identified in `BubbleGunService.lua`.
+- Reformatted seven one-line statements in the cloud smoke tests; Selene then passed without warnings.
+- Found that stale dead human Runner entries could be selected through the sole/longest-survivor fallback if a death event was delayed. `_getSoleSurvivor` now reuses the living-human filter, and `_getLongestSurvivor` now requires a present living Humanoid with Runner role. Added a regression smoke test for both pre-timeout and timeout resolution. The source validator, Selene, and Rojo all passed after this change.
+
+### Still unverified and must remain unchecked
+- Roblox Cloud smoke tests have **not** been run. The repository workflow requires the explicit manual input `UPLOAD_PRIVATE_TEST` and uploads a new version to the existing Start Place before running the cloud script. It does not make the experience public, but it does modify the configured private place version.
+- Device Simulator, real-phone touch/Tool use, Safe Area/thumbstick overlap, and multi-client multiplayer testing have not been run.
+- The smoke-test script is linted and included in the project, but its live Roblox execution is not proven by the regular validation workflow.
+- No Update #18 Pull Request has been created yet at this checkpoint. No merge, Roblox upload, or public release has been performed.
+
+### Next actions
+- [ ] Obtain the explicit private-place upload confirmation before running the manual Roblox upload/cloud-test workflow.
+- [ ] Run the cloud smoke tests against the exact uploaded private place version and inspect the success marker/logs.
+- [ ] Run Device Simulator and real-phone checks, then test with at least two clients.
+- [ ] Create the Update #18 Pull Request against `main` after final checks. Keep it unmerged and do not publish publicly.

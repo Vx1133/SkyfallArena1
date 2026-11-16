@@ -28,13 +28,13 @@ local function buildTree(
 		base, top, 3.2, color(palette.Bark), true
 	)
 
-	local branchLeft = Factory.CylinderBetween(
+	Factory.CylinderBetween(
 		folder, profile, "Classic", "ClassicNatureBranch_" .. string.format("%02d", index) .. "_A",
 		top + Vector3.new(0, -height * 0.42, 0),
 		top + Vector3.new(-9 * crownScale, 1, -3 * crownScale),
 		1.45, color(palette.Bark)
 	)
-	local branchRight = Factory.CylinderBetween(
+	Factory.CylinderBetween(
 		folder, profile, "Classic", "ClassicNatureBranch_" .. string.format("%02d", index) .. "_B",
 		top + Vector3.new(0, -height * 0.54, 0),
 		top + Vector3.new(8 * crownScale, 3, 4 * crownScale),
@@ -55,7 +55,7 @@ local function buildTree(
 		color(palette.CanopyMid),
 		color(palette.CanopyDeep),
 	}
-	local crownParts = {}
+	local crownParts: { Part } = {}
 	for crownIndex, offset in ipairs(crownOffsets) do
 		local scale = crownIndex == 1 and 1.18 or (crownIndex % 2 == 0 and 0.78 or 0.9)
 		local canopy = Factory.CreatePart(
@@ -196,22 +196,21 @@ function ClassicNatureMapBuilder.Build(
 	folder.Parent = parent
 
 	local treeLayouts = {
-		{ offset = Vector3.new(-halfWidth - 38, 11, -halfWidth - 30), height = 29, scale = 1.08 },
-		{ offset = Vector3.new(halfWidth + 35, 8, -halfWidth - 45), height = 21, scale = 0.84 },
-		{ offset = Vector3.new(-halfWidth - 26, 15, halfWidth + 37), height = 24, scale = 0.92 },
+		{ offset = Vector3.new(-halfWidth - 24, 11, -20), height = 29, scale = 1.08 },
+		{ offset = Vector3.new(halfWidth + 21, 8, -38), height = 21, scale = 0.84 },
+		{ offset = Vector3.new(-22, 15, halfWidth + 24), height = 24, scale = 0.92 },
 	}
 	for index, layout in ipairs(treeLayouts) do
 		local trunk, _ = buildTree(folder, profile, center, index, layout.offset, layout.height, layout.scale)
 		buildExposedRoots(folder, profile, center, index, layout.offset)
 		if index == 2 then
-			Factory.CreatePointLight(folder, "ClassicNatureCanopyLight", color(WorldDesignProfile.Classic.CanopyLight), 0.18, 16).Parent =
-				trunk
+			Factory.CreatePointLight(trunk, "ClassicNatureCanopyLight", color(WorldDesignProfile.Classic.CanopyLight), 0.18, 16)
 		end
 	end
 
-	buildFloatingIslet(folder, profile, center, 1, Vector3.new(0, 13, -halfWidth - 57), Vector3.new(35, 9, 25), -18)
-	buildFloatingIslet(folder, profile, center, 2, Vector3.new(halfWidth + 55, 5, 20), Vector3.new(28, 8, 22), 31)
-	buildFloatingIslet(folder, profile, center, 3, Vector3.new(-28, 17, halfWidth + 55), Vector3.new(30, 10, 24), 12)
+	buildFloatingIslet(folder, profile, center, 1, Vector3.new(0, 13, -halfWidth - 35), Vector3.new(35, 9, 25), -18)
+	buildFloatingIslet(folder, profile, center, 2, Vector3.new(halfWidth + 38, 5, 20), Vector3.new(28, 8, 22), 31)
+	buildFloatingIslet(folder, profile, center, 3, Vector3.new(-20, 17, halfWidth + 38), Vector3.new(30, 10, 24), 12)
 
 	buildRootArch(folder, profile, center)
 

@@ -85,7 +85,7 @@ local function buildOrbitalFrame(
 	local segments: { Part } = {}
 	for index = 1, #vertices do
 		local nextIndex = index % #vertices + 1
-		-- Three intentional gaps break the loop into an orbital frame rather than a closed perimeter fence.
+		-- Two intentional gaps break the loop into an orbital frame rather than a closed perimeter fence.
 		if index ~= 2 and index ~= 5 then
 			local segment = Factory.CylinderBetween(
 				folder, profile, "Cyberpunk",

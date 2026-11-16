@@ -675,7 +675,8 @@ for feature in ("function FloorAppearanceService.Capture(", "source.MaterialVari
 element_integration_source = (ROOT / "src/server/Services/ElementIntegrationService.lua").read_text(encoding="utf-8")
 require("FloorAppearanceService.Capture(lobbyFloor)" in element_integration_source, "Element transitions must capture the lobby material profile")
 require("mapBaseColor" in element_integration_source, "Element transition blend must use the active map palette")
-require("floorTopSurface" in element_integration_source and "floorBottomSurface" in element_integration_source, "Element transitions must copy lobby top and bottom surfaces")
+require("FloorAppearanceService.ApplySurface(layer, profile)" in element_integration_source,
+        "Element transitions must apply the complete lobby surface profile including top and bottom faces")
 for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallElementType", "Fire", "Water", "Earth", "Air", "TweenService:Create", "CanCollide = false", "CanQuery = false"):
     require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
 

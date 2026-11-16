@@ -5,13 +5,47 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
-local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
-local stateRemote = remotes:WaitForChild("RoundState")
-local targetRemote = remotes:WaitForChild("TargetTile")
-local playRemote = remotes:WaitForChild("PlayRequest")
-local tileFolder = Workspace:WaitForChild("SkyfallArena"):WaitForChild("Tiles")
+local STARTUP_WAIT_SECONDS = 8
+
+local function waitForChildOrWarn(parent: Instance, name: string): Instance?
+	local child = parent:WaitForChild(name, STARTUP_WAIT_SECONDS)
+	if not child then
+		warn(string.format("[SkyfallStartup] HUD missing %s under %s after %.1fs", name, parent:GetFullName(), STARTUP_WAIT_SECONDS))
+	end
+	return child
+end
+
+local playerGui = waitForChildOrWarn(player, "PlayerGui")
+if not playerGui then
+	return
+end
+
+local sharedFolder = waitForChildOrWarn(ReplicatedStorage, "Shared")
+if not sharedFolder then
+	return
+end
+local configModule = waitForChildOrWarn(sharedFolder, "GameConfig")
+if not configModule or not configModule:IsA("ModuleScript") then
+	warn("[SkyfallStartup] HUD cannot load Shared.GameConfig; initialization stopped safely")
+	return
+end
+local Config = require(configModule)
+
+local remotes = waitForChildOrWarn(ReplicatedStorage, "SkyfallRemotes")
+if not remotes then
+	return
+end
+local stateRemote = waitForChildOrWarn(remotes, "RoundState")
+local targetRemote = waitForChildOrWarn(remotes, "TargetTile")
+local playRemote = waitForChildOrWarn(remotes, "PlayRequest")
+if not stateRemote or not targetRemote or not playRemote
+	or not stateRemote:IsA("RemoteEvent")
+	or not targetRemote:IsA("RemoteEvent")
+	or not playRemote:IsA("RemoteEvent")
+then
+	warn("[SkyfallStartup] HUD remotes are incomplete; initialization stopped safely")
+	return
+end
 
 local state = {
 	phase = "Waiting",
@@ -349,8 +383,22 @@ local function updateHud()
 	cellLabels.PlayersLabel.Text = "PLAYERS\n" .. tostring(math.max(0, totalPlayers))
 end
 
+local warnedMissingTiles = false
+
 local function targetAt(screenPosition)
 	if not isAircraftController() then
+		return
+	end
+
+	-- Workspace instances can stream in after the HUD. Never block HUD creation
+	-- while waiting for arena geometry; resolve the folder only when targeting.
+	local arenaRoot = Workspace:FindFirstChild("SkyfallArena")
+	local tileFolder = arenaRoot and arenaRoot:FindFirstChild("Tiles")
+	if not tileFolder then
+		if not warnedMissingTiles then
+			warnedMissingTiles = true
+			warn("[SkyfallStartup] Arena tiles are not streamed in yet; controller targeting is temporarily unavailable")
+		end
 		return
 	end
 

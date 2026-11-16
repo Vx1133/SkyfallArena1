@@ -5,6 +5,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
 local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
+local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
+local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService"))
 
 local ArenaService = {}
 ArenaService.__index = ArenaService
@@ -42,6 +44,7 @@ local MAPS = {
 		tileAlternateColor = Color3.fromRGB(244, 247, 251),
 		tileMaterial = Enum.Material.SmoothPlastic,
 		useClassicStuds = false,
+		useLobbyFloorAppearance = true,
 		studColor = Color3.fromRGB(244, 247, 251),
 		warningColor = Color3.fromRGB(255, 64, 92),
 		brokenColor = Color3.fromRGB(10, 17, 40),
@@ -76,6 +79,7 @@ local function createPart(parent, name, size, position, color, material, canColl
 	part.CanCollide = canCollide ~= false
 	part.CanTouch = false
 	part.CastShadow = false
+	part:SetAttribute("SkyfallGenerated", true)
 	part.Parent = parent
 	return part
 end
@@ -83,8 +87,21 @@ end
 local function createFolder(parent, name)
 	local folder = Instance.new("Folder")
 	folder.Name = name
+	folder:SetAttribute("SkyfallGenerated", true)
 	folder.Parent = parent
 	return folder
+end
+
+local function getOrCreateFolder(parent, name)
+	local existing = parent:FindFirstChild(name)
+	if existing and existing:IsA("Folder") then
+		return existing
+	end
+	if existing then
+		warn("Skyfall expected a Folder named " .. name .. " under " .. parent:GetFullName() .. "; replacing the incompatible instance.")
+		existing:Destroy()
+	end
+	return createFolder(parent, name)
 end
 
 -- Native Roblox retro surfaces render studs without thousands of child Parts.
@@ -95,12 +112,21 @@ local function applyClassicStudSurface(basePart)
 end
 
 local function setTileSurface(tile, theme, hidden)
+	local floorProfile = theme.floorAppearanceProfile
+	if floorProfile then
+		tile.TopSurface = floorProfile.TopSurface
+		tile.BottomSurface = floorProfile.BottomSurface
+		return
+	end
 	local useStuds = theme.useClassicStuds == true and not hidden
 	tile.TopSurface = useStuds and Enum.SurfaceType.Studs or Enum.SurfaceType.Smooth
 	tile.BottomSurface = useStuds and Enum.SurfaceType.Inlet or Enum.SurfaceType.Smooth
 end
 
 local function getTileBaseColor(tile, theme)
+	if theme.floorAppearanceProfile then
+		return theme.floorAppearanceProfile.Color
+	end
 	local alternateColor = theme.tileAlternateColor
 	if alternateColor then
 		local gridX = tile:GetAttribute("GridX") or 0
@@ -110,6 +136,20 @@ local function getTileBaseColor(tile, theme)
 		end
 	end
 	return theme.tileColor
+end
+
+local function applyTileBaseAppearance(tile, theme)
+	local profile = theme.floorAppearanceProfile
+	if profile then
+		FloorAppearanceService.Apply(tile, profile)
+		return
+	end
+
+	tile.Color = getTileBaseColor(tile, theme)
+	tile.Material = theme.tileMaterial
+	tile.MaterialVariant = ""
+	tile.Reflectance = 0
+	setTileSurface(tile, theme, false)
 end
 
 local function tileKey(gridX, gridZ)
@@ -149,29 +189,45 @@ function ArenaService.new()
 	self.aircraftAimToken = 0
 	self.mapDecorBuilt = false
 	self.laserOrigin = nil
+	self.lobbyFloor = nil
+	self.mapRootFolder = nil
+	self.elementTransitionCount = 0
 	return self
 end
 
 function ArenaService:_buildLobby()
 	local center = Config.LOBBY_CENTER
 	local size = Config.LOBBY_SIZE
-	local platform = createPart(
-		self.lobbyFolder,
-		"WaitingPlatform",
-		Vector3.new(size, 3, size),
-		center,
-		Color3.fromRGB(49, 139, 56),
-		Enum.Material.Plastic,
-		true
-	)
-	applyClassicStudSurface(platform)
-	platform.CanQuery = false
+	local platform = self.lobbyFolder:FindFirstChild("WaitingPlatform")
+	if not platform or not platform:IsA("BasePart") then
+		if platform then
+			warn("Skyfall found an incompatible WaitingPlatform. Replacing only that floor object.")
+			platform:Destroy()
+		end
+		platform = createPart(
+			self.lobbyFolder,
+			"WaitingPlatform",
+			Vector3.new(size, 3, size),
+			center,
+			Color3.fromRGB(49, 139, 56),
+			Enum.Material.Plastic,
+			true
+		)
+		applyClassicStudSurface(platform)
+		platform.CanQuery = false
+	end
+	self.lobbyFloor = platform
 end
 
 function ArenaService:_buildAircraft()
 	local folder = self.aircraftFolder
+	local previousAircraft = folder:FindFirstChild("SkyfallLaserAircraft")
+	if previousAircraft then
+		previousAircraft:Destroy()
+	end
 	local model = Instance.new("Model")
 	model.Name = "SkyfallLaserAircraft"
+	model:SetAttribute("SkyfallGenerated", true)
 	model.Parent = folder
 
 	local base = Config.CONTROL_CENTER
@@ -866,18 +922,20 @@ function ArenaService:Build()
 		end
 	end
 
-	for _, child in ipairs(self.tilesFolder:GetChildren()) do
-		child:Destroy()
-	end
-	for _, child in ipairs(self.decorFolder:GetChildren()) do
+	-- Keep hand-authored environment content in the parent folders. Only the
+	-- generated decoration subfolder is refreshed by this service.
+	self.lobbyFolder = getOrCreateFolder(self.decorFolder, "Lobby")
+	self.mapRootFolder = getOrCreateFolder(self.decorFolder, "ActiveMap")
+	self.mapFolder = getOrCreateFolder(self.mapRootFolder, "GeneratedDecor")
+	self.aircraftFolder = getOrCreateFolder(self.decorFolder, "Aircraft")
+
+	for _, child in ipairs(self.mapFolder:GetChildren()) do
 		child:Destroy()
 	end
 
-	self.lobbyFolder = createFolder(self.decorFolder, "Lobby")
-	self.mapFolder = createFolder(self.decorFolder, "ActiveMap")
-	self.aircraftFolder = createFolder(self.decorFolder, "Aircraft")
 	self.tiles = {}
 	self.mapDecorBuilt = false
+	self.elementTransitionCount = 0
 
 	local halfGrid = (Config.GRID_SIZE - 1) / 2
 	local spacing = Config.TILE_SIZE + Config.TILE_GAP
@@ -887,21 +945,33 @@ function ArenaService:Build()
 			local offsetX = (gridX - 1 - halfGrid) * spacing
 			local offsetZ = (gridZ - 1 - halfGrid) * spacing
 			local position = Config.ARENA_CENTER + Vector3.new(offsetX, 0, offsetZ)
-			local tile = createPart(
-				self.tilesFolder,
-				"Tile_" .. tostring(gridX) .. "_" .. tostring(gridZ),
-				Vector3.new(Config.TILE_SIZE, 1, Config.TILE_SIZE),
-				position,
-				MAPS[1].tileColor,
-				MAPS[1].tileMaterial
-			)
+			local tileName = "Tile_" .. tostring(gridX) .. "_" .. tostring(gridZ)
+			local tile = self.tilesFolder:FindFirstChild(tileName)
 
+			if not tile or not tile:IsA("BasePart") then
+				if tile then
+					warn("Skyfall found an incompatible tile object: " .. tile:GetFullName())
+				end
+				tile = createPart(
+					self.tilesFolder,
+					tileName,
+					Vector3.new(Config.TILE_SIZE, 1, Config.TILE_SIZE),
+					position,
+					MAPS[1].tileColor,
+					MAPS[1].tileMaterial
+				)
+			end
+
+			tile:SetAttribute("SkyfallGenerated", true)
+			tile:SetAttribute("SkyfallGeneratedTile", true)
 			tile:SetAttribute("GridX", gridX)
 			tile:SetAttribute("GridZ", gridZ)
 			tile:SetAttribute("IsBroken", false)
 			tile:SetAttribute("IsWarning", false)
-			tile:SetAttribute("StrikeToken", 0)
+			tile:SetAttribute("StrikeToken", tile:GetAttribute("StrikeToken") or 0)
 			applyClassicStudSurface(tile)
+			tile.CanCollide = true
+			tile.CanTouch = false
 			self.tiles[tileKey(gridX, gridZ)] = tile
 		end
 	end
@@ -910,38 +980,59 @@ function ArenaService:Build()
 	self:_buildAircraft()
 	self:SetMap(1)
 end
-
 function ArenaService:SetMap(mapId)
 	local selected = MAPS[mapId] or MAPS[1]
+	local theme = table.clone(selected)
+	if theme.useLobbyFloorAppearance == true then
+		local lobbyFloor = self.lobbyFloor
+		if not lobbyFloor or not lobbyFloor.Parent then
+			local candidate = self.lobbyFolder and self.lobbyFolder:FindFirstChild("WaitingPlatform")
+			lobbyFloor = candidate and candidate:IsA("BasePart") and candidate or nil
+		end
+		local profile = FloorAppearanceService.Capture(lobbyFloor)
+		if profile then
+			theme.floorAppearanceProfile = profile
+			theme.tileColor = profile.Color
+			theme.tileAlternateColor = nil
+			theme.tileMaterial = profile.Material
+		else
+			warn("Skyfall could not capture the Lobby WaitingPlatform appearance; the Cyberpunk floor will keep its configured fallback.")
+		end
+	end
+
 	local mapChanged = self.currentMapId ~= selected.id
 	self.currentMapId = selected.id
-	self.theme = selected
+	self.theme = theme
 
 	for _, tile in pairs(self.tiles) do
 		local token = (tile:GetAttribute("StrikeToken") or 0) + 1
 		tile:SetAttribute("StrikeToken", token)
 		tile:SetAttribute("IsBroken", false)
 		tile:SetAttribute("IsWarning", false)
-		tile.Color = getTileBaseColor(tile, selected)
-		tile.Material = selected.tileMaterial
+		applyTileBaseAppearance(tile, theme)
 		tile.CanCollide = true
 		tile.Transparency = 0
 		local warningLight = tile:FindFirstChild("TargetWarningLight")
 		if warningLight then
 			warningLight:Destroy()
 		end
-		setTileSurface(tile, selected, false)
 	end
 
 	if mapChanged or not self.mapDecorBuilt then
 		self.mapFolder:ClearAllChildren()
-		self:_buildMapDecoration(selected)
+		self:_buildMapDecoration(theme)
+		local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, self.lobbyFloor)
+		if success then
+			self.elementTransitionCount = countOrError
+		else
+			self.elementTransitionCount = 0
+			warn("Skyfall element visual integration failed without stopping the arena: " .. tostring(countOrError))
+		end
 		self.mapDecorBuilt = true
 	end
-	self:_setLighting(selected)
-	return selected.name
+	self:_setLighting(theme)
+	return theme.name
 end
-
 function ArenaService:GetMapName()
 	return self.theme.name
 end
@@ -983,6 +1074,8 @@ function ArenaService:MarkTile(tile)
 	tile:SetAttribute("IsWarning", true)
 	tile.Color = Color3.fromRGB(255, 55, 75)
 	tile.Material = Enum.Material.SmoothPlastic
+	tile.MaterialVariant = ""
+	tile.Reflectance = 0
 
 	-- The red tile itself communicates the warning without a per-tile dynamic light.
 	return token
@@ -1001,8 +1094,7 @@ function ArenaService:ClearWarning(tile, token)
 	if warningLight then
 		warningLight:Destroy()
 	end
-	tile.Color = getTileBaseColor(tile, self.theme)
-	tile.Material = self.theme.tileMaterial
+	applyTileBaseAppearance(tile, self.theme)
 end
 
 function ArenaService:CreateStrikeBeam(tile)
@@ -1022,6 +1114,8 @@ function ArenaService:BreakTile(tile, token)
 	tile:SetAttribute("IsBroken", true)
 	tile.Color = self.theme.brokenColor
 	tile.Material = Enum.Material.Slate
+	tile.MaterialVariant = ""
+	tile.Reflectance = 0
 	tile.CanCollide = false
 	tile.Transparency = 0.84
 	setTileSurface(tile, self.theme, true)
@@ -1056,11 +1150,9 @@ function ArenaService:ResetTiles()
 		tile:SetAttribute("StrikeToken", token)
 		tile:SetAttribute("IsWarning", false)
 		tile:SetAttribute("IsBroken", false)
-		tile.Color = getTileBaseColor(tile, self.theme)
-		tile.Material = self.theme.tileMaterial
+		applyTileBaseAppearance(tile, self.theme)
 		tile.CanCollide = true
 		tile.Transparency = 0
-		setTileSurface(tile, self.theme, false)
 	end
 end
 

@@ -875,7 +875,7 @@ function RoundService:_getLivingHumanRunners()
 		local isRunner = isPresent and player:GetAttribute("SkyfallRole") == "Runner"
 		local character = isRunner and player.Character
 		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		local isAlive = isRunner and (not character or (humanoid and humanoid.Health > 0))
+		local isAlive = isRunner and character ~= nil and humanoid ~= nil and humanoid.Health > 0
 		if isAlive then
 			table.insert(survivors, player)
 		end

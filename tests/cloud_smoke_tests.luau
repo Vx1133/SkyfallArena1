@@ -55,6 +55,7 @@ local arena
 local function makeFakePlayer(name, role)
 	local fakePlayer = {
 		Name = name,
+		DisplayName = name,
 		Parent = Players,
 		attributes = {},
 		Character = nil,
@@ -934,6 +935,7 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 	local remote = Instance.new("RemoteEvent")
 	local service = BubbleGunService.new(arena, mockRounds, mockBots, remote)
 	service.template = ServerStorage:FindFirstChild("SkyfallBubbleBlasterTemplate")
+	service.trainingTarget = trainingTarget
 	assert(service:GrantTrial(fakePlayer), "Waiting player should receive the free trial Tool")
 	assert(service:GrantTrial(fakePlayer), "Repeated free trial interaction should remain safe")
 	local copies = 0
@@ -1003,14 +1005,18 @@ runTest("Sole survivor and grounded checks distinguish air from floor", function
 	assert(harness:_isGrounded(survivor) == false, "A survivor in the air must not be treated as grounded")
 end)
 
-runTest("The longest-surviving runner is selected as the next controller", function()
+runTest("Longest-survivor fallback ignores eliminated bots", function()
 	local shortRunner = {
 		name = "ShortRunner",
-		model = {Parent = Workspace},
+		alive = true,
+		humanoid = {Health = 100},
+		model = {Parent = Workspace, GetAttribute = function() return "Runner" end},
 	}
 	local longRunner = {
 		name = "LongRunner",
-		model = {Parent = Workspace},
+		alive = true,
+		humanoid = {Health = 100},
+		model = {Parent = Workspace, GetAttribute = function() return "Runner" end},
 	}
 	local shortCandidate = {kind = "Bot", value = shortRunner}
 	local longCandidate = {kind = "Bot", value = longRunner}

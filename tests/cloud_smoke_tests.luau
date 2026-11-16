@@ -914,6 +914,10 @@ runTest("Bubble Blaster server asset, lobby station, and training target exist",
 	local target = arena.lobbyFolder:FindFirstChild("BubbleTrainingTarget")
 	assert(target and target:FindFirstChild("TargetCore"), "Stationary training target is missing")
 	assert(target.Parent == arena.lobbyFolder, "Training target must remain in the lobby folder")
+	local spawnPosition = arena:GetLobbySpawnCFrame(1, 1, false).Position
+	local standPosition = station:FindFirstChild("DisplayBase").Position
+	assert((spawnPosition - standPosition).Magnitude <= 12,
+		"TRY FOR FREE prompt station must be reachable from the first lobby spawn")
 end)
 
 runTest("Bubble Blaster grants one copy and accepts only the lobby training target while waiting", function()
@@ -947,10 +951,52 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 	assert(copies == 1, "Repeated prompt interaction must never duplicate the Tool")
 	local target = service:_findTarget(fakePlayer, targetPart)
 	assert(target and target.kind == "Training", "Waiting players may target only the dedicated training target")
+	service.rounds = {IsActive = function() return true end, IsAliveRunner = function() return false end}
+	assert(service:_findTarget(fakePlayer, targetPart) == nil,
+		"Training target must not be targetable during an active round")
+	service.rounds = mockRounds
 	fakePlayer:SetAttribute("SkyfallRole", "Controller")
 	assert(service:GrantRunner(fakePlayer) == false, "Controller must not receive the Runner loadout")
 	remote:Destroy()
 	backpack:Destroy()
+end)
+
+runTest("Bubble Blaster server rejects invalid aim and enforces its cooldown", function()
+	local backpack = Instance.new("Folder")
+	backpack.Name = "Backpack"
+	local fakePlayer = makeFakePlayer("ServerShotTester", "Waiting")
+	local character = Instance.new("Model")
+	character.Name = "ServerShotCharacter"
+	character.Parent = Workspace
+	local tool = Instance.new("Tool")
+	tool.Name = Config.BUBBLE_GUN_TOOL_NAME
+	tool:SetAttribute("SkyfallBubbleTool", true)
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Position = Vector3.new(500, 500, 500)
+	handle.Parent = tool
+	tool.Parent = character
+	fakePlayer.Character = character
+
+	local remote = Instance.new("RemoteEvent")
+	local service = BubbleGunService.new(arena, {
+		IsActive = function() return false end,
+		IsAliveRunner = function() return false end,
+	}, {GetAliveBots = function() return {} end}, remote)
+	service.displayStand = arena.lobbyFolder:FindFirstChild("BubbleBlasterTrialStand")
+	service.trainingTarget = arena.lobbyFolder:FindFirstChild("BubbleTrainingTarget")
+	service.cooldowns = {}
+
+	assert(service:_handleShot(fakePlayer, Vector3.new(math.huge, 0, 0)) == false,
+		"Non-finite direction must be rejected before raycasting")
+	assert(service:_handleShot(fakePlayer, Vector3.new(0, 1, 0)) == true,
+		"A valid equipped server-owned Tool should accept one shot")
+	assert(service:_handleShot(fakePlayer, Vector3.new(0, 1, 0)) == false,
+		"A second shot inside the eight-second cooldown must be rejected")
+	service:ClearAll()
+	character:Destroy()
+	backpack:Destroy()
+	remote:Destroy()
 end)
 
 runTest("Bubble hold restores movement and physics state exactly once", function()

@@ -254,6 +254,10 @@ function RoundService:RequestPlay(player)
 	if self.readyPlayers[player] then
 		return true
 	end
+	-- Each newly queued round starts with the normal character choice.
+	-- The aircraft icon can be activated after PLAY, before the intermission ends.
+	player:SetAttribute("SkyfallPilotOptIn", false)
+	player:SetAttribute("SkyfallAircraftControlActive", false)
 	self.readyPlayers[player] = true
 	player:SetAttribute("SkyfallReady", true)
 	self:_broadcast()
@@ -265,9 +269,9 @@ function RoundService:RequestPilotOptIn(player, enabled)
 		return false
 	end
 
-	local waiting = self.phase == "Waiting"
-	local readyForIntermission = self.phase == "Intermission" and self.readyPlayers[player] == true
-	if not waiting and not readyForIntermission then
+	local ready = self.readyPlayers[player] == true
+	local waitingOrIntermission = self.phase == "Waiting" or self.phase == "Intermission"
+	if not ready or not waitingOrIntermission then
 		return false
 	end
 
@@ -456,12 +460,14 @@ function RoundService:RequestDebugController(player, enabled)
 end
 
 function RoundService:_clearReadyPlayers()
-	for player in pairs(self.readyPlayers) do
-		if player.Parent == Players then
+	for _, player in ipairs(Players:GetPlayers()) do
+		if self.readyPlayers[player] then
 			player:SetAttribute("SkyfallReady", false)
-			player:SetAttribute("SkyfallPilotOptIn", false)
-			player:SetAttribute("SkyfallAircraftControlActive", false)
 		end
+		-- Clear stale aircraft selection/control on every human, including users
+		-- who were in the lobby but did not join this round.
+		player:SetAttribute("SkyfallPilotOptIn", false)
+		player:SetAttribute("SkyfallAircraftControlActive", false)
 	end
 	self.readyPlayers = {}
 	self.roundHumanCount = 0

@@ -153,6 +153,71 @@ playButton.Activated:Connect(function()
 	end
 end)
 
+-- Minimal manual aircraft opt-in icon. The old PILOT/DRONE text indicators
+-- stay removed; this one icon only records a choice for the next round.
+local aircraftModeButton = Instance.new("TextButton")
+aircraftModeButton.Name = "AircraftModeIcon"
+aircraftModeButton.AnchorPoint = Vector2.new(0.5, 0)
+aircraftModeButton.Position = UDim2.new(0.5, -106, 0, 53)
+aircraftModeButton.Size = UDim2.fromOffset(38, 38)
+aircraftModeButton.BackgroundColor3 = Color3.fromRGB(62, 76, 91)
+aircraftModeButton.BackgroundTransparency = 0.12
+aircraftModeButton.BorderSizePixel = 0
+aircraftModeButton.Font = Enum.Font.GothamBold
+aircraftModeButton.Text = "✈"
+aircraftModeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+aircraftModeButton.TextSize = 21
+aircraftModeButton.AutoButtonColor = true
+aircraftModeButton.Parent = screenGui
+
+local aircraftModeCorner = Instance.new("UICorner")
+aircraftModeCorner.CornerRadius = UDim.new(0, 10)
+aircraftModeCorner.Parent = aircraftModeButton
+
+local aircraftModeStroke = Instance.new("UIStroke")
+aircraftModeStroke.Color = Color3.fromRGB(220, 235, 250)
+aircraftModeStroke.Transparency = 0.58
+aircraftModeStroke.Thickness = 1
+aircraftModeStroke.Parent = aircraftModeButton
+
+local aircraftModePending = false
+local aircraftModeRequestSerial = 0
+
+local function updateAircraftModeButton()
+	local waiting = state.phase == "Waiting"
+	local intermissionReady = state.phase == "Intermission" and player:GetAttribute("SkyfallReady") == true
+	local optedIn = player:GetAttribute("SkyfallPilotOptIn") == true
+	aircraftModeButton.Visible = waiting or intermissionReady
+	aircraftModeButton.Active = (waiting or intermissionReady) and not aircraftModePending
+	aircraftModeButton.AutoButtonColor = not aircraftModePending
+	aircraftModeButton.BackgroundColor3 = optedIn
+		and Color3.fromRGB(23, 121, 157)
+		or Color3.fromRGB(62, 76, 91)
+end
+
+aircraftModeButton.Activated:Connect(function()
+	local waiting = state.phase == "Waiting"
+	local intermissionReady = state.phase == "Intermission" and player:GetAttribute("SkyfallReady") == true
+	if (not waiting and not intermissionReady) or aircraftModePending then
+		return
+	end
+
+	local desiredState = player:GetAttribute("SkyfallPilotOptIn") ~= true
+	aircraftModePending = true
+	aircraftModeRequestSerial += 1
+	local requestSerial = aircraftModeRequestSerial
+	updateAircraftModeButton()
+	playRemote:FireServer("PilotOptIn", desiredState)
+
+	-- A rejected or interrupted RemoteEvent must not leave the icon locked.
+	task.delay(2.5, function()
+		if aircraftModePending and aircraftModeRequestSerial == requestSerial then
+			aircraftModePending = false
+			updateAircraftModeButton()
+		end
+	end)
+end)
+
 local function formatTime(totalSeconds)
 	local seconds = math.max(0, math.floor(totalSeconds or 0))
 	local minutes = math.floor(seconds / 60)
@@ -162,6 +227,12 @@ end
 
 local function getRole()
 	return player:GetAttribute("SkyfallRole") or "Waiting"
+end
+
+local function isAircraftController()
+	return state.phase == "Active"
+		and getRole() == "Controller"
+		and player:GetAttribute("SkyfallAircraftControlActive") == true
 end
 
 -- The cooldown meter is shown only to the human who currently controls the drone.
@@ -222,7 +293,7 @@ fillCorner.CornerRadius = UDim.new(1, 0)
 fillCorner.Parent = cooldownFill
 
 local function updateLaserStatus()
-	local isActiveController = state.phase == "Active" and getRole() == "Controller"
+	local isActiveController = isAircraftController()
 	cooldownPanel.Visible = isActiveController
 	if not isActiveController then
 		return
@@ -256,6 +327,7 @@ local function updateHud()
 	local active = state.phase == "Active"
 	panel.Visible = active
 	updatePlayButton()
+	updateAircraftModeButton()
 	updateLaserStatus()
 	if not active then
 		return
@@ -277,7 +349,7 @@ local function updateHud()
 end
 
 local function targetAt(screenPosition)
-	if getRole() ~= "Controller" or state.phase ~= "Active" then
+	if not isAircraftController() then
 		return
 	end
 
@@ -327,10 +399,23 @@ end)
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(function()
 	updateHud()
 end)
-player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
+player:GetAttributeChangedSignal("SkyfallReady"):Connect(function()
+	updateHud()
+	updateAircraftModeButton()
+end)
+player:GetAttributeChangedSignal("SkyfallPilotOptIn"):Connect(function()
+	aircraftModePending = false
+	aircraftModeRequestSerial += 1
+	updateAircraftModeButton()
+end)
+player:GetAttributeChangedSignal("SkyfallAircraftControlActive"):Connect(function()
+	updateHud()
+	updateLaserStatus()
+end)
 player:GetAttributeChangedSignal("SkyfallLaserReadyAt"):Connect(updateLaserStatus)
 
 updatePlayButton()
+updateAircraftModeButton()
 
 local controllerCameraActive = false
 local previousFieldOfView = nil
@@ -383,7 +468,7 @@ local function updateControllerCamera(deltaTime)
 		return
 	end
 
-	local shouldUseControllerCamera = getRole() == "Controller" and state.phase == "Active"
+	local shouldUseControllerCamera = isAircraftController()
 	if shouldUseControllerCamera then
 		if not controllerCameraActive or controllerCameraInstance ~= camera then
 			controllerCameraActive = true
@@ -494,7 +579,7 @@ player.CharacterAdded:Connect(function(character)
 
 	task.defer(function()
 		local camera = Workspace.CurrentCamera
-		local controllerActive = getRole() == "Controller" and state.phase == "Active"
+		local controllerActive = isAircraftController()
 		if camera and not controllerActive then
 			camera.CameraType = Enum.CameraType.Custom
 			camera.CameraSubject = humanoid

@@ -40,6 +40,9 @@ required_files = [
     "tests/cloud_smoke_tests.luau",
     "docs/CLOUD_PUBLISHING.md",
     "src/server/Services/AdminFlightService.lua",
+    "src/server/Services/BubbleGunService.lua",
+    "src/server/Services/PilotPriorityService.lua",
+    "src/client/BubbleGun.client.lua",
     "src/client/AdminFlight.client.lua",
 ]
 for relative_path in required_files:
@@ -61,6 +64,11 @@ for setting in (
     "Config.MAX_PLAYER_CAPACITY = 30",
     "Config.MAP_COUNT = 1",
     "Config.ROUND_SECONDS = 180",
+    "Config.PILOT_PRIORITY_ELIMINATION_THRESHOLD_SECONDS = Config.ROUND_SECONDS * 0.3",
+    'Config.BUBBLE_GUN_TOOL_NAME = "Bubble Blaster"',
+    "Config.BUBBLE_GUN_HOLD_SECONDS = 2.5",
+    "Config.BUBBLE_GUN_COOLDOWN_SECONDS = 8",
+    "Config.BUBBLE_GUN_RANGE = 60",
     "Config.HUMAN_STRIKE_COOLDOWN_SECONDS = 3",
     "Config.LASER_EXTENSION_SECONDS = 0.24",
     "Config.LASER_HOLD_SECONDS = 0.08",
@@ -229,6 +237,47 @@ require("self.onBotDied(bot)" in fall_check, "A bot falling out of the arena mus
 for forbidden in ("hairId", "BillboardGui", "BotNameplate", "InsertService", "MarketplaceService"):
     require(forbidden not in bot_source, f"Unwanted external asset or bot label code remains: {forbidden}")
 
+bootstrap_source = (ROOT / "src/server/Bootstrap.server.lua").read_text(encoding="utf-8")
+for feature in (
+    'getOrCreateRemote(remotesFolder, "BubbleShot")',
+    'WaitForChild("PilotPriorityService")',
+    'WaitForChild("BubbleGunService")',
+    "BubbleGunService.new(",
+    "bubbleGun:Start()",
+):
+    require(feature in bootstrap_source, f"Bootstrap Bubble Blaster integration is missing: {feature}")
+
+pilot_source = (ROOT / "src/server/Services/PilotPriorityService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function PilotPriorityService:AwardElimination(",
+    "function PilotPriorityService:AwardWinner(",
+    "function PilotPriorityService:ChooseController(",
+    "function PilotPriorityService:RecordController(",
+    "math.clamp((self.scores[player] or 0) + amount, 0, 100)",
+    '"SkyfallPilotPriority"',
+):
+    require(feature in pilot_source, f"Pilot Priority service is missing: {feature}")
+require("DataStoreService" not in pilot_source, "Pilot Priority must remain session-only")
+
+bubble_source = (ROOT / "src/server/Services/BubbleGunService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function BubbleGunService:_buildLobbyStation(",
+    'prompt.ActionText = "TRY FOR FREE"',
+    "function BubbleGunService:GrantTrial(",
+    "function BubbleGunService:GrantRunner(",
+    "function BubbleGunService:_findTarget(",
+    "function BubbleGunService:_holdTarget(",
+    "function BubbleGunService:_releaseHold(",
+    "function BubbleGunService:_handleShot(",
+    "Config.BUBBLE_GUN_RANGE",
+    "Config.BUBBLE_GUN_COOLDOWN_SECONDS",
+):
+    require(feature in bubble_source, f"Bubble Blaster server implementation is missing: {feature}")
+for forbidden in ("MarketplaceService", "InsertService", "DataStoreService"):
+    require(forbidden not in bubble_source, f"Bubble Blaster must not use external assets or purchases: {forbidden}")
+require("self.lifecycleToken" in bubble_source and "activeProjectiles" in bubble_source,
+        "Bubble shots must be invalidated on round cleanup")
+
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
 for feature in (
     "function RoundService:_chooseController(",
@@ -253,7 +302,9 @@ for feature in (
     "self.roundNumber == 1 and #self:_getReadyPlayers() == 1",
     "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
-    "self.nextController = self.winnerCandidate",
+    "function RoundService:_getLivingHumanRunners(",
+    "function RoundService:_resolveWinners(",
+    "function RoundService:_getWinnerDetails(",
     "function RoundService:_moveEliminatedPlayerToLobby(player)",
     "function RoundService:_setArenaStreamingFocus(",
     "function RoundService:_resetArenaAfterRound(",
@@ -264,6 +315,10 @@ for feature in (
     "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",
 ):
     require(feature in round_source, f"Round feature is missing: {feature}")
+require("self.nextController" not in round_source, "Legacy nextController must not bypass Pilot Priority")
+require('winners = self:_getWinnerDetails()' in round_source, "Round broadcasts must send safe winner name/role data only")
+require('winner = table.concat(winnerNames, ", ")' in round_source, "All winner names must be represented in results")
+require('self.elapsedSeconds >= Config.ROUND_SECONDS' in round_source, "The configured round timeout must remain active")
 require('playerCount = self.phase == "Active" and remainingPlayers or allHumanCount + botCount' in round_source, "Active HUD count must use living arena runners only")
 require("characterOverride or player.Character" in round_source, "Character placement must use the exact respawning character")
 require("LoadCharacterAsync" in round_source, "Player respawn recovery must request a fresh character when Roblox respawn is missing")
@@ -318,6 +373,15 @@ for feature in (
 ):
     require(feature in round_source, f"Player movement recovery is missing: {feature}")
 
+bubble_client_source = (ROOT / "src/client/BubbleGun.client.lua").read_text(encoding="utf-8")
+for feature in (
+    'WaitForChild("BubbleShot")',
+    "instance.Activated:Connect(function()",
+    "camera.CFrame.LookVector",
+    'reticleGui.Name = "SkyfallBubbleReticle"',
+):
+    require(feature in bubble_client_source, f"Bubble Blaster mobile/desktop input is missing: {feature}")
+
 hud_source = (ROOT / "src/client/HUD.client.lua").read_text(encoding="utf-8")
 for feature in (
     "TimeLabel",
@@ -368,6 +432,16 @@ require('remotes:WaitForChild("PlayRequest")' in hud_source, "Lobby Play remote 
 require('playButton.Name = "PlayButton"' in hud_source, "Lobby Play button is missing")
 require("playRemote:FireServer()" in hud_source, "Lobby Play button does not request a round")
 require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile HUD must remain translucent")
+for feature in (
+    'pilotGui.Name = "SkyfallPilotPriorityHUD"',
+    'Enum.ScreenInsets.CoreUISafeInsets',
+    '"DRONE " .. tostring(priority) .. "%"',
+    'GetAttributeChangedSignal("SkyfallPilotPriority")',
+    'getRole() == "Waiting" or getRole() == "Runner"',
+    'getRole() ~= "Controller"',
+):
+    require(feature in hud_source, f"Pilot Priority safe-area HUD is missing: {feature}")
+require("TextSize = 11" in hud_source, "Pilot Priority label should remain compact for phones")
 
 audio_source = (ROOT / "src/client/Audio.client.lua").read_text(encoding="utf-8")
 for feature in (
@@ -441,7 +515,17 @@ for feature in (
     "The next-round map remains the one fixed Classic arena",
     "The active HUD count only includes living arena runners",
     "A fallen bot is removed before the round broadcasts its survivor count",
-    "The longest-surviving runner is selected as the next controller",
+    "Pilot Priority selects humans by score and prevents a legacy controller override",
+    "Legacy nextController cannot select an unready player",
+    "Pilot Priority rewards use 54-second threshold, one reward per round, and cap at 100",
+    "Pilot Priority tie-break favors the player who waited longest and avoids an immediate repeat",
+    "Timeout gives every living human Runner a win and ten Pilot Priority points",
+    "A single living human Runner wins before timeout even if bots remain",
+    "If no Runner remains, a valid human Controller receives the win and priority reward",
+    "Winner broadcast contains only safe names and role strings",
+    "Bubble Blaster server asset, lobby station, and training target exist",
+    "Bubble Blaster grants one copy and accepts only the lobby training target while waiting",
+    "Bubble hold restores movement and physics state exactly once",
     "three-second cooldown",
     "Four-cardinal lens aim tests",
     "The visual stack must declare 24 layers",

@@ -84,3 +84,25 @@ Report exact commit, files reviewed, any code corrections, CI results, runtime/S
 No Codex session is connected to this workspace, so this brief is committed for a real Codex session to review. Do not claim that a live Codex review occurred.
 
 - The normal aircraft icon is intentionally gated by `SkyfallReady`: the player must press PLAY first, then can opt in or cancel during Waiting/Intermission. New PLAY requests and end-of-round cleanup clear stale opt-in for all humans.
+
+
+## Additional Update #23 review: compact lobby, materials, and palette
+
+### Required design review
+1. Check the 120 × 120 waiting platform against 30 human spawn points at radius 42 and 10 bot points at radius 52. Confirm every spawn remains inside the platform and the Bubble Blaster station stays reachable.
+2. Confirm the source of the green bleed: the prior `ArenaService:SetMap(2)` copied `WaitingPlatform.Color` into `theme.tileColor`, then applied that color to every Cyberpunk floor tile.
+3. Confirm the correction keeps the lobby's Material, MaterialVariant, Reflectance, TopSurface, and BottomSurface but keeps color under the active map palette.
+4. Audit every non-Neon BasePart under `ActiveMap/GeneratedDecor`: floor tiles, support, under-deck, perimeter trim, cross-braces, pillar foundations/cores/collars/inlays, and element-transition layers must use the captured lobby material/surface profile.
+5. Verify Neon perimeter channels and pillar spines remain Neon by design. They are emissive light accents, not structural surface finishes.
+6. Confirm Cyberpunk tiles use cool ice-white/blue-white rather than the lobby green. Confirm Earth transitions use champagne stone rather than green, and that structure, roof, silver, navy, and cyan use the central world palette.
+7. Check all repeated map switches and `ResetTiles()` restore the same palette and material profile without accumulating geometry.
+
+### Additional checks
+- `lune run tests/lune/update_023_world_design.luau`
+- Existing lighting and gameplay Lune tests
+- Python structural validation, Selene, and Rojo build
+- In Studio, inspect top, bottom, side, and angled views of representative tile, trim, brace, pillar, and element-transition parts.
+- Run the lobby with 30 human spawn positions plus 10 bot positions, and verify the Bubble Blaster prompt remains reachable.
+- Capture screenshots of the lobby and Cyberpunk map on high and low graphics quality. Static tests cannot establish final visual appearance.
+
+Do not claim an in-Studio visual inspection unless Studio was actually launched and the new map was viewed.

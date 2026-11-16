@@ -153,7 +153,7 @@ playButton.Activated:Connect(function()
 	end
 end)
 
--- Minimal manual aircraft opt-in icon. The old PILOT/DRONE text indicators
+-- Minimal manual aircraft opt-in icon. The previous status text indicators
 -- stay removed; this one icon only records a choice for the next round.
 local aircraftModeButton = Instance.new("TextButton")
 aircraftModeButton.Name = "AircraftModeIcon"

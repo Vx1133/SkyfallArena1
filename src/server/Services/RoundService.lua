@@ -21,7 +21,11 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	self.winner = ""
 	self.winnerCandidate = nil
 	self.controller = nil
-	self.nextController = nil
+	self.pilotPriority = {}
+	self.lastControllerRound = {}
+	self.roundRewards = {}
+	self.winnerCandidates = {}
+	self.bubbleGunService = nil
 	self.roundNumber = 0
 	self.roundStartedAt = 0
 	self.running = false
@@ -56,6 +60,9 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
+		if self.bubbleGunService then
+			self.bubbleGunService:ReleaseTarget(player)
+		end
 		self:_setArenaStreamingFocus(player, false)
 		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
@@ -65,6 +72,9 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 		self.survivalTimes[player] = nil
 		self.characterSerial[player] = nil
 		self.debugAutoReady[player] = nil
+		self.pilotPriority[player] = nil
+		self.lastControllerRound[player] = nil
+		self.roundRewards[player] = nil
 		if self.debugControllerPlayer == player then
 			self.debugControllerPlayer = nil
 			self.debugPreviousController = nil
@@ -84,12 +94,6 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 			self.controller = nil
 		end
 
-		if self.nextController
-			and self.nextController.kind == "Player"
-			and self.nextController.value == player
-		then
-			self.nextController = nil
-		end
 
 		self:_broadcast()
 	end)
@@ -189,6 +193,9 @@ end
 
 function RoundService:_bindPlayer(player)
 	self:_setupStats(player)
+	self.pilotPriority[player] = 0
+	self.lastControllerRound[player] = -1
+	player:SetAttribute("SkyfallPilotPriority", 0)
 	player:SetAttribute("SkyfallRole", "Waiting")
 	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
@@ -236,6 +243,65 @@ function RoundService:_getReadyPlayers()
 		end
 	end
 	return ready
+end
+
+function RoundService:SetBubbleGunService(service)
+	self.bubbleGunService = service
+end
+
+function RoundService:IsHumanRunner(player)
+	return self.phase == "Active"
+		and player ~= nil
+		and player.Parent == Players
+		and self.aliveRunners[player] == true
+		and player:GetAttribute("SkyfallRole") == "Runner"
+end
+
+function RoundService:GetPilotPriority(player)
+	return math.clamp(self.pilotPriority[player] or 0, 0, Config.PILOT_PRIORITY_MAX)
+end
+
+function RoundService:_setPilotPriority(player, amount)
+	if not player or player.Parent ~= Players then
+		return 0
+	end
+	local current = self.pilotPriority[player] or 0
+	local updated = math.clamp(current + amount, 0, Config.PILOT_PRIORITY_MAX)
+	self.pilotPriority[player] = updated
+	if updated ~= current then
+		player:SetAttribute("SkyfallPilotPriority", updated)
+	end
+	return updated
+end
+
+function RoundService:_recordControllerSelection(player)
+	self.lastControllerRound[player] = self.roundNumber
+	self:_setPilotPriority(player, -(self.pilotPriority[player] or 0))
+end
+
+function RoundService:_awardEliminationPriority(player)
+	if not player or self.roundRewards[player] ~= nil then
+		return false
+	end
+	local elapsed = math.max(0, os.clock() - self.roundStartedAt)
+	if elapsed >= Config.PILOT_PRIORITY_ELIMINATION_THRESHOLD_SECONDS
+		and elapsed < Config.ROUND_SECONDS
+	then
+		self.roundRewards[player] = "Elimination"
+		self:_setPilotPriority(player, Config.PILOT_PRIORITY_ELIMINATION_POINTS)
+	else
+		self.roundRewards[player] = "EarlyElimination"
+	end
+	return true
+end
+
+function RoundService:_awardWinnerPriority(player)
+	if not player or self.roundRewards[player] ~= nil then
+		return false
+	end
+	self.roundRewards[player] = "Winner"
+	self:_setPilotPriority(player, Config.PILOT_PRIORITY_WIN_POINTS)
+	return true
 end
 
 function RoundService:RequestPlay(player)
@@ -294,6 +360,10 @@ function RoundService:_activateDebugController(player)
 		self.roundRunnerCount = math.max(0, self.roundRunnerCount - 1)
 	end
 
+	if self.bubbleGunService then
+		self.bubbleGunService:RevokeTool(player)
+	end
+	self:_recordControllerSelection(player)
 	self:_setArenaStreamingFocus(player, false)
 	player:SetAttribute("SkyfallRole", "Controller")
 	self:_setPlayerControllerHidden(player, true)
@@ -640,14 +710,17 @@ function RoundService:_chooseNextMapId()
 end
 
 function RoundService:_chooseController()
-	-- An explicit owner debug request takes priority over normal controller rotation.
+	-- Preserve the explicit owner-only debug override used by the private test workflow.
 	local debugPlayer = self.debugControllerPlayer
 	if debugPlayer and debugPlayer.Parent == Players and self.readyPlayers[debugPlayer] then
+		self:_recordControllerSelection(debugPlayer)
 		return {kind = "Player", value = debugPlayer}
 	end
 
-	-- Give a solo human a fair first test as a runner, with a bot piloting the drone.
-	if self.roundNumber == 1 and #self:_getReadyPlayers() == 1 then
+	local readyPlayers = self:_getReadyPlayers()
+
+	-- A single human gets one safe Runner round before the normal pilot rotation begins.
+	if self.roundNumber == 1 and #readyPlayers == 1 then
 		local botCandidates = {}
 		for _, bot in ipairs(self.botService:GetBots()) do
 			if self:_isCandidateValid({kind = "Bot", value = bot}) then
@@ -659,43 +732,49 @@ function RoundService:_chooseController()
 		end
 	end
 
-	if self.nextController
-		and self.nextController.kind == "Player"
-		and not self.readyPlayers[self.nextController.value]
-	then
-		self.nextController = nil
+	-- Ready humans always outrank bots. Priority score is the primary selection key.
+	if #readyPlayers > 0 then
+		local highestPriority = -1
+		for _, player in ipairs(readyPlayers) do
+			highestPriority = math.max(highestPriority, self:GetPilotPriority(player))
+		end
+
+		local highestPriorityPlayers = {}
+		for _, player in ipairs(readyPlayers) do
+			if self:GetPilotPriority(player) == highestPriority then
+				table.insert(highestPriorityPlayers, player)
+			end
+		end
+
+		-- The oldest previous controller round has waited the longest.
+		local oldestControllerRound = math.huge
+		for _, player in ipairs(highestPriorityPlayers) do
+			oldestControllerRound = math.min(oldestControllerRound, self.lastControllerRound[player] or -1)
+		end
+
+		local tieCandidates = {}
+		for _, player in ipairs(highestPriorityPlayers) do
+			if (self.lastControllerRound[player] or -1) == oldestControllerRound then
+				table.insert(tieCandidates, player)
+			end
+		end
+
+		local selectedPlayer = tieCandidates[self.random:NextInteger(1, #tieCandidates)]
+		self:_recordControllerSelection(selectedPlayer)
+		return {kind = "Player", value = selectedPlayer}
 	end
 
-	if self:_isCandidateValid(self.nextController) then
-		local selected = self.nextController
-		self.nextController = nil
-		return selected
-	end
-
-	self.nextController = nil
-	local candidates = {}
-
-	for _, player in ipairs(self:_getReadyPlayers()) do
-		table.insert(candidates, {
-			kind = "Player",
-			value = player,
-		})
-	end
-
+	-- A bot is only a fallback when no human is eligible.
+	local botCandidates = {}
 	for _, bot in ipairs(self.botService:GetBots()) do
 		if self:_isCandidateValid({kind = "Bot", value = bot}) then
-			table.insert(candidates, {
-				kind = "Bot",
-				value = bot,
-			})
+			table.insert(botCandidates, {kind = "Bot", value = bot})
 		end
 	end
-
-	if #candidates == 0 then
+	if #botCandidates == 0 then
 		return nil
 	end
-
-	return candidates[self.random:NextInteger(1, #candidates)]
+	return botCandidates[self.random:NextInteger(1, #botCandidates)]
 end
 
 function RoundService:_aliveRunnerCount()
@@ -802,9 +881,13 @@ function RoundService:HandleDeath(player, deadCharacter)
 		return
 	end
 
+	if self.bubbleGunService then
+		self.bubbleGunService:ReleaseTarget(player)
+	end
 	if wasController then
 		self.controller = nil
 	else
+		self:_awardEliminationPriority(player)
 		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
 	end
@@ -821,6 +904,10 @@ function RoundService:Eliminate(player)
 		return
 	end
 
+	if self.bubbleGunService then
+		self.bubbleGunService:ReleaseTarget(player)
+	end
+	self:_awardEliminationPriority(player)
 	self:_recordSurvival({kind = "Player", value = player})
 	self.aliveRunners[player] = nil
 	self:_setArenaStreamingFocus(player, true)
@@ -865,6 +952,16 @@ function RoundService:_eliminateFallenRunners()
 			self:_moveEliminatedPlayerToLobby(controllerPlayer)
 		end
 	end
+end
+
+function RoundService:_getAliveHumanRunnerCandidates()
+	local survivors = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		if self.aliveRunners[player] == true and player.Parent == Players then
+			table.insert(survivors, {kind = "Player", value = player})
+		end
+	end
+	return survivors
 end
 
 function RoundService:_getSoleSurvivor()
@@ -939,6 +1036,25 @@ function RoundService:_getLongestSurvivor()
 	return bestCandidates[self.random:NextInteger(1, #bestCandidates)]
 end
 
+function RoundService:_resolveWinnerCandidates(timerExpired)
+	if timerExpired then
+		local humanWinners = self:_getAliveHumanRunnerCandidates()
+		if #humanWinners > 0 then
+			return humanWinners
+		end
+	end
+
+	local aliveCount = self:_aliveRunnerCount()
+	if aliveCount == 1 then
+		local soleSurvivor = self:_getSoleSurvivor()
+		return soleSurvivor and {soleSurvivor} or {}
+	elseif aliveCount > 1 then
+		local longestSurvivor = self:_getLongestSurvivor()
+		return longestSurvivor and {longestSurvivor} or {}
+	end
+	return {}
+end
+
 function RoundService:_recordSurvival(candidate)
 	if not candidate or not candidate.value or not self.roundRunners[candidate.value] then
 		return
@@ -978,6 +1094,7 @@ function RoundService:_awardWinner(candidate)
 
 	if candidate.kind == "Player" then
 		local player = candidate.value
+		self:_awardWinnerPriority(player)
 		local statSet = self.stats[player]
 		if statSet and statSet.wins then
 			statSet.wins.Value += 1
@@ -1029,6 +1146,8 @@ function RoundService:_runRound()
 	self.countdownSeconds = 0
 	self.winner = ""
 	self.winnerCandidate = nil
+	self.winnerCandidates = {}
+	self.roundRewards = {}
 	self.debugPreviousController = nil
 	self.roundStartedAt = os.clock()
 	self.phase = "Active"
@@ -1050,6 +1169,9 @@ function RoundService:_runRound()
 
 	for _, player in ipairs(playersInRound) do
 		if player == controllerPlayer then
+			if self.bubbleGunService then
+				self.bubbleGunService:RevokeTool(player)
+			end
 			self:_setArenaStreamingFocus(player, false)
 			player:SetAttribute("SkyfallRole", "Controller")
 			self:_setPlayerControllerHidden(player, true)
@@ -1058,6 +1180,9 @@ function RoundService:_runRound()
 			spawnIndex += 1
 			self.aliveRunners[player] = true
 			self.roundRunners[player] = {kind = "Player", value = player}
+			if self.bubbleGunService then
+				self.bubbleGunService:GrantRunnerTool(player)
+			end
 			self.survivalTimes[player] = 0
 			player:SetAttribute("SkyfallRole", "Runner")
 			player:SetAttribute("SkyfallSurvivalTime", 0)
@@ -1123,25 +1248,34 @@ function RoundService:_runRound()
 		task.wait(1)
 	end
 
+	if self.bubbleGunService then
+		self.bubbleGunService:ReleaseAll()
+	end
+
 	if not canceled then
 		self:_updateSurvivalRecords()
-		local aliveCount = self:_aliveRunnerCount()
-		if aliveCount == 1 then
-			self.winnerCandidate = self:_getSoleSurvivor()
-		else
-			self.winnerCandidate = self:_getLongestSurvivor()
-		end
-
-		if self.winnerCandidate then
-			self.winner = self:_candidateName(self.winnerCandidate)
-			self.nextController = self.winnerCandidate
-			self:_awardWinner(self.winnerCandidate)
+		local timerExpired = self.elapsedSeconds >= Config.ROUND_SECONDS
+		self.winnerCandidates = self:_resolveWinnerCandidates(timerExpired)
+		if #self.winnerCandidates > 0 then
+			local winnerNames = {}
+			local hasHumanWinner = false
+			for _, candidate in ipairs(self.winnerCandidates) do
+				self:_awardWinner(candidate)
+				table.insert(winnerNames, self:_candidateName(candidate))
+				if candidate.kind == "Player" then
+					hasHumanWinner = true
+				end
+			end
+			if hasHumanWinner and self.botService then
+				self.botService:SetWinner(nil)
+			end
+			self.winnerCandidate = self.winnerCandidates[1]
+			self.winner = table.concat(winnerNames, ", ")
 		elseif self.controller and self:_isCandidateValid(self.controller) then
+			-- Keep the established controller-win fallback if every Runner is eliminated.
 			self.winner = self:_candidateName(self.controller)
-			self.nextController = self.controller
 		else
 			self.winner = "NO WINNER"
-			self.nextController = nil
 		end
 	end
 
@@ -1167,6 +1301,7 @@ function RoundService:_runRound()
 	self.roundRunners = {}
 	self.survivalTimes = {}
 	self.roundRunnerCount = 0
+	self.winnerCandidates = {}
 	self.controller = nil
 	self:_placeAllPlayersInLobby()
 	self:_clearReadyPlayers()

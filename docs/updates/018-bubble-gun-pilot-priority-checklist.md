@@ -1,6 +1,6 @@
 # Update 018: Bubble Blaster + Pilot Priority + Multiple Winners
 
- > Status: Implementation in progress. A checkbox may be marked complete only after the named test or direct evidence is recorded below.
+ > Status: Source changes are committed and repository CI has passed on the reviewed implementation commit. Roblox cloud, device, and multiplayer verification remain pending. Feature checkboxes stay unchecked until their required runtime evidence is recorded.
 > Branch: `feat/018-bubble-blaster-pilot-priority`
 > Base: `main`
 
@@ -87,7 +87,7 @@
 - [ ] Add multiple-winner tests for 0, 1, and multiple human survivors at timeout, including stats and reward correctness.
 - [ ] Add HUD structural checks for visibility, text, update behavior, and safe-area anchoring.
 - [ ] Run cloud smoke tests (private Roblox upload and live execution still pending).
-- [x] Run project structural validation. Evidence: GitHub Actions run `43887761737`, commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`, step `Validate repository structure` passed.
+- [x] Run project structural validation. Evidence: GitHub Actions run `43889959436`, implementation commit `1bf1431915d0ffc13ca0757994ac967a5becb23c`, step `Validate repository structure` passed.
 - [x] Run Selene on `src` and `tests`. Evidence: GitHub Actions run `43887761737`, Selene completed with 0 errors, 0 warnings, and 0 parse errors.
 - [x] Run `rojo build default.project.json`. Evidence: GitHub Actions run `43887761737`, Rojo build completed successfully and produced the `SkyfallArena-place` artifact.
 - [x] Review diff for protected drone, lens, laser, map, round duration, and publish workflow changes. Evidence: base-to-branch comparison lists only the 10 intended Update #18 files; protected modules, project mapping, and upload workflow are unchanged.
@@ -123,144 +123,49 @@
 - Reviewed but planned unchanged: `StrikeService.lua`, `BotService.lua`, `Audio.client.lua`, `default.project.json`, and `ArenaService.lua`. Their current interfaces already support the requested integration. No external models, DataStore, map edits, laser edits, or publishing workflow changes.
 
 
-## Recovery checkpoint (2026-11-16)
-All work below is committed to `feat/018-bubble-blaster-pilot-priority`. The previous tool interruption did not discard these files.
+## Current checkpoint (2026-11-16)
 
-### Persisted files
-| File | Current blob SHA | State |
-|---|---|---|
-| `src/shared/GameConfig.lua` | `2dbba5161a3f4be69dd4649dbed222dcecbf7742` | Implemented draft, not yet runtime-verified |
-| `src/server/Bootstrap.server.lua` | `72b318835fc8b0e6360c1a06339d1d1f28e9228c` | Implemented draft, not yet runtime-verified |
-| `src/server/Services/RoundService.lua` | `aa635b8c8419c6ff19d3f46e536a1403ae5498ec` | Implemented draft, not yet runtime-verified |
-| `src/server/Services/BubbleGunService.lua` | `f385475eee57dac6d6cf0298c1b28a82fa82fd61` | Implemented draft, not yet runtime-verified |
-| `src/server/Services/PilotPriorityService.lua` | `60ce6b524e56b2b2e01c81d0682981f6454b28b6` | Implemented draft, not yet runtime-verified |
-| `src/client/BubbleGun.client.lua` | `427241b3020ab7ce921a163398cca3495eaf6210` | Implemented draft, not yet runtime-verified |
+Continue on the existing branch. Do not create a duplicate branch or Pull Request.
 
-### Exact resume point
-- [ ] Finish Pilot Priority lifecycle and multiple-winner integration in RoundService, then inspect it for edge cases.
-- [ ] Finish the compact Pilot Priority HUD in `src/client/HUD.client.lua`.
-- [ ] Review and repair BubbleGunService security, ownership, prompt, projectile, hold restoration, and lifecycle cleanup.
-- [ ] Expand `tests/cloud_smoke_tests.luau` for Bubble Blaster, Pilot Priority selection/rewards, and multiple human winners.
-- [ ] Update `tools/validate_project.py` to assert new modules, remotes, configuration, and protected systems.
-- [ ] Run structural validation, Selene, and Rojo build with fresh output.
-- [ ] Review full diff and create PR only after checks are green.
+### Repository and Pull Request state
+- Branch: `feat/018-bubble-blaster-pilot-priority`.
+- Reviewed implementation commit: `1bf1431915d0ffc13ca0757994ac967a5becb23c`.
+- Pull Request #18: https://github.com/Vx1133/SkyfallArena1/pull/18
+- PR state at the last live check: open, draft, unmerged, and mergeable.
+- Comparison against `main`: 51 commits ahead, 0 behind.
+- The branch contains exactly the 10 Update #18 files listed in the original implementation plan.
+- Protected source/workflow files remain outside the branch diff: `StrikeService.lua`, `BotService.lua`, `ArenaService.lua`, `Audio.client.lua`, `default.project.json`, and `.github/workflows/upload-private-test.yml`.
+- `ROUND_SECONDS = 180` and `MAP_COUNT = 1` remain unchanged.
 
-### Known verification status at checkpoint
-- Checklist and implementation plan: committed.
-- New BubbleGunService, PilotPriorityService, BubbleGun client, config constants, Bootstrap wiring, and RoundService draft: committed.
-- Automated tests, Selene, Rojo build, phone simulator, real-phone input, and real multiplayer: not yet run for Update #18.
-- Pull Request: not created.
-- Merge and Roblox publish: not performed.
-- Do not mark any implementation checkbox complete until its tests/evidence exist.
-
-
-## Recovery checkpoint (2026-11-16, latest source review)
-
-The work below is saved on `feat/018-bubble-blaster-pilot-priority`. Continue on this branch; do not restart or replace existing code.
-
-### Persisted changes at this checkpoint
-- `src/server/Services/BubbleGunService.lua`: server-owned Tool template and lobby display; prompt distance verification; server-side role, tool, direction, range, and cooldown gates; impact-time raycast and target revalidation; projectile cancellation at round cleanup; hold restoration on timeout, death, character removal, player removal, and role transition; winner anchoring preservation; world impact burst.
-- `src/server/Services/PilotPriorityService.lua`: session-only score state, 0..100 cap, one award per round, 54-second elimination threshold, winner reward, controller wait-time tie-break, selected-controller score reset.
-- `src/server/Services/RoundService.lua`: human-first priority selection, first-solo-round bot exception, removal of the legacy `nextController` selection path, timeout co-winners, living humanoid checks, Controller victory fallback, safe result payloads containing winner names/roles, and restoration of a winning human Controller to the visible lobby.
-- `src/client/HUD.client.lua`: compact DRONE percentage indicator on a separate Core UI safe-area ScreenGui, visible for Waiting/Runner and hidden for Controller, updated from the score attribute.
-- `tests/cloud_smoke_tests.luau`: added Pilot Priority, selection, co-winner, dead-runner, controller restoration, trial prompt, server-shot, projectile-impact, and bubble hold lifecycle cases.
-- `tools/validate_project.py`: structural checks for the new services, remote, config, server validation, safe HUD, and regression tests.
-
-### Confirmed source-level observations
-- The branch comparison against `main` reports 39 commits ahead and 0 behind.
-- The comparison reports only the intended 10 changed files: checklist, BubbleGun client/service, PilotPriority service, HUD, Bootstrap, RoundService, GameConfig, smoke tests, and project validator.
-- The existing `StrikeService.lua`, `BotService.lua`, `ArenaService.lua`, `Audio.client.lua`, `default.project.json`, and upload workflow are unchanged in the branch diff.
-- `ROUND_SECONDS = 180`, `MAP_COUNT = 1`, and the existing Universe/Place IDs remain unchanged.
-- No Pull Request for Update #18 has been created. No merge or Roblox upload has been performed.
-
-### Remaining verification and delivery work
-- [ ] Run `python tools/validate_project.py` against this exact branch.
-- [ ] Run `selene src tests` and resolve all diagnostics.
-- [ ] Run `rojo build default.project.json` and inspect the generated place.
-- [ ] Confirm GitHub Actions validation is green for this branch.
-- [ ] Review the full diff for protected drone, lens, laser, map, round duration, and publishing workflow changes.
-- [ ] Execute the Roblox cloud smoke test only after the place version is deliberately uploaded to the existing private test place.
-- [ ] Verify mobile touch input, Safe Area/thumbstick separation, and multiple clients in Studio/device testing. These cannot be inferred from static source review.
-- [ ] Perform a final separate code-review pass.
-- [ ] Create the Update #18 Pull Request against `main` only after the repository checks succeed.
-- [ ] Do not merge or publish.
-
-### Verification status at this checkpoint
-- Source changes: committed to the feature branch.
-- Structural validator: updated, not executed in this environment.
-- Selene: not executed.
-- Rojo build: not executed.
-- GitHub Actions check result: not confirmed by the available status response.
-- Roblox cloud/runtime tests: not executed.
-- Device Simulator/real phone: not tested.
-- Multiplayer clients: not tested.
-- Pull Request: not created.
-- Merge/upload/publication: not performed.
-
-Do not mark implementation or test items complete based only on source inspection. The source-level work is not a substitute for a successful build, lint, Roblox runtime test, or phone test.
-
-
-## Recovery checkpoint (2026-11-16, latest CI and self-review)
-
-Continue from this branch and commit. Do not restart the Update #18 implementation.
-
-### Saved source state
-- Latest reviewed implementation commit: `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
-- Current branch: `feat/018-bubble-blaster-pilot-priority`.
-- Base: `main`, comparison: 47 commits ahead, 0 behind.
-- Exactly 10 changed files in the branch comparison: this checklist, BubbleGun client/service, HUD, Bootstrap, PilotPriorityService, RoundService, GameConfig, cloud smoke tests, and `tools/validate_project.py`.
-- Protected systems remain outside the diff: `StrikeService.lua`, `BotService.lua`, `ArenaService.lua`, `Audio.client.lua`, `default.project.json`, and `.github/workflows/upload-private-test.yml`. Round duration remains 180 seconds and map count remains 1.
-
-### CI evidence on the reviewed source commit
-- GitHub Actions run: [43887761737](https://github.com/Vx1133/SkyfallArena1/actions/runs/43887761737), head `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
-- Result: **success**.
+### Repository CI evidence on the reviewed implementation commit
+- GitHub Actions run: https://github.com/Vx1133/SkyfallArena1/actions/runs/43889959436
+- Head: `1bf1431915d0ffc13ca0757994ac967a5becb23c`.
+- Result: success.
 - `python tools/validate_project.py`: passed.
-- `selene src tests`: passed, 0 errors, 0 warnings, 0 parse errors.
+- `selene src tests`: passed with 0 errors, 0 warnings, and 0 parse errors.
 - `rojo build default.project.json`: passed.
-- Build artifact: `SkyfallArena-place`, artifact ID `14234913431`, created by this run.
+- Build artifact: `SkyfallArena-place`, artifact ID `14235309749` (available at the time of verification).
 
-### Issues found and repaired during final review
-- Updated the stale validator assertion for the first solo-human controller exception to match the current `readyPlayers` flow.
-- Added a structural guard for balanced duplicate-Tool cleanup, then removed the extra `end` that Selene had identified in `BubbleGunService.lua`.
-- Reformatted seven one-line statements in the cloud smoke tests; Selene then passed without warnings.
-- Found that stale dead human Runner entries could be selected through the sole/longest-survivor fallback if a death event was delayed. `_getSoleSurvivor` now reuses the living-human filter, and `_getLongestSurvivor` now requires a present living Humanoid with Runner role. Added a regression smoke test for both pre-timeout and timeout resolution. The source validator, Selene, and Rojo all passed after this change.
+### Source review and interpretation
+- The existing source for Pilot Priority scoring, controller selection, timeout co-winners, winner statistics, and the compact DRONE HUD is present on the feature branch and was reviewed in this pass.
+- The regression test source includes coverage for priority rewards, controller tie-breaking, timeout co-winners, and stale/dead Runner entries.
+- No new gameplay source changes were necessary in this continuation. The only correction in this pass is this recovery/evidence documentation.
+- A successful validator, lint, and Rojo build do not prove live Roblox behavior. The cloud smoke-test script has not been executed in a Roblox server session.
 
-### Still unverified and must remain unchecked
-- Roblox Cloud smoke tests have **not** been run. The repository workflow requires the explicit manual input `UPLOAD_PRIVATE_TEST` and uploads a new version to the existing Start Place before running the cloud script. It does not make the experience public, but it does modify the configured private place version.
-- Device Simulator, real-phone touch/Tool use, Safe Area/thumbstick overlap, and multi-client multiplayer testing have not been run.
-- The smoke-test script is linted and included in the project, but its live Roblox execution is not proven by the regular validation workflow.
-- No Update #18 Pull Request has been created yet at this checkpoint. No merge, Roblox upload, or public release has been performed.
+### Remaining verification and delivery
+- [ ] Execute Roblox cloud smoke tests against the existing private Start Place after explicit approval of the private upload workflow. The required confirmation is exactly `UPLOAD_PRIVATE_TEST`. No upload has been performed.
+- [ ] Verify Tool input, Safe Area, and thumbstick separation in Device Simulator and on a real phone.
+- [ ] Verify round behavior with at least two real clients.
+- [ ] Obtain an independent GitHub review, or retain the documented self-review if no reviewer is available.
+- [ ] Recheck CI on any later source-code change before considering merge.
+- [ ] Keep PR #18 unmerged and the Roblox experience private until runtime verification and review are complete.
 
-### Next actions
-- [ ] Obtain the explicit private-place upload confirmation before running the manual Roblox upload/cloud-test workflow.
-- [ ] Run the cloud smoke tests against the exact uploaded private place version and inspect the success marker/logs.
-- [ ] Run Device Simulator and real-phone checks, then test with at least two clients.
-- [ ] Create the Update #18 Pull Request against `main` after final checks. Keep it unmerged and do not publish publicly.
+### Current verification boundary
+- Repository structure, Selene, and Rojo build: verified by the linked CI run on the reviewed implementation commit.
+- Pilot Priority and co-winner behavior: source and regression-test coverage reviewed; live Roblox execution remains unverified.
+- Bubble Blaster gameplay behavior: implementation is present in the branch; the runtime checklist remains unchecked pending Roblox execution.
+- Phone input/Safe Area and multiplayer: not tested.
+- Pull Request: open as draft, not merged.
+- Roblox upload/public release: not performed.
 
-
-## Pull Request checkpoint (2026-11-16)
-- [x] Draft Pull Request #18 created against `main`: https://github.com/Vx1133/SkyfallArena1/pull/18
-- PR head when opened: `bbfd1404718529a00672751f1740105054e5832e`.
-- PR is open and unmerged. No Roblox upload or public release occurred.
-- The PR description records the successful repository CI run and leaves cloud/device/multiplayer verification explicitly pending.
-
-
-## Current resume checkpoint (2026-11-16, repeated request)
-
-- Existing work was reused. No new feature branch or duplicate PR was created.
-- PR #18: https://github.com/Vx1133/SkyfallArena1/pull/18
-- PR head before this documentation-only update: `c175e1f529138b1832d78f356fbcfa84e425836e`; base `main`.
-- PR state confirmed: open, draft, unmerged, mergeable. No review submissions or PR comments were present at the latest check.
-- Current PR validation at that source head: GitHub Actions run [43888479089](https://github.com/Vx1133/SkyfallArena1/actions/runs/43888479089) succeeded. Structural validation, Selene (0 errors / 0 warnings / 0 parse errors), and Rojo build passed.
-- The branch comparison contained 10 intended files and was 49 commits ahead / 0 behind `main`.
-- No Roblox upload, cloud execution, merge, or public release has occurred.
-- Still pending: private-place upload approval, Roblox Cloud smoke-test execution, Device Simulator and real-phone layout/touch verification, and at least two-client multiplayer verification.
-- Preserve the existing PR and branch. Do not mark implementation-specific checkboxes complete solely because CI passed; CI does not execute the in-game smoke tests.
-
-
-## Latest verification note (2026-11-16)
-
-- Documentation cleanup commit: `caf7f3f0c99ccb7016e8ebb8a795ec5cfa53718f`.
-- CI on that commit completed successfully: [GitHub Actions 43889784753](https://github.com/Vx1133/SkyfallArena1/actions/runs/43889784753).
-- A fresh `SkyfallArena-place` artifact was produced: artifact ID `14237105140`.
-- PR #18 remains open, draft, mergeable, and unmerged.
+Do not mark a feature-behavior checkbox complete solely because CI passes.

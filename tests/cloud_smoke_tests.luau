@@ -57,14 +57,25 @@ local function makeFakePlayer(name, role)
 		Name = name,
 		DisplayName = name,
 		Parent = Players,
-		attributes = {},
+		attributes = {SkyfallRole = role},
 		Character = nil,
 	}
 	function fakePlayer:SetAttribute(attributeName, value)
 		self.attributes[attributeName] = value
+		local signal = self.attributeSignals and self.attributeSignals[attributeName]
+		if signal then
+			signal:Fire()
+		end
 	end
 	function fakePlayer:GetAttribute(attributeName)
 		return self.attributes[attributeName]
+	end
+	function fakePlayer:GetAttributeChangedSignal(attributeName)
+		self.attributeSignals = self.attributeSignals or {}
+		if not self.attributeSignals[attributeName] then
+			self.attributeSignals[attributeName] = Instance.new("BindableEvent")
+		end
+		return self.attributeSignals[attributeName].Event
 	end
 	return fakePlayer
 end
@@ -926,6 +937,15 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 	local backpack = Instance.new("Folder")
 	backpack.Name = "Backpack"
 	local fakePlayer = makeFakePlayer("TrialPlayer", "Waiting")
+	local trialCharacter = Instance.new("Model")
+	trialCharacter.Name = "TrialPlayerCharacter"
+	local trialRoot = Instance.new("Part")
+	trialRoot.Name = "HumanoidRootPart"
+	trialRoot.Anchored = true
+	trialRoot.Position = Vector3.new(0, 0, 0)
+	trialRoot.Parent = trialCharacter
+	trialCharacter.Parent = Workspace
+	fakePlayer.Character = trialCharacter
 	fakePlayer.FindFirstChildOfClass = function(_, className)
 		return className == "Backpack" and backpack or nil
 	end
@@ -939,7 +959,10 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 	local remote = Instance.new("RemoteEvent")
 	local service = BubbleGunService.new(arena, mockRounds, mockBots, remote)
 	service.template = ServerStorage:FindFirstChild("SkyfallBubbleBlasterTemplate")
+	service.displayStand = arena.lobbyFolder:FindFirstChild("BubbleBlasterTrialStand")
+	service.promptPart = service.displayStand:FindFirstChild("Handle", true)
 	service.trainingTarget = trainingTarget
+	trialRoot.Position = service.promptPart.Position
 	assert(service:GrantTrial(fakePlayer), "Waiting player should receive the free trial Tool")
 	assert(service:GrantTrial(fakePlayer), "Repeated free trial interaction should remain safe")
 	local copies = 0
@@ -949,6 +972,10 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 		end
 	end
 	assert(copies == 1, "Repeated prompt interaction must never duplicate the Tool")
+	trialRoot.Position += Vector3.new(100, 0, 0)
+	assert(service:GrantTrial(fakePlayer) == false,
+		"Server must reject a spoofed prompt trigger outside ProximityPrompt range")
+	trialRoot.Position = service.promptPart.Position
 	local target = service:_findTarget(fakePlayer, targetPart)
 	assert(target and target.kind == "Training", "Waiting players may target only the dedicated training target")
 	service.rounds = {IsActive = function() return true end, IsAliveRunner = function() return false end}
@@ -959,6 +986,7 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 	assert(service:GrantRunner(fakePlayer) == false, "Controller must not receive the Runner loadout")
 	remote:Destroy()
 	backpack:Destroy()
+	trialCharacter:Destroy()
 end)
 
 runTest("Bubble Blaster server rejects invalid aim and enforces its cooldown", function()
@@ -1051,6 +1079,7 @@ runTest("Bubble hold restores movement and physics state exactly once", function
 		IsActive = function() return true end,
 		IsAliveRunner = function() return true end,
 	}, {GetAliveBots = function() return {} end}, remote)
+	local fakeTargetPlayer = makeFakePlayer("HeldRunner", "Runner")
 	local model = Instance.new("Model")
 	model.Name = "BubbleHoldSmokeTarget"
 	local root = Instance.new("Part")
@@ -1063,7 +1092,7 @@ runTest("Bubble hold restores movement and physics state exactly once", function
 	humanoid.Parent = model
 	model.Parent = Workspace
 
-	assert(service:_holdTarget({kind = "Player", model = model, humanoid = humanoid}, nil),
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
 		"A live humanoid target should be held")
 	local hold = service.holdsByHumanoid[humanoid]
 	assert(hold and root.Anchored and humanoid.WalkSpeed == 0 and humanoid.PlatformStand,
@@ -1072,6 +1101,14 @@ runTest("Bubble hold restores movement and physics state exactly once", function
 	assert(service:_releaseHold(hold) == false, "A hold must not release twice")
 	assert(root.Anchored == hold.rootAnchored and humanoid.WalkSpeed == 18 and humanoid.JumpPower == 52,
 		"Release must restore the saved root and movement properties")
+
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A second hold should start after the first was released")
+	local roleHold = service.holdsByHumanoid[humanoid]
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Controller")
+	assert(roleHold.released and root.Anchored == false and humanoid.WalkSpeed == 18,
+		"Changing the target out of Runner role must immediately release the hold")
+	for _, event in pairs(fakeTargetPlayer.attributeSignals or {}) do event:Destroy() end
 	model:Destroy()
 	remote:Destroy()
 end)

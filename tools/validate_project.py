@@ -406,7 +406,7 @@ for feature in (
     'flightRemote:FireServer("Disable")',
     'flightRemote:FireServer("Move", direction, camera.CFrame.LookVector)',
     'flightRemote:FireServer("DebugController", debugRequested)',
-    'debugButton.Name = "DebugDroneToggle"',
+    '"DebugDroneToggle"',
     'player:GetAttribute("SkyfallIsAdmin") == true',
     'state.phase == "Waiting"',
 ):

@@ -9,7 +9,7 @@ local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
 local flightRemote = remotes:WaitForChild("AdminFlight")
 local stateRemote = remotes:WaitForChild("RoundState")
 
-local state = {phase = "Waiting"}
+local state = { phase = "Waiting" }
 local verticalUp = false
 local verticalDown = false
 local running = true
@@ -66,15 +66,11 @@ local debugButton = makeButton(
 )
 debugButton.TextSize = 10
 
-local debugRequested = player:GetAttribute("SkyfallDebugDroneEnabled") == true
+local debugRequestPending = false
+local debugRequestSerial = 0
 
-local upButton = makeButton(
-	"AdminFlightUp",
-	"UP",
-	UDim2.new(1, -72, 0.45, 0),
-	UDim2.fromOffset(60, 40),
-	Color3.fromRGB(43, 137, 76)
-)
+local upButton =
+	makeButton("AdminFlightUp", "UP", UDim2.new(1, -72, 0.45, 0), UDim2.fromOffset(60, 40), Color3.fromRGB(43, 137, 76))
 
 local downButton = makeButton(
 	"AdminFlightDown",
@@ -97,29 +93,41 @@ local function updateControls()
 	local admin = isAdmin()
 	flyButton.Visible = admin and waiting
 	debugButton.Visible = admin
-	debugButton.Text = debugRequested and "TEST ON" or "DRONE"
-	debugButton.BackgroundColor3 = debugRequested
-		and Color3.fromRGB(157, 112, 42)
-		or Color3.fromRGB(91, 77, 54)
+	local debugRequested = player:GetAttribute("SkyfallDebugDroneEnabled") == true
+	debugButton.Text = debugRequestPending and "SYNC..." or (debugRequested and "TEST ON" or "DRONE")
+	debugButton.Active = not debugRequestPending
+	debugButton.AutoButtonColor = not debugRequestPending
+	debugButton.BackgroundColor3 = debugRequested and Color3.fromRGB(157, 112, 42) or Color3.fromRGB(91, 77, 54)
 	upButton.Visible = admin and waiting and isFlying()
 	downButton.Visible = admin and waiting and isFlying()
 	flyButton.Text = isFlying() and "STOP FLY" or "FLY"
-	flyButton.BackgroundColor3 = isFlying()
-		and Color3.fromRGB(158, 82, 43)
-		or Color3.fromRGB(36, 93, 160)
+	flyButton.BackgroundColor3 = isFlying() and Color3.fromRGB(158, 82, 43) or Color3.fromRGB(36, 93, 160)
 end
 
 debugButton.Activated:Connect(function()
-	if not isAdmin() then
+	if not isAdmin() or debugRequestPending then
 		return
 	end
-	debugRequested = not debugRequested
+
+	local desiredState = player:GetAttribute("SkyfallDebugDroneEnabled") ~= true
+	debugRequestPending = true
+	debugRequestSerial += 1
+	local requestSerial = debugRequestSerial
 	updateControls()
-	flightRemote:FireServer("DebugController", debugRequested)
+	flightRemote:FireServer("DebugController", desiredState)
+
+	-- A rejected or interrupted RemoteEvent must not leave the button permanently locked.
+	task.delay(3, function()
+		if debugRequestPending and debugRequestSerial == requestSerial then
+			debugRequestPending = false
+			updateControls()
+		end
+	end)
 end)
 
 player:GetAttributeChangedSignal("SkyfallDebugDroneEnabled"):Connect(function()
-	debugRequested = player:GetAttribute("SkyfallDebugDroneEnabled") == true
+	debugRequestPending = false
+	debugRequestSerial += 1
 	updateControls()
 end)
 
@@ -133,8 +141,6 @@ flyButton.Activated:Connect(function()
 		flightRemote:FireServer("Enable")
 	end
 end)
-
-
 
 local activeUpInput = nil
 local activeDownInput = nil
@@ -221,6 +227,9 @@ end)
 player.CharacterAdded:Connect(function()
 	verticalUp = false
 	verticalDown = false
+	debugRequestPending = false
+	debugRequestSerial += 1
+	-- Re-read the authoritative attribute for every character; never infer drone mode from Spawn.
 	updateControls()
 end)
 

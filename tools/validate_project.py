@@ -680,7 +680,7 @@ for feature in (
     require(feature in arena_source, f"Cyberpunk architecture surface profile is missing: {feature}")
 for feature in (
     'ClockTime = 14',
-    'daySky.Name' ,
+    'Name = "SkyfallGlobalDaySky"',
     'StarCount = 0',
     'MoonAngularSize = 0',
     'Density = 0.07',

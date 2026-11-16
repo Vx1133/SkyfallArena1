@@ -386,7 +386,7 @@ local function updateControllerCamera(deltaTime)
 			controllerCameraInstance = camera
 			previousFieldOfView = camera.FieldOfView
 			previousFieldOfViewMode = camera.FieldOfViewMode
-			controllerCameraCFrame = camera.CFrame
+			controllerCameraCFrame = nil
 			cachedControllerCameraHeight = nil
 			cachedControllerViewport = Vector2.zero
 			setControllerDroneHidden(true)
@@ -429,9 +429,16 @@ local function updateControllerCamera(deltaTime)
 			Vector3.new(0, 0, -1)
 		)
 
-		local smoothRate = math.max(Config.CONTROLLER_CAMERA_SMOOTHING, 1)
-		local alpha = 1 - math.exp(-smoothRate * math.max(deltaTime, 0))
-		controllerCameraCFrame = controllerCameraCFrame:Lerp(desiredCFrame, alpha)
+		if not controllerCameraCFrame
+			or (controllerCameraCFrame.Position - desiredCFrame.Position).Magnitude > 100
+		then
+			-- Avoid sweeping the camera from the hidden character's old location.
+			controllerCameraCFrame = desiredCFrame
+		else
+			local smoothRate = math.max(Config.CONTROLLER_CAMERA_SMOOTHING, 1)
+			local alpha = 1 - math.exp(-smoothRate * math.max(deltaTime, 0))
+			controllerCameraCFrame = controllerCameraCFrame:Lerp(desiredCFrame, alpha)
+		end
 		camera.CFrame = controllerCameraCFrame
 		camera.Focus = CFrame.new(dronePosition)
 		return

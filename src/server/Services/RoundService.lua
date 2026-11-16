@@ -460,7 +460,19 @@ function RoundService:RequestDebugController(player, enabled)
 end
 
 function RoundService:_clearReadyPlayers()
+	local playersToReset = {}
 	for _, player in ipairs(Players:GetPlayers()) do
+		playersToReset[player] = true
+	end
+	-- Also include queued entries while keeping this method testable with mock
+	-- Player objects in the cloud smoke harness.
+	for player in pairs(self.readyPlayers) do
+		if player.Parent == Players then
+			playersToReset[player] = true
+		end
+	end
+
+	for player in pairs(playersToReset) do
 		if self.readyPlayers[player] then
 			player:SetAttribute("SkyfallReady", false)
 		end

@@ -49,5 +49,5 @@
 ## Release boundary
 
 - The generated `.rbxlx` is a Rojo build artifact, not a proof of a successful Studio runtime or a Roblox upload.
-- The feature branch was pushed to GitHub in five commits and Pull Request #19 was opened against `main`. No merge, Roblox Open Cloud upload, place publish, or experience visibility change was performed.
+- The feature branch was pushed to GitHub and Pull Request #19 was opened against `main`. No merge, Roblox Open Cloud upload, place publish, or experience visibility change was performed.
 - The feature branch is ready for review/integration subject to the pending Roblox runtime/device validation above.

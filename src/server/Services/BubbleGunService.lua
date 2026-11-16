@@ -635,7 +635,7 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 			return
 		end
 
-		if not record.target or not record.hitInstance then
+		if not record.target then
 			return
 		end
 

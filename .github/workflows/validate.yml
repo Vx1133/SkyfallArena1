@@ -42,6 +42,7 @@ jobs:
         run: |
           lune run tests/lune/update_019_policy.luau
           lune run tests/lune/update_022_policy.luau
+          lune run tests/lune/update_023_lighting_profile.luau
 
       - name: Validate repository structure
         run: python tools/validate_project.py

@@ -22,6 +22,7 @@ The new shared profile is applied by `LightingProfileService` for every map:
 - GlobalShadows: enabled, ShadowSoftness 0.28
 - Shared Atmosphere: Density 0.07, Haze 0.42, Glare 0.035
 - Restrained Bloom: Intensity 0.12, Size 16, Threshold 1.65
+- Legacy or duplicate Atmosphere/Bloom/ColorCorrection/SunRays effects are removed before the single managed stack is applied
 - Restrained SunRays: Intensity 0.012
 - Neutral ColorCorrection: Brightness -0.005, Contrast 0.035, Saturation 0.02
 
@@ -29,7 +30,7 @@ A single default daylight Sky is retained across map changes, with stars and moo
 
 ## Ambient occlusion and mobile
 
-Roblox does not expose a normal script-controlled `AmbientOcclusionEffect` intensity setting. Ambient occlusion/contact shading is engine-generated through `LightingStyle.Realistic` where the client supports it. Roblox can automatically scale lighting quality down on lower-end devices. `PrioritizeLightingQuality = false` favors view distance when quality must scale down. The implementation does not force the older `Lighting.Technology` property.
+Roblox does not expose a normal script-controlled `AmbientOcclusionEffect` intensity setting. Ambient occlusion/contact shading is engine-generated through `LightingStyle.Realistic` where the client supports it. Roblox can automatically scale lighting quality down on lower-end devices. `PrioritizeLightingQuality = true` favors view distance when quality must scale down. The implementation does not force the older `Lighting.Technology` property.
 
 ## Scope protection
 

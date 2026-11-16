@@ -32,6 +32,10 @@ required_files = [
     "src/shared/GameConfig.lua",
     "src/shared/MapRotation.lua",
     "src/shared/StartupReadinessPolicy.lua",
+    "src/shared/ArenaStartupPolicy.lua",
+    "tests/lune/update_026_arena_bootstrap_guard.luau",
+    "docs/updates/026-arena-build-fail-safe.md",
+    "docs/handoffs/CODEX_UPDATE_026_ARENA_BUILD.md",
     "tests/lune/update_024_startup_guard.luau",
     "tests/lune/update_025_startup_guard.luau",
     "docs/updates/024-global-startup-freeze-fix.md",
@@ -732,6 +736,12 @@ require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source.split(
 require('player:SetAttribute("SkyfallAircraftControlActive", false)' in round_source, "Player aircraft control state must default to off")
 require('player:SetAttribute("SkyfallAircraftControlActive", hidden == true)' in round_source, "Server must own the aircraft-control active state")
 require('player:GetAttribute("SkyfallAircraftControlActive") == true' in hud_source, "The client camera must require explicit server aircraft-control state")
+arena_startup_policy_source = (ROOT / "src/shared/ArenaStartupPolicy.lua").read_text(encoding="utf-8")
+arena_startup_test = (ROOT / "tests/lune/update_026_arena_bootstrap_guard.luau").read_text(encoding="utf-8")
+require("function ArenaStartupPolicy.Resolve(" in arena_startup_policy_source, "Arena startup fail-open policy is missing")
+require("UPDATE_026_ARENA_BOOTSTRAP_GUARD_TESTS_OK" in arena_startup_test, "Update #26 arena startup regression test is missing")
+require("lune run tests/lune/update_026_arena_bootstrap_guard.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #26 startup regression tests")
+
 startup_policy_source = (ROOT / "src/shared/StartupReadinessPolicy.lua").read_text(encoding="utf-8")
 startup_policy_test = (ROOT / "tests/lune/update_025_startup_guard.luau").read_text(encoding="utf-8")
 require("StartupReadinessPolicy.CanBeginIntermission(" in round_source, "Round startup must wait for a valid controller candidate")
@@ -826,8 +836,16 @@ for source_name, source_text in (
     require("Enum.Material.Neon" not in source_text, f"{source_name} must not create Neon BaseParts")
 require("ClassicNatureMapBuilder.Build(" in arena_source, "ArenaService must delegate Classic decoration to its dedicated builder")
 require("CyberpunkMapBuilder.Build(" in arena_source, "ArenaService must delegate Cyberpunk decoration to its dedicated builder")
-require("FloorAppearanceService.Audit(self.mapFolder, profile)" in arena_source, "Every map selection must audit all generated surfaces")
-require("FloorAppearanceService.Audit(self.tilesFolder, profile)" in arena_source, "Every map selection must audit all 225 floor tiles")
+require('runOptionalArenaStage("MapGeometry"' in arena_source, "Optional map decoration must fail open")
+require('runOptionalArenaStage("ElementTransitions"' in arena_source, "Optional element transitions must fail open")
+require('runOptionalArenaStage("LightingProfile"' in arena_source, "Optional lighting profile must fail open")
+require("ArenaStartupPolicy.Resolve(self.coreArenaReady, mapSuccess)" in arena_source, "Gameplay readiness must be based on core arena readiness")
+require("function ArenaService:IsGameplayReady()" in arena_source, "ArenaService must expose explicit gameplay readiness")
+require('self.root:SetAttribute("SkyfallArenaReady", readiness.GameplayReady)' in arena_source, "Arena root must publish gameplay readiness separately from decoration")
+require('error("Skyfall element visual integration failed:' not in arena_source, "Optional element visuals must not abort arena startup")
+
+require("FloorAppearanceService.Audit(self.mapFolder, profile)" in arena_source, "Every map selection must attempt the generated surface audit")
+require("FloorAppearanceService.Audit(self.tilesFolder, profile)" in arena_source, "Every map selection must attempt the 225 tile surface audit")
 require("SkyfallGeometrySignature" in classic_builder_source and "SkyfallGeometrySignature" in cyberpunk_builder_source,
         "Each map must expose a distinct geometry signature")
 for feature in (

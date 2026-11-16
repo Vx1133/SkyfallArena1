@@ -43,6 +43,8 @@ function FloorAppearanceService.ApplySurface(target: BasePart, profile: Appearan
 
 	target.Material = profile.Material
 	target.Reflectance = math.clamp(profile.Reflectance, 0, 1)
+	target.TopSurface = profile.TopSurface
+	target.BottomSurface = profile.BottomSurface
 
 	local success, message = pcall(function()
 		target.MaterialVariant = profile.MaterialVariant

@@ -69,6 +69,7 @@ for setting in (
     "Config.CONTROLLER_CAMERA_FOV = 70",
     "Config.CONTROLLER_CAMERA_MARGIN = 8",
     "Config.CONTROLLER_CAMERA_MIN_HEIGHT = 132",
+    "Config.CONTROLLER_CAMERA_SMOOTHING = 18",
     "Config.RESPAWN_TIME",
 ):
     require(setting in config_source, f"Required gameplay setting is missing: {setting}")
@@ -214,7 +215,7 @@ for bot_name in ("Atlas", "Nova", "Rook"):
 require("for botIndex = 1, Config.BOT_COUNT do" in bot_source, "BotService must construct all configured NPCs")
 require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NPCs must use Roblox's built-in HumanoidDescription rig generator")
 require("createFallbackHair" not in bot_source, "Procedural custom bot hair must not be used")
-for feature in ("function BotService:_setBotHidden(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
+for feature in ("function BotService:_setBotHidden(", "function BotService:SetController(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
 require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
 fallen_bot_body = bot_source.split("function BotService:EliminateFallenRunners", 1)[1].split("function BotService:SendToLobby", 1)[0]
@@ -238,6 +239,10 @@ for feature in (
     "function RoundService:_chooseNextMapId(",
     "function RoundService:_getSoleSurvivor(",
     "function RoundService:_getLongestSurvivor(",
+    "function RoundService:RequestDebugController(",
+    "function RoundService:_activateDebugController(",
+    "function RoundService:_restoreDebugController(",
+    "self.debugControllerPlayer",
     "function RoundService:_recordSurvival(",
     "function RoundService:_isGrounded(",
     "function RoundService:IsHumanController(",
@@ -328,13 +333,23 @@ for feature in (
     "Config.CONTROLLER_CAMERA_FOV",
     "Config.CONTROLLER_CAMERA_MARGIN",
     "Config.CONTROLLER_CAMERA_MIN_HEIGHT",
+    "Config.CONTROLLER_CAMERA_SMOOTHING",
+    "getControllerDronePosition",
+    "RunService:BindToRenderStep",
+    "SkyfallDroneCamera",
+    "camera.Focus = CFrame.new(dronePosition)",
+    "controllerCameraCFrame:Lerp(desiredCFrame, alpha)",
     "cachedControllerCameraHeight",
     "setControllerDroneHidden(true)",
     "LocalTransparencyModifier = hidden and 1 or 0",
     "camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical",
-    "camera.CFrame = CFrame.lookAt(",
+    "camera.CFrame = controllerCameraCFrame",
+    "local desiredCFrame = CFrame.lookAt(",
     "Vector3.new(0, 0, -1)",
-    "camera.Focus = CFrame.new(Config.ARENA_CENTER)",
+    "camera.Focus = CFrame.new(dronePosition)",
+    "RunService:BindToRenderStep",
+    "getControllerDronePosition",
+    "controllerCameraCFrame:Lerp(desiredCFrame, alpha)",
     "camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV",
     "previousFieldOfView = camera.FieldOfView",
     "previousFieldOfViewMode = camera.FieldOfViewMode",
@@ -391,6 +406,8 @@ for feature in (
     'flightRemote:FireServer("Enable")',
     'flightRemote:FireServer("Disable")',
     'flightRemote:FireServer("Move", direction, camera.CFrame.LookVector)',
+    'flightRemote:FireServer("DebugController", debugRequested)',
+    '"DebugDroneToggle"',
     'player:GetAttribute("SkyfallIsAdmin") == true',
     'state.phase == "Waiting"',
 ):
@@ -415,6 +432,8 @@ for feature in (
     "The Classic arena uses neutral lighting and connected stud geometry",
     "Players remain in the lobby until they request Play",
     "Creator flight authorization only grants the personal experience owner",
+    "Owner debug control overrides first-round bot selection and can take over an active round",
+    "Bot controller can be hidden and restored after a debug takeover",
     "Broken tiles remain broken",
     "Round-end cleanup instantly restores every destructible tile",
     "Lobby streaming focus is added and removed once without changing global radius",

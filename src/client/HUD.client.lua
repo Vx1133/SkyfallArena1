@@ -333,6 +333,20 @@ local previousFieldOfView = nil
 local previousFieldOfViewMode = nil
 local cachedControllerCameraHeight = nil
 local cachedControllerViewport = Vector2.zero
+local controllerCameraCFrame = nil
+local controllerCameraInstance = nil
+
+local function getControllerDronePosition()
+	local arenaRoot = Workspace:FindFirstChild("SkyfallArena")
+	local environment = arenaRoot and arenaRoot:FindFirstChild("Environment")
+	local aircraftFolder = environment and environment:FindFirstChild("Aircraft")
+	local drone = aircraftFolder and aircraftFolder:FindFirstChild("SkyfallLaserAircraft")
+	local primaryPart = drone and (drone.PrimaryPart or drone:FindFirstChild("AircraftFuselage"))
+	if primaryPart and primaryPart:IsA("BasePart") then
+		return primaryPart.Position
+	end
+	return Config.CONTROL_CENTER
+end
 
 local function setControllerDroneHidden(hidden)
 	local arenaRoot = Workspace:FindFirstChild("SkyfallArena")
@@ -359,7 +373,7 @@ Workspace.DescendantAdded:Connect(function(descendant)
 	end
 end)
 
-RunService.RenderStepped:Connect(function()
+local function updateControllerCamera(deltaTime)
 	local camera = Workspace.CurrentCamera
 	if not camera then
 		return
@@ -367,22 +381,25 @@ RunService.RenderStepped:Connect(function()
 
 	local shouldUseControllerCamera = getRole() == "Controller" and state.phase == "Active"
 	if shouldUseControllerCamera then
-		if not controllerCameraActive then
+		if not controllerCameraActive or controllerCameraInstance ~= camera then
+			controllerCameraActive = true
+			controllerCameraInstance = camera
 			previousFieldOfView = camera.FieldOfView
 			previousFieldOfViewMode = camera.FieldOfViewMode
+			controllerCameraCFrame = nil
+			cachedControllerCameraHeight = nil
+			cachedControllerViewport = Vector2.zero
 			setControllerDroneHidden(true)
 		end
 
-		controllerCameraActive = true
 		camera.CameraType = Enum.CameraType.Scriptable
-
-		-- True vertical overhead view. Recalculate fit only when the viewport changes.
 		if camera.FieldOfViewMode ~= Enum.FieldOfViewMode.Vertical then
 			camera.FieldOfViewMode = Enum.FieldOfViewMode.Vertical
 		end
 		if camera.FieldOfView ~= Config.CONTROLLER_CAMERA_FOV then
 			camera.FieldOfView = Config.CONTROLLER_CAMERA_FOV
 		end
+
 		local viewport = camera.ViewportSize
 		if cachedControllerCameraHeight == nil
 			or viewport.X ~= cachedControllerViewport.X
@@ -399,44 +416,71 @@ RunService.RenderStepped:Connect(function()
 			)
 			cachedControllerViewport = viewport
 		end
-		local cameraPosition = Config.ARENA_CENTER + Vector3.new(0, cachedControllerCameraHeight, 0)
-		camera.CFrame = CFrame.lookAt(
+
+		-- Follow the aircraft assembly while retaining a stable overhead view of the arena.
+		local dronePosition = getControllerDronePosition()
+		local droneToArenaOffset = Config.ARENA_CENTER - Config.CONTROL_CENTER
+		local cameraOffset = cachedControllerCameraHeight - (Config.CONTROL_CENTER.Y - Config.ARENA_CENTER.Y)
+		local cameraPosition = dronePosition + Vector3.new(0, cameraOffset, 0)
+		local lookPosition = dronePosition + droneToArenaOffset
+		local desiredCFrame = CFrame.lookAt(
 			cameraPosition,
-			Config.ARENA_CENTER,
+			lookPosition,
 			Vector3.new(0, 0, -1)
 		)
-		camera.Focus = CFrame.new(Config.ARENA_CENTER)
-	else
-		if controllerCameraActive then
-			controllerCameraActive = false
-			setControllerDroneHidden(false)
-			cachedControllerCameraHeight = nil
-			cachedControllerViewport = Vector2.zero
-			camera.CameraType = Enum.CameraType.Custom
-			if previousFieldOfViewMode then
-				camera.FieldOfViewMode = previousFieldOfViewMode
-				previousFieldOfViewMode = nil
-			end
-			if previousFieldOfView then
-				camera.FieldOfView = previousFieldOfView
-				previousFieldOfView = nil
-			end
-		end
 
-		-- Keep the normal player camera attached to the current living character.
-		-- This also repairs the camera after respawns and role changes.
-		local character = player.Character
-		local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-		if humanoid and humanoid.Health > 0 then
-			if camera.CameraType ~= Enum.CameraType.Custom then
-				camera.CameraType = Enum.CameraType.Custom
-			end
-			if camera.CameraSubject ~= humanoid then
-				camera.CameraSubject = humanoid
-			end
+		if not controllerCameraCFrame
+			or (controllerCameraCFrame.Position - desiredCFrame.Position).Magnitude > 100
+		then
+			-- Avoid sweeping the camera from the hidden character's old location.
+			controllerCameraCFrame = desiredCFrame
+		else
+			local smoothRate = math.max(Config.CONTROLLER_CAMERA_SMOOTHING, 1)
+			local alpha = 1 - math.exp(-smoothRate * math.max(deltaTime, 0))
+			controllerCameraCFrame = controllerCameraCFrame:Lerp(desiredCFrame, alpha)
+		end
+		camera.CFrame = controllerCameraCFrame
+		camera.Focus = CFrame.new(dronePosition)
+		return
+	end
+
+	if controllerCameraActive then
+		controllerCameraActive = false
+		controllerCameraInstance = nil
+		setControllerDroneHidden(false)
+		cachedControllerCameraHeight = nil
+		cachedControllerViewport = Vector2.zero
+		controllerCameraCFrame = nil
+		camera.CameraType = Enum.CameraType.Custom
+		if previousFieldOfViewMode then
+			camera.FieldOfViewMode = previousFieldOfViewMode
+			previousFieldOfViewMode = nil
+		end
+		if previousFieldOfView then
+			camera.FieldOfView = previousFieldOfView
+			previousFieldOfView = nil
 		end
 	end
-end)
+
+	-- Keep the normal player camera attached to the current living character.
+	-- This also repairs the camera after respawns and role changes.
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if humanoid and humanoid.Health > 0 then
+		if camera.CameraType ~= Enum.CameraType.Custom then
+			camera.CameraType = Enum.CameraType.Custom
+		end
+		if camera.CameraSubject ~= humanoid then
+			camera.CameraSubject = humanoid
+		end
+	end
+end
+
+RunService:BindToRenderStep(
+	"SkyfallDroneCamera",
+	Enum.RenderPriority.Camera.Value + 1,
+	updateControllerCamera
+)
 
 player.CharacterAdded:Connect(function(character)
 	local humanoid = character:WaitForChild("Humanoid", 10)

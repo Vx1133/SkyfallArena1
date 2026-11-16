@@ -35,6 +35,9 @@ function AdminFlightService:_setAdminAttribute(player)
 	if player and player.Parent == Players then
 		player:SetAttribute("SkyfallIsAdmin", self:_isAuthorized(player))
 		player:SetAttribute("SkyfallFlightEnabled", self.active[player] ~= nil)
+		if player:GetAttribute("SkyfallDebugDroneEnabled") == nil then
+			player:SetAttribute("SkyfallDebugDroneEnabled", false)
+		end
 	end
 end
 
@@ -220,6 +223,8 @@ function AdminFlightService:Start()
 			self:_disable(player)
 		elseif command == "Move" then
 			self:_move(player, direction, lookVector)
+		elseif command == "DebugController" and typeof(direction) == "boolean" then
+			self.rounds:RequestDebugController(player, direction)
 		end
 	end)
 

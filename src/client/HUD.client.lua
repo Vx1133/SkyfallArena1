@@ -153,47 +153,70 @@ playButton.Activated:Connect(function()
 	end
 end)
 
-local pilotButton = Instance.new("TextButton")
-pilotButton.Name = "PilotOptInButton"
-pilotButton.AnchorPoint = Vector2.new(0.5, 0)
-pilotButton.Position = UDim2.new(0.5, 0, 0, 97)
-pilotButton.Size = UDim2.fromOffset(154, 34)
-pilotButton.BackgroundColor3 = Color3.fromRGB(66, 78, 94)
-pilotButton.BackgroundTransparency = 0.16
-pilotButton.BorderSizePixel = 0
-pilotButton.Font = Enum.Font.GothamBold
-pilotButton.Text = "PILOT: OFF"
-pilotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
-pilotButton.TextSize = 12
-pilotButton.AutoButtonColor = true
-pilotButton.Visible = true
-pilotButton.Parent = screenGui
+-- Minimal manual aircraft opt-in icon. The previous status text indicators
+-- stay removed; this one icon only records a choice for the next round.
+local aircraftModeButton = Instance.new("TextButton")
+aircraftModeButton.Name = "AircraftModeIcon"
+aircraftModeButton.AnchorPoint = Vector2.new(0.5, 0)
+aircraftModeButton.Position = UDim2.new(0.5, -106, 0, 53)
+aircraftModeButton.Size = UDim2.fromOffset(38, 38)
+aircraftModeButton.BackgroundColor3 = Color3.fromRGB(62, 76, 91)
+aircraftModeButton.BackgroundTransparency = 0.12
+aircraftModeButton.BorderSizePixel = 0
+aircraftModeButton.Font = Enum.Font.GothamBold
+aircraftModeButton.Text = "✈"
+aircraftModeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+aircraftModeButton.TextSize = 21
+aircraftModeButton.AutoButtonColor = true
+aircraftModeButton.Parent = screenGui
 
-local pilotOptInCorner = Instance.new("UICorner")
-pilotOptInCorner.CornerRadius = UDim.new(0, 9)
-pilotOptInCorner.Parent = pilotButton
+local aircraftModeCorner = Instance.new("UICorner")
+aircraftModeCorner.CornerRadius = UDim.new(0, 10)
+aircraftModeCorner.Parent = aircraftModeButton
 
-local pilotOptInStroke = Instance.new("UIStroke")
-pilotOptInStroke.Color = Color3.fromRGB(220, 235, 250)
-pilotOptInStroke.Transparency = 0.62
-pilotOptInStroke.Thickness = 1
-pilotOptInStroke.Parent = pilotButton
+local aircraftModeStroke = Instance.new("UIStroke")
+aircraftModeStroke.Color = Color3.fromRGB(220, 235, 250)
+aircraftModeStroke.Transparency = 0.58
+aircraftModeStroke.Thickness = 1
+aircraftModeStroke.Parent = aircraftModeButton
 
-local function updatePilotButton()
-	local waiting = state.phase == "Waiting"
+local aircraftModePending = false
+local aircraftModeRequestSerial = 0
+
+local function updateAircraftModeButton()
+	local ready = player:GetAttribute("SkyfallReady") == true
+	local eligiblePhase = state.phase == "Waiting" or state.phase == "Intermission"
+	local eligible = ready and eligiblePhase
 	local optedIn = player:GetAttribute("SkyfallPilotOptIn") == true
-	pilotButton.Visible = waiting
-	pilotButton.Text = optedIn and "PILOT: ON" or "PILOT: OFF"
-	pilotButton.BackgroundColor3 = optedIn and Color3.fromRGB(30, 126, 155) or Color3.fromRGB(66, 78, 94)
+	aircraftModeButton.Visible = eligible
+	aircraftModeButton.Active = eligible and not aircraftModePending
+	aircraftModeButton.AutoButtonColor = not aircraftModePending
+	aircraftModeButton.BackgroundColor3 = optedIn
+		and Color3.fromRGB(23, 121, 157)
+		or Color3.fromRGB(62, 76, 91)
 end
 
-pilotButton.Activated:Connect(function()
-	if state.phase ~= "Waiting" then
+aircraftModeButton.Activated:Connect(function()
+	local ready = player:GetAttribute("SkyfallReady") == true
+	local eligiblePhase = state.phase == "Waiting" or state.phase == "Intermission"
+	if not ready or not eligiblePhase or aircraftModePending then
 		return
 	end
+
 	local desiredState = player:GetAttribute("SkyfallPilotOptIn") ~= true
-	pilotButton.Text = "PILOT..."
+	aircraftModePending = true
+	aircraftModeRequestSerial += 1
+	local requestSerial = aircraftModeRequestSerial
+	updateAircraftModeButton()
 	playRemote:FireServer("PilotOptIn", desiredState)
+
+	-- A rejected or interrupted RemoteEvent must not leave the icon locked.
+	task.delay(2.5, function()
+		if aircraftModePending and aircraftModeRequestSerial == requestSerial then
+			aircraftModePending = false
+			updateAircraftModeButton()
+		end
+	end)
 end)
 
 local function formatTime(totalSeconds)
@@ -207,63 +230,10 @@ local function getRole()
 	return player:GetAttribute("SkyfallRole") or "Waiting"
 end
 
--- A separate safe-area ScreenGui keeps the priority indicator independent from
--- the existing full-screen controller camera and top round HUD.
-local pilotGui = Instance.new("ScreenGui")
-pilotGui.Name = "SkyfallPilotPriorityHUD"
-pilotGui.ResetOnSpawn = false
-pilotGui.IgnoreGuiInset = false
-pilotGui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
-pilotGui.DisplayOrder = 21
-pilotGui.Enabled = false
-pilotGui.Parent = playerGui
-
-local pilotPanel = Instance.new("Frame")
-pilotPanel.Name = "PilotPriorityPanel"
-pilotPanel.AnchorPoint = Vector2.new(0, 1)
-pilotPanel.Position = UDim2.new(0, 12, 1, -8)
-pilotPanel.Size = UDim2.fromOffset(108, 20)
-pilotPanel.BackgroundColor3 = Color3.fromRGB(13, 25, 34)
-pilotPanel.BackgroundTransparency = 0.62
-pilotPanel.BorderSizePixel = 0
-pilotPanel.Parent = pilotGui
-
-local pilotCorner = Instance.new("UICorner")
-pilotCorner.CornerRadius = UDim.new(0, 6)
-pilotCorner.Parent = pilotPanel
-
-local pilotLabel = Instance.new("TextLabel")
-pilotLabel.Name = "PilotPriorityLabel"
-pilotLabel.Position = UDim2.fromOffset(5, 0)
-pilotLabel.Size = UDim2.new(1, -10, 1, 0)
-pilotLabel.BackgroundTransparency = 1
-pilotLabel.Font = Enum.Font.GothamBold
-pilotLabel.Text = "DRONE 0%"
-pilotLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
-pilotLabel.TextSize = 11
-pilotLabel.TextXAlignment = Enum.TextXAlignment.Left
-pilotLabel.TextYAlignment = Enum.TextYAlignment.Center
-pilotLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
-pilotLabel.TextStrokeTransparency = 0.58
-pilotLabel.Parent = pilotPanel
-
-local pilotTextConstraint = Instance.new("UITextSizeConstraint")
-pilotTextConstraint.MinTextSize = 10
-pilotTextConstraint.MaxTextSize = 12
-pilotTextConstraint.Parent = pilotLabel
-
-local function updatePilotPriority()
-	local score = tonumber(player:GetAttribute("SkyfallPilotPriority")) or 0
-	local priority = math.clamp(math.floor(score), 0, 100)
-	local newText = "DRONE " .. tostring(priority) .. "%"
-	if pilotLabel.Text ~= newText then
-		pilotLabel.Text = newText
-	end
-end
-
-local function updatePilotPriorityVisibility()
-	local role = getRole()
-	pilotGui.Enabled = role == "Waiting" or role == "Runner"
+local function isAircraftController()
+	return state.phase == "Active"
+		and getRole() == "Controller"
+		and player:GetAttribute("SkyfallAircraftControlActive") == true
 end
 
 -- The cooldown meter is shown only to the human who currently controls the drone.
@@ -324,7 +294,7 @@ fillCorner.CornerRadius = UDim.new(1, 0)
 fillCorner.Parent = cooldownFill
 
 local function updateLaserStatus()
-	local isActiveController = state.phase == "Active" and getRole() == "Controller"
+	local isActiveController = isAircraftController()
 	cooldownPanel.Visible = isActiveController
 	if not isActiveController then
 		return
@@ -358,7 +328,7 @@ local function updateHud()
 	local active = state.phase == "Active"
 	panel.Visible = active
 	updatePlayButton()
-	updatePilotButton()
+	updateAircraftModeButton()
 	updateLaserStatus()
 	if not active then
 		return
@@ -380,7 +350,7 @@ local function updateHud()
 end
 
 local function targetAt(screenPosition)
-	if getRole() ~= "Controller" or state.phase ~= "Active" then
+	if not isAircraftController() then
 		return
 	end
 
@@ -429,17 +399,24 @@ end)
 
 player:GetAttributeChangedSignal("SkyfallRole"):Connect(function()
 	updateHud()
-	updatePilotPriorityVisibility()
 end)
-player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
-player:GetAttributeChangedSignal("SkyfallPilotOptIn"):Connect(updatePilotButton)
-player:GetAttributeChangedSignal("SkyfallPilotPriority"):Connect(updatePilotPriority)
+player:GetAttributeChangedSignal("SkyfallReady"):Connect(function()
+	updateHud()
+	updateAircraftModeButton()
+end)
+player:GetAttributeChangedSignal("SkyfallPilotOptIn"):Connect(function()
+	aircraftModePending = false
+	aircraftModeRequestSerial += 1
+	updateAircraftModeButton()
+end)
+player:GetAttributeChangedSignal("SkyfallAircraftControlActive"):Connect(function()
+	updateHud()
+	updateLaserStatus()
+end)
 player:GetAttributeChangedSignal("SkyfallLaserReadyAt"):Connect(updateLaserStatus)
 
-updatePilotPriority()
-updatePilotPriorityVisibility()
 updatePlayButton()
-updatePilotButton()
+updateAircraftModeButton()
 
 local controllerCameraActive = false
 local previousFieldOfView = nil
@@ -492,7 +469,7 @@ local function updateControllerCamera(deltaTime)
 		return
 	end
 
-	local shouldUseControllerCamera = getRole() == "Controller" and state.phase == "Active"
+	local shouldUseControllerCamera = isAircraftController()
 	if shouldUseControllerCamera then
 		if not controllerCameraActive or controllerCameraInstance ~= camera then
 			controllerCameraActive = true
@@ -603,7 +580,7 @@ player.CharacterAdded:Connect(function(character)
 
 	task.defer(function()
 		local camera = Workspace.CurrentCamera
-		local controllerActive = getRole() == "Controller" and state.phase == "Active"
+		local controllerActive = isAircraftController()
 		if camera and not controllerActive then
 			camera.CameraType = Enum.CameraType.Custom
 			camera.CameraSubject = humanoid

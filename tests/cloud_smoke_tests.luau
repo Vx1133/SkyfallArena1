@@ -12,6 +12,7 @@ assert(sharedFolder, "ReplicatedStorage.Shared is missing")
 local configModule = sharedFolder:FindFirstChild("GameConfig")
 assert(configModule and configModule:IsA("ModuleScript"), "GameConfig ModuleScript is missing")
 local Config = require(configModule)
+local WorldDesignProfile = require(sharedFolder:WaitForChild("WorldDesignProfile"))
 
 local serverRoot = ServerScriptService:FindFirstChild("SkyfallServer")
 assert(serverRoot, "ServerScriptService.SkyfallServer is missing")
@@ -103,6 +104,9 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
 	assert(Config.CONTROLLER_CAMERA_FOV == 70, "Controller camera should use a wide overhead field of view")
 	assert(Config.CONTROLLER_CAMERA_MARGIN == 8, "Controller camera should retain a small margin around the full arena")
+	assert(Config.LOBBY_SIZE == 120, "Waiting lobby must use the compact 120-stud platform")
+	assert(Config.LOBBY_SPAWN_RADIUS == 42, "Human spawn ring must be resized for the compact lobby")
+	assert(Config.LOBBY_BOT_SPAWN_RADIUS == 52, "Ten-bot spawn ring must remain inside the compact lobby")
 
 	arena = ArenaService.new()
 	arena:Build()
@@ -119,6 +123,7 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 
 	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
 	assert(lobbyPlatform, "Classic waiting baseplate is missing")
+	assert(lobbyPlatform.Size == Vector3.new(120, 3, 120), "Waiting platform must be resized to 120 by 120 studs")
 	assert(lobbyPlatform.TopSurface == Enum.SurfaceType.Studs, "Lobby baseplate must use native Classic Studs")
 	assert(
 		Players.CharacterAutoLoads == false,
@@ -145,7 +150,7 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 	)
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWater") == nil, "Lobby water surface must be removed")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign") == nil, "Floating lobby welcome board must be removed")
-	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
+	for _, descendant in ipairs(arena.lobbyFolder:GetDescendants()) do
 		local name = string.lower(descendant.Name)
 		assert(not string.find(name, "tree"), "All trees must be removed")
 		assert(not string.find(name, "bench") and not string.find(name, "chair"), "All seating must be removed")
@@ -154,14 +159,16 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 			"Water surfaces must be removed"
 		)
 	end
-	local support = arena.mapFolder:FindFirstChild("ClassicArenaSupport")
-	assert(support, "Arena support foundation is missing")
-	assert(support.Size.Y <= 2.1, "Arena support foundation must be thin")
-	assert(support.CanCollide == false, "Arena support foundation must not catch falling players")
-	assert(support.CanTouch == false, "Arena support foundation must not receive touch events")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Continuous perimeter beams are missing")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterEastWest_1"), "Perpendicular edge beams are missing")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterCornerPost_1_1"), "Integrated corner supports are missing")
+	local natureFolder = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(natureFolder, "The organic Classic nature sanctuary must be built")
+	assert(natureFolder:GetAttribute("SkyfallMapIdentity") == "Classic", "Classic nature geometry must declare its map identity")
+	assert(natureFolder:FindFirstChild("ClassicNatureRootArch_01", true), "The natural root arch is missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureTreeTrunk_01", true), "The first mature tree trunk is missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureCanopy_01_1", true), "Layered tree canopies are missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureFloatingIslet_01", true), "The floating natural islets are missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureVine_01", true), "Hanging vines are missing")
+	assert(natureFolder:GetAttribute("SkyfallGeometryPartCount") <= 55, "Classic nature geometry exceeded its measured mobile part budget")
+	assert(arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation") == nil, "Cyberpunk geometry must not appear in Classic")
 	assert(
 		arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"),
 		"Golden controller sphere is missing"
@@ -386,6 +393,11 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 	assert(arena.root:FindFirstChild("ImpactShockwave") == nil, "Legacy blue shockwave rings must not be created")
 
 	for index = 1, Config.MAX_PLAYER_CAPACITY do
+		local lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
+		assert(
+			(lobbyPosition - Config.LOBBY_CENTER).Magnitude <= Config.LOBBY_SPAWN_RADIUS + 0.01,
+			"All human spawn points must use the resized human spawn ring"
+		)
 		local runnerPosition = arena:GetRunnerSpawnCFrame(index, Config.MAX_PLAYER_CAPACITY).Position
 		assert(
 			math.abs(runnerPosition.X - Config.ARENA_CENTER.X) < Config.ARENA_HALF_WIDTH,
@@ -396,7 +408,7 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 			"Runner spawn is outside the arena"
 		)
 
-		local lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
+		lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
 		assert(
 			math.abs(lobbyPosition.X - Config.LOBBY_CENTER.X) < Config.LOBBY_SIZE / 2,
 			"Lobby spawn is outside the waiting platform"
@@ -404,6 +416,19 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 		assert(
 			math.abs(lobbyPosition.Z - Config.LOBBY_CENTER.Z) < Config.LOBBY_SIZE / 2,
 			"Lobby spawn is outside the waiting platform"
+		)
+	end
+
+	for index = 1, Config.BOT_COUNT do
+		local botPosition = arena:GetLobbySpawnCFrame(index, Config.BOT_COUNT, true).Position
+		assert(
+			(botPosition - Config.LOBBY_CENTER).Magnitude <= Config.LOBBY_BOT_SPAWN_RADIUS + 0.01,
+			"All ten bot spawn points must use the resized bot spawn ring"
+		)
+		assert(
+			math.abs(botPosition.X - Config.LOBBY_CENTER.X) <= lobbyPlatform.Size.X / 2
+				and math.abs(botPosition.Z - Config.LOBBY_CENTER.Z) <= lobbyPlatform.Size.Z / 2,
+			"Every bot spawn must remain within the compact waiting platform"
 		)
 	end
 end)
@@ -434,12 +459,16 @@ runTest("The Classic arena uses neutral lighting and connected stud geometry", f
 	assert(math.abs(leftTile.Size.X - Config.TILE_SIZE) < 0.001, "Tile width must match its grid spacing")
 	assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "No custom Sky instance should be retained")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Classic arena perimeter frame is missing")
-	assert(
-		arena.mapFolder:FindFirstChild("ClassicArenaGate") == nil,
-		"Separate gate pillars and red header should be removed"
-	)
-	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "A bridge to the lobby must not exist")
+	local natureFolder = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(natureFolder, "Classic nature sanctuary folder is missing")
+	assert(natureFolder:GetAttribute("SkyfallGeometrySignature") == "organic-irregular-floating-nature-sanctuary",
+		"Classic must retain its organic geometry signature")
+	assert(natureFolder:FindFirstChild("ClassicNatureFloatingIslet_02", true), "Second floating islet is missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureRootArch_04", true), "Curved root-arch segments are missing")
+	assert(arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation") == nil, "Cyberpunk station must not be built on Classic")
+	assert(arena:GetTile(8, 8).TopSurface == arena.lobbyFloor.TopSurface, "Classic tiles must use the lobby top surface")
+	assert(arena:GetTile(8, 8).BottomSurface == arena.lobbyFloor.BottomSurface, "Classic tiles must use the lobby bottom surface")
+	assert(arena.mapFolder:GetAttribute("SkyfallAuditedSurfaceCount") > 0, "Classic map surface audit must run")
 
 	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
 		if descendant:IsA("BasePart") then
@@ -554,100 +583,154 @@ runTest("Round map rotation alternates Classic and Cyberpunk deterministically",
 	end
 end)
 
-runTest("Cyberpunk map switches cleanly without changing the destructible grid", function()
+runTest("Classic and Cyberpunk have disjoint layouts and share only the lobby surface finish", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 	local tileCount = Config.GRID_SIZE * Config.GRID_SIZE
-	assert(#arena.tilesFolder:GetChildren() == tileCount, "Classic must start with exactly 225 tiles")
+	assert(tileCount == 225, "The destructible gameplay grid must remain exactly 225 tiles")
+	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
+	assert(lobbyPlatform, "The lobby surface profile source is missing")
 
-	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Map 2 name is incorrect")
-	assert(arena:GetMapName() == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Active map name must update")
-	assert(#arena.tilesFolder:GetChildren() == tileCount, "Switching maps must not rebuild or duplicate tiles")
-	local centerTile = arena:GetTile(8, 8)
-	assert(centerTile.Material == Enum.Material.SmoothPlastic, "Cyberpunk floor must use smooth, non-glare tiles")
-	assert(
-		centerTile.TopSurface == Enum.SurfaceType.Smooth and centerTile.BottomSurface == Enum.SurfaceType.Smooth,
-		"Cyberpunk floor must not use Classic studs or inlets"
-	)
-	assert(centerTile.Color == Color3.fromRGB(255, 255, 255), "Cyberpunk floor base color must be pure white")
-	assert(
-		arena:GetTile(8, 9).Color == Color3.fromRGB(244, 247, 251),
-		"Cyberpunk tiles should use the subtle pearl-white alternate"
-	)
-
-	assert(arena.mapFolder:FindFirstChild("CyberpunkArenaSupport"), "Cyberpunk navy foundation is missing")
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaOuterTrim_NorthSouth_1"),
-		"Cyberpunk perimeter trim is missing"
-	)
-	assert(arena.mapFolder:FindFirstChild("CyberpunkArenaCornerPylon_1_1"), "Cyberpunk corner pylon is missing")
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaPylonAccent_1_1"),
-		"Cyberpunk electric-blue pylon accent is missing"
-	)
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaNeonNorthSouth_1"),
-		"Cyberpunk cyan perimeter channel is missing"
-	)
-	assert(Lighting:FindFirstChild("SkyfallAtmosphere"), "Cyberpunk Atmosphere is missing")
-	assert(Lighting:FindFirstChild("SkyfallBloom"), "Cyberpunk Bloom is missing")
-	assert(Lighting:FindFirstChild("SkyfallColorCorrection"), "Cyberpunk color correction is missing")
-
-	local partCount = 0
-	local neonCount = 0
-	local lightCount = 0
-	for _, descendant in ipairs(arena.mapFolder:GetDescendants()) do
-		if descendant:IsA("BasePart") then
-			partCount += 1
-			assert(descendant.Anchored, "Cyberpunk static geometry must be anchored: " .. descendant.Name)
-			assert(not descendant.CanCollide, "Cyberpunk decoration must not affect collision: " .. descendant.Name)
-			assert(not descendant.CanTouch, "Cyberpunk decoration must not receive touch: " .. descendant.Name)
-			assert(not descendant.CanQuery, "Cyberpunk decoration must not affect queries: " .. descendant.Name)
-			if descendant.Material == Enum.Material.Neon then
-				neonCount += 1
+	local function assertLobbyFinish(root, label)
+		local auditedParts = 0
+		for _, descendant in ipairs(root:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				auditedParts += 1
+				assert(descendant.Material == lobbyPlatform.Material, label .. " material mismatch: " .. descendant.Name)
+				assert(descendant.MaterialVariant == lobbyPlatform.MaterialVariant, label .. " MaterialVariant mismatch: " .. descendant.Name)
+				assert(descendant.Reflectance == lobbyPlatform.Reflectance, label .. " reflectance mismatch: " .. descendant.Name)
+				assert(descendant.TopSurface == lobbyPlatform.TopSurface, label .. " top surface mismatch: " .. descendant.Name)
+				assert(descendant.BottomSurface == lobbyPlatform.BottomSurface, label .. " bottom surface mismatch: " .. descendant.Name)
 			end
-		elseif descendant:IsA("PointLight") then
-			lightCount += 1
+		end
+		return auditedParts
+	end
+
+	local function assertTilesHaveLobbyFinish()
+		assert(#arena.tilesFolder:GetChildren() == tileCount, "Map switching must preserve all 225 tile instances")
+		for _, tile in pairs(arena.tiles) do
+			assert(tile.Material == lobbyPlatform.Material, "A playable tile did not inherit lobby Material")
+			assert(tile.MaterialVariant == lobbyPlatform.MaterialVariant, "A playable tile did not inherit lobby MaterialVariant")
+			assert(tile.Reflectance == lobbyPlatform.Reflectance, "A playable tile did not inherit lobby reflectance")
+			assert(tile.TopSurface == lobbyPlatform.TopSurface, "A playable tile did not inherit lobby TopSurface")
+			assert(tile.BottomSurface == lobbyPlatform.BottomSurface, "A playable tile did not inherit lobby BottomSurface")
 		end
 	end
-	assert(partCount <= 60, "Cyberpunk static decoration must stay within the 60-part budget")
-	assert(neonCount >= 4 and neonCount <= 12, "Cyberpunk should use a few restrained cyan Neon strips")
-	assert(lightCount <= 6, "Cyberpunk lighting must stay within the six-light budget")
 
-	local mapPartCount = #arena.mapFolder:GetChildren()
-	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "Switching back to Classic must restore the original map")
-	assert(arena:GetTile(8, 8).TopSurface == Enum.SurfaceType.Studs, "Classic tiles must recover native Studs")
-	assert(arena:GetTile(8, 8).BottomSurface == Enum.SurfaceType.Inlet, "Classic tiles must recover native Inlets")
-	assert(arena.mapFolder:FindFirstChild("ClassicArenaSupport"), "Classic foundation must be restored")
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaSupport") == nil,
-		"Cyberpunk geometry must be removed on return to Classic"
-	)
-	assert(Lighting:FindFirstChild("SkyfallAtmosphere") == nil, "Classic must clear Cyberpunk Atmosphere")
-	assert(Lighting:FindFirstChild("SkyfallBloom") == nil, "Classic must clear Cyberpunk Bloom")
-	assert(Lighting:FindFirstChild("SkyfallColorCorrection") == nil, "Classic must clear Cyberpunk color correction")
+	-- Classic: natural, irregular, and asymmetrical.
+	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "Classic map selection failed")
+	local classic = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(classic, "Classic nature builder did not produce its dedicated folder")
+	assert(classic:GetAttribute("SkyfallMapIdentity") == "Classic", "Classic identity attribute is missing")
+	assert(classic:GetAttribute("SkyfallGeometrySignature") == "organic-irregular-floating-nature-sanctuary",
+		"Classic geometry signature must be organic")
+	assert(classic:FindFirstChild("ClassicNatureRootArch_01", true), "Classic root arch is missing")
+	assert(classic:FindFirstChild("ClassicNatureTreeTrunk_01", true), "Classic tree trunk is missing")
+	assert(classic:FindFirstChild("ClassicNatureCanopy_01_1", true), "Classic canopy is missing")
+	assert(classic:FindFirstChild("ClassicNatureFloatingIslet_01", true), "Classic floating islet is missing")
+	assert(classic:FindFirstChild("ClassicNatureVine_01", true), "Classic hanging vine is missing")
+	assert(classic:FindFirstChild("CyberpunkOrbitalFrame_01", true) == nil, "Cyberpunk architecture leaked into Classic")
+	assert(classic:FindFirstChild("CyberpunkGateSpire_01", true) == nil, "Cyberpunk spires leaked into Classic")
+	local classicTreeA = classic:FindFirstChild("ClassicNatureTreeTrunk_01", true)
+	local classicTreeB = classic:FindFirstChild("ClassicNatureTreeTrunk_02", true)
+	assert(classicTreeA and classicTreeB, "Classic needs multiple mature tree landmarks")
+	assert((classicTreeA.Position - classicTreeB.Position).Magnitude > 100,
+		"Classic tree landmarks must be spatially separated rather than mirrored at arena corners")
+	local classicCanopies = 0
+	for _, descendant in ipairs(classic:GetDescendants()) do
+		if descendant:IsA("BasePart") and string.find(descendant.Name, "ClassicNatureCanopy_") then
+			classicCanopies += 1
+			assert(descendant.Shape == Enum.PartType.Ball, "Classic canopy masses must use organic rounded silhouettes")
+		end
+	end
+	assert(classicCanopies >= 12, "Classic needs layered canopy groups, not a flat tree marker")
+	assert(classic:GetAttribute("SkyfallGeometryPartCount") <= 55, "Classic exceeded its measured mobile geometry budget")
+	local classicPartCount = assertLobbyFinish(classic)
+	assert(classicPartCount == classic:GetAttribute("SkyfallGeometryPartCount"),
+		"Classic geometry count must agree with the actual BasePart audit")
+	assert(arena.mapFolder:GetAttribute("SkyfallAuditedSurfaceCount") >= classicPartCount,
+		"Classic post-build lobby surface audit did not cover its geometry")
+	assertTilesHaveLobbyFinish()
+	assert(arena:GetTile(8, 8).Color == Color3.fromRGB(
+		WorldDesignProfile.Classic.PrimaryTile[1],
+		WorldDesignProfile.Classic.PrimaryTile[2],
+		WorldDesignProfile.Classic.PrimaryTile[3]
+	), "Classic tile color must use its natural palette, not the lobby color")
+	local classicSignature = classic:GetAttribute("SkyfallGeometrySignature")
+	local classicRootChildren = #arena.mapFolder:GetDescendants()
 
-	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Cyberpunk must be reusable on a later round")
-	assert(#arena.tilesFolder:GetChildren() == tileCount, "Repeated map switches must keep exactly 225 tiles")
-	assert(
-		#arena.mapFolder:GetChildren() == mapPartCount,
-		"Repeated map switches must not accumulate decoration instances"
-	)
-	assert(
-		arena:GetTile(8, 8).TopSurface == Enum.SurfaceType.Smooth,
-		"Cyberpunk smooth surface must be restored after switching"
-	)
-	arena:ResetTiles()
-	assert(
-		arena:GetTile(8, 8).Color == Color3.fromRGB(255, 255, 255),
-		"Cyberpunk round cleanup must restore the white primary tile color"
-	)
-	assert(
-		arena:GetTile(8, 9).Color == Color3.fromRGB(244, 247, 251),
-		"Cyberpunk round cleanup must restore the pearl alternate tile color"
-	)
-	arena:SetMap(1)
-	assert(arena:SetMap(999) == "SKYFALL CLASSIC ARENA", "An invalid map ID must safely fall back to Classic")
-	assert(arena.currentMapId == 1, "An invalid map ID must not corrupt the active map identity")
+	-- Cyberpunk: angular orbital engineering, no organic landmark family.
+	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Cyberpunk map selection failed")
+	local cyberpunk = arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation")
+	assert(cyberpunk, "Cyberpunk builder did not produce its dedicated folder")
+	assert(cyberpunk:GetAttribute("SkyfallMapIdentity") == "Cyberpunk", "Cyberpunk identity attribute is missing")
+	assert(cyberpunk:GetAttribute("SkyfallGeometrySignature") == "offset-angular-orbital-sky-station",
+		"Cyberpunk geometry signature must be angular and orbital")
+	assert(cyberpunk:FindFirstChild("CyberpunkOrbitalFrame_01", true), "Broken orbital frame segment is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkGateSpire_01", true), "First orbital gate spire is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkGateSpire_02", true), "Second orbital gate spire is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkEnergyBridge_Primary", true), "Suspended energy bridge is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkAngularDeck_01", true), "First angular deck is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkCircuitBeam_01", true), "Orbital circuit beams are missing")
+	assert(cyberpunk:FindFirstChild("ClassicNatureTreeTrunk_01", true) == nil, "Nature tree leaked into Cyberpunk")
+	assert(cyberpunk:FindFirstChild("ClassicNatureRootArch_01", true) == nil, "Nature root arch leaked into Cyberpunk")
+	assert(cyberpunk:FindFirstChild("ClassicNatureFloatingIslet_01", true) == nil, "Natural islet leaked into Cyberpunk")
+	assert(cyberpunk:GetAttribute("SkyfallGeometryPartCount") <= 32, "Cyberpunk exceeded its measured mobile geometry budget")
+	local orbitalFrame = cyberpunk:FindFirstChild("CyberpunkOrbitalFrame_01", true)
+	assert(orbitalFrame and orbitalFrame.Shape == Enum.PartType.Cylinder, "Orbital frame must use engineered linear members")
+	assert(orbitalFrame.Size.X > orbitalFrame.Size.Y * 8, "Orbital frame members must have an elongated structural profile")
+	local angularDeck = cyberpunk:FindFirstChild("CyberpunkAngularDeck_01", true)
+	assert(angularDeck and angularDeck.Size.X > angularDeck.Size.Z, "Cyberpunk deck must have a distinct angular plate silhouette")
+	local cyberPartCount = assertLobbyFinish(cyberpunk)
+	assert(cyberPartCount == cyberpunk:GetAttribute("SkyfallGeometryPartCount"),
+		"Cyberpunk geometry count must agree with the actual BasePart audit")
+	for _, descendant in ipairs(cyberpunk:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			assert(descendant.Material ~= Enum.Material.Neon,
+				"Emissive effects must use Beam/light objects, never a material-exempt BasePart")
+			assert(descendant.Anchored and not descendant.CanCollide and not descendant.CanTouch and not descendant.CanQuery,
+				"Cyberpunk static geometry must remain anchored and gameplay-inert: " .. descendant.Name)
+		end
+	end
+	assert(cyberpunk:FindFirstChild("ClassicNatureSanctuary", true) == nil, "Classic map folder leaked into Cyberpunk")
+	assert(classicSignature ~= cyberpunk:GetAttribute("SkyfallGeometrySignature"),
+		"Map builders must expose different geometric layout signatures")
+	assertTilesHaveLobbyFinish()
+	assert(arena:GetTile(8, 8).Color == Color3.fromRGB(
+		WorldDesignProfile.Cyberpunk.PrimaryTile[1],
+		WorldDesignProfile.Cyberpunk.PrimaryTile[2],
+		WorldDesignProfile.Cyberpunk.PrimaryTile[3]
+	), "Cyberpunk must keep its ice-white tile palette")
+	assert(arena:GetTile(8, 8).Color ~= lobbyPlatform.Color,
+		"Cyberpunk must not inherit the lobby baseplate color")
+	assert(Lighting:FindFirstChild("SkyfallAtmosphere"), "Shared atmosphere must stay active in Cyberpunk")
+	assert(Lighting:FindFirstChild("SkyfallBloom"), "Shared bloom must stay active in Cyberpunk")
+	assert(Lighting:FindFirstChild("SkyfallColorCorrection"), "Shared color correction must stay active in Cyberpunk")
+
+	-- Verify deterministic cleanup and re-creation in the requested four-map sequence.
+	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "Switching back to Classic failed")
+	assert(arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation") == nil, "Cyberpunk geometry survived the switch to Classic")
+	local restoredClassic = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(restoredClassic and restoredClassic:GetAttribute("SkyfallGeometryPartCount") == classicPartCount,
+		"Classic must rebuild the same bounded natural geometry")
+	assert(#arena.mapFolder:GetDescendants() == classicRootChildren,
+		"Classic switching must not accumulate parts, attachments, or effects")
+	assertTilesHaveLobbyFinish()
+
+	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Repeated Cyberpunk selection failed")
+	assert(arena.mapFolder:FindFirstChild("ClassicNatureSanctuary") == nil, "Classic geometry survived the switch to Cyberpunk")
+	local restoredCyberpunk = arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation")
+	assert(restoredCyberpunk and restoredCyberpunk:GetAttribute("SkyfallGeometryPartCount") == cyberPartCount,
+		"Cyberpunk must rebuild the same bounded orbital geometry")
+	assertTilesHaveLobbyFinish()
+	assert(arena:SetMap(999) == "SKYFALL CLASSIC ARENA", "Invalid map IDs must safely fall back to Classic")
+	assert(arena.currentMapId == 1, "Invalid map ID must not corrupt active map identity")
+	assert(arena:ResetTiles() == nil, "Tile cleanup must remain a no-return mutation")
+	assert(arena:GetTile(8, 8).Color == Color3.fromRGB(
+		WorldDesignProfile.Classic.PrimaryTile[1],
+		WorldDesignProfile.Classic.PrimaryTile[2],
+		WorldDesignProfile.Classic.PrimaryTile[3]
+	), "Classic tile reset must restore its own nature palette")
+	assertTilesHaveLobbyFinish()
 end)
 
 runTest("The active HUD count only includes living arena runners", function()
@@ -937,9 +1020,11 @@ runTest("Creator flight authorization only grants the personal experience owner"
 	)
 end)
 
-runTest("Pilot Priority selects humans by score and prevents a legacy controller override", function()
+runTest("Pilot Priority selects only manually opted-in humans and prevents a legacy controller override", function()
 	local lowPriority = makeFakePlayer("LowPriority", "Runner")
 	local highPriority = makeFakePlayer("HighPriority", "Runner")
+	lowPriority:SetAttribute("SkyfallPilotOptIn", true)
+	highPriority:SetAttribute("SkyfallPilotOptIn", true)
 	local bot = {
 		name = "LegacyNextBot",
 		model = { Parent = Workspace },
@@ -954,7 +1039,7 @@ runTest("Pilot Priority selects humans by score and prevents a legacy controller
 
 	local harness = setmetatable({
 		roundNumber = 2,
-		readyPlayers = {},
+		readyPlayers = { [lowPriority] = true, [highPriority] = true },
 		pilotPriority = priority,
 		botService = {
 			GetBots = function()
@@ -972,6 +1057,7 @@ runTest("Pilot Priority selects humans by score and prevents a legacy controller
 	)
 	assert(priority:GetScore(highPriority) == 0, "Selected human priority must reset to zero")
 
+	lowPriority:SetAttribute("SkyfallPilotOptIn", false)
 	local soloHarness = setmetatable({
 		roundNumber = 1,
 		readyPlayers = {},
@@ -1002,6 +1088,129 @@ runTest("Pilot Priority selects humans by score and prevents a legacy controller
 	}, RoundService)
 	local fallback = fallbackHarness:_chooseController({})
 	assert(fallback and fallback.kind == "Bot", "A bot must be used when no ready human exists")
+end)
+
+runTest("One human and ten bots default to a bot controller until the human manually opts in", function()
+	local mainPlayer = makeFakePlayer("OnlyHumanTester", "Waiting")
+	mainPlayer:SetAttribute("SkyfallPilotOptIn", false)
+	local bots = {}
+	for index = 1, 10 do
+		table.insert(bots, {
+			name = "IndependentBot" .. tostring(index),
+			model = { Parent = Workspace },
+			humanoid = { Health = 100 },
+			alive = false,
+		})
+	end
+
+	local harness = setmetatable({
+		readyPlayers = { [mainPlayer] = true },
+		pilotPriority = nil,
+		botService = {
+			GetBots = function()
+				return bots
+			end,
+		},
+		random = Random.new(19023),
+	}, RoundService)
+
+	local automatic = harness:_chooseController({ mainPlayer })
+	assert(
+		automatic and automatic.kind == "Bot" and table.find(bots, automatic.value) ~= nil,
+		"The only human must remain a normal character while a bot controls the aircraft"
+	)
+	assert(mainPlayer:GetAttribute("SkyfallAircraftControlActive") ~= true, "Automatic selection must not activate aircraft control on the human")
+
+	mainPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	local manual = harness:_chooseController({ mainPlayer })
+	assert(
+		manual and manual.kind == "Player" and manual.value == mainPlayer,
+		"Manual aircraft icon opt-in must be the only normal route to human aircraft control"
+	)
+
+	mainPlayer:SetAttribute("SkyfallPilotOptIn", false)
+	local canceled = harness:_chooseController({ mainPlayer })
+	assert(
+		canceled and canceled.kind == "Bot",
+		"Turning the manual icon off must restore bot controller selection"
+	)
+end)
+
+runTest("Ten bots remain independently assigned as one Controller and nine Runners", function()
+	local bots = {}
+	local models = {}
+	local spawnCFrames = {}
+
+	for index = 1, 10 do
+		local model = Instance.new("Model")
+		model.Name = "IndependentRoundBot_" .. tostring(index)
+
+		local root = Instance.new("Part")
+		root.Name = "HumanoidRootPart"
+		root.Size = Vector3.new(2, 2, 1)
+		root.Parent = model
+
+		local humanoid = Instance.new("Humanoid")
+		humanoid.Parent = model
+		model.PrimaryPart = root
+		model.Parent = Workspace
+		table.insert(models, model)
+
+		bots[index] = {
+			name = model.Name,
+			model = model,
+			root = root,
+			humanoid = humanoid,
+			walkSpeed = 16,
+			jumpPower = 50,
+			alive = false,
+			isController = false,
+			tracks = {},
+			currentAnimation = nil,
+		}
+		if index > 1 then
+			spawnCFrames[index] = CFrame.new(100 + index * 5, 80, 0)
+		end
+	end
+
+	local harness = setmetatable({
+		bots = bots,
+		_playAnimation = function() end,
+	}, BotService)
+	harness:StartRound(spawnCFrames, bots[1])
+
+	assert(#bots == 10, "The full ten-bot roster must be processed")
+	assert(
+		bots[1].isController == true
+			and bots[1].alive == false
+			and bots[1].model:GetAttribute("SkyfallRole") == "Controller"
+			and bots[1].root.Anchored == true,
+		"Exactly the selected bot should occupy the hidden Controller role"
+	)
+
+	for index = 2, 10 do
+		local bot = bots[index]
+		assert(
+			bot.isController == false
+				and bot.alive == true
+				and bot.model:GetAttribute("SkyfallRole") == "Runner",
+			"Every non-controller bot must remain an independent Runner"
+		)
+		assert(
+			bot.root.Anchored == false
+				and (bot.model:GetPivot().Position - spawnCFrames[index].Position).Magnitude < 0.1,
+			"Every non-controller bot must be placed at its own runner spawn"
+		)
+		assert(
+			bot.humanoid.WalkSpeed == bot.walkSpeed
+				and bot.humanoid.JumpPower == bot.jumpPower,
+			"Runner movement settings must remain independent from controller state"
+		)
+	end
+
+	for _, model in ipairs(models) do
+		model:Destroy()
+	end
 end)
 
 runTest("Legacy nextController cannot select an unready player", function()
@@ -1797,6 +2006,45 @@ runTest("Owner debug control overrides first-round bot selection and can take ov
 	)
 end)
 
+runTest("Aircraft opt-in is available only after PLAY and is reset for every human at round cleanup", function()
+	local waitingPlayer = makeFakePlayer("WaitingWithoutPlay", "Waiting")
+	waitingPlayer:SetAttribute("SkyfallPilotOptIn", false)
+	local waitingHarness = setmetatable({
+		phase = "Waiting",
+		readyPlayers = {},
+	}, RoundService)
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, true) == false,
+		"A waiting player who has not pressed PLAY cannot set aircraft opt-in"
+	)
+
+	waitingHarness.readyPlayers[waitingPlayer] = true
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, true) == true,
+		"A queued player may manually opt in while waiting"
+	)
+	waitingHarness.phase = "Intermission"
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, false) == true,
+		"A queued player may cancel aircraft opt-in during intermission"
+	)
+	waitingHarness.phase = "Active"
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, true) == false,
+		"Aircraft opt-in cannot change after a round becomes active"
+	)
+
+	waitingHarness.readyPlayers[waitingPlayer] = true
+	waitingPlayer:SetAttribute("SkyfallReady", true)
+	waitingPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	waitingPlayer:SetAttribute("SkyfallAircraftControlActive", true)
+	waitingHarness.phase = "Waiting"
+	waitingHarness:_clearReadyPlayers()
+	assert(waitingPlayer:GetAttribute("SkyfallReady") == false, "Round cleanup must clear the ready state")
+	assert(waitingPlayer:GetAttribute("SkyfallPilotOptIn") == false, "Round cleanup must clear stale manual opt-in")
+	assert(waitingPlayer:GetAttribute("SkyfallAircraftControlActive") == false, "Round cleanup must clear aircraft state")
+end)
+
 runTest("A stale disabled debug toggle cannot override normal controller selection", function()
 	local debugPlayer = makeFakePlayer("StaleDebugOwner", "Runner")
 	debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)
@@ -1850,6 +2098,31 @@ runTest("Round cleanup does not auto-ready a debug player after the toggle is di
 	assert(harness.readyPlayers[debugPlayer] == nil, "A disabled debug owner must not be auto-readied")
 	assert(harness.debugAutoReady[debugPlayer] == nil, "Debug auto-ready marker must be removed")
 	assert(debugPlayer:GetAttribute("SkyfallReady") == false, "Disabled debug owner must remain not-ready")
+end)
+
+runTest("An enabled owner debug override is cleared after one round", function()
+	local debugPlayer = makeFakePlayer("OneRoundDebugOwner", "Waiting")
+	debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", true)
+	debugPlayer:SetAttribute("SkyfallReady", true)
+	debugPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	debugPlayer:SetAttribute("SkyfallAircraftControlActive", true)
+	local harness = setmetatable({
+		phase = "Waiting",
+		readyPlayers = { [debugPlayer] = true },
+		debugAutoReady = { [debugPlayer] = true },
+		debugControllerPlayer = debugPlayer,
+		debugPreviousController = { kind = "Bot", value = {} },
+		roundHumanCount = 1,
+	}, RoundService)
+
+	harness:_clearReadyPlayers()
+	assert(debugPlayer:GetAttribute("SkyfallDebugDroneEnabled") == false, "Debug mode must be disabled after its one manual round")
+	assert(debugPlayer:GetAttribute("SkyfallReady") == false, "Debug auto-ready must not survive the round")
+	assert(debugPlayer:GetAttribute("SkyfallPilotOptIn") == false, "Aircraft opt-in must be consumed after round cleanup")
+	assert(debugPlayer:GetAttribute("SkyfallAircraftControlActive") == false, "Aircraft control state must be cleared after round cleanup")
+	assert(harness.debugControllerPlayer == nil, "The owner debug pointer must be cleared")
+	assert(harness.debugPreviousController == nil, "The prior controller pointer must be cleared")
+	assert(next(harness.debugAutoReady) == nil, "No debug auto-ready marker may survive")
 end)
 
 runTest("A departing debug controller restores its previous live controller", function()

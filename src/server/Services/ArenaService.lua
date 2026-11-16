@@ -1,23 +1,31 @@
-local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
 local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
 local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService"))
-local CyberpunkPillarService = require(script.Parent:WaitForChild("CyberpunkPillarService"))
+local ClassicNatureMapBuilder = require(script.Parent:WaitForChild("ClassicNatureMapBuilder"))
+local CyberpunkMapBuilder = require(script.Parent:WaitForChild("CyberpunkMapBuilder"))
+local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))
 
 local ArenaService = {}
 ArenaService.__index = ArenaService
+
+local function paletteColor(rgb: { number }): Color3
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+end
+
+local CYBERPUNK_PALETTE = WorldDesignProfile.Cyberpunk
 
 local MAPS = {
 	{
 		id = 1,
 		name = "SKYFALL CLASSIC ARENA",
-		tileColor = Color3.fromRGB(79, 170, 66),
-		tileAlternateColor = Color3.fromRGB(79, 170, 66),
+		tileColor = paletteColor(WorldDesignProfile.Classic.PrimaryTile),
+		tileAlternateColor = paletteColor(WorldDesignProfile.Classic.AlternateTile),
 		tileMaterial = Enum.Material.Plastic,
 		useClassicStuds = true,
 		studColor = Color3.fromRGB(112, 204, 83),
@@ -27,43 +35,21 @@ local MAPS = {
 		roof = Color3.fromRGB(230, 61, 61),
 		accent = Color3.fromRGB(255, 207, 56),
 		secondary = Color3.fromRGB(64, 166, 220),
-		ambient = Color3.fromRGB(0, 0, 0),
-		outdoorAmbient = Color3.fromRGB(0, 0, 0),
-		fogColor = Color3.fromRGB(192, 192, 192),
-		brightness = 2,
-		clockTime = 14,
-		exposureCompensation = 0,
-		environmentDiffuseScale = 1,
-		environmentSpecularScale = 1,
-		fogStart = 0,
-		fogEnd = 100000,
 	},
 	{
 		id = 2,
 		name = "SKYFALL CYBERPUNK WHITE & BLUE ARENA",
-		tileColor = Color3.fromRGB(255, 255, 255),
-		tileAlternateColor = Color3.fromRGB(244, 247, 251),
+		tileColor = paletteColor(CYBERPUNK_PALETTE.PrimaryTile),
+		tileAlternateColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
 		tileMaterial = Enum.Material.SmoothPlastic,
 		useClassicStuds = false,
-		useLobbyFloorAppearance = true,
-		studColor = Color3.fromRGB(244, 247, 251),
+		studColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
 		warningColor = Color3.fromRGB(255, 64, 92),
-		brokenColor = Color3.fromRGB(10, 17, 40),
-		structure = Color3.fromRGB(0, 119, 255),
-		roof = Color3.fromRGB(244, 247, 251),
-		accent = Color3.fromRGB(0, 240, 255),
-		secondary = Color3.fromRGB(10, 17, 40),
-		ambient = Color3.fromRGB(124, 151, 177),
-		outdoorAmbient = Color3.fromRGB(151, 180, 205),
-		fogColor = Color3.fromRGB(190, 220, 242),
-		brightness = 2.8,
-		clockTime = 14.2,
-		exposureCompensation = 0.08,
-		environmentDiffuseScale = 1,
-		environmentSpecularScale = 1,
-		fogStart = 420,
-		fogEnd = 2200,
-		useCyberpunkLighting = true,
+		brokenColor = paletteColor(CYBERPUNK_PALETTE.Navy),
+		structure = paletteColor(CYBERPUNK_PALETTE.Structure),
+		roof = paletteColor(CYBERPUNK_PALETTE.Roof),
+		accent = paletteColor(CYBERPUNK_PALETTE.Accent),
+		secondary = paletteColor(CYBERPUNK_PALETTE.Secondary),
 	},
 }
 
@@ -125,9 +111,8 @@ local function setTileSurface(tile, theme, hidden)
 end
 
 local function getTileBaseColor(tile, theme)
-	if theme.floorAppearanceProfile then
-		return theme.floorAppearanceProfile.Color
-	end
+	-- Material is inherited from the lobby profile, but the map owns its palette.
+	-- Never copy the lobby's green baseplate Color into the Cyberpunk tiles.
 	local alternateColor = theme.tileAlternateColor
 	if alternateColor then
 		local gridX = tile:GetAttribute("GridX") or 0
@@ -142,15 +127,16 @@ end
 local function applyTileBaseAppearance(tile, theme)
 	local profile = theme.floorAppearanceProfile
 	if profile then
-		FloorAppearanceService.Apply(tile, profile)
-		return
+		FloorAppearanceService.ApplySurface(tile, profile)
+	else
+		tile.Material = theme.tileMaterial
+		tile.MaterialVariant = ""
+		tile.Reflectance = 0
+		setTileSurface(tile, theme, false)
 	end
 
+	-- Use the active map's palette even when its material comes from the lobby.
 	tile.Color = getTileBaseColor(tile, theme)
-	tile.Material = theme.tileMaterial
-	tile.MaterialVariant = ""
-	tile.Reflectance = 0
-	setTileSurface(tile, theme, false)
 end
 
 local function tileKey(gridX, gridZ)
@@ -594,302 +580,40 @@ function ArenaService:ReturnAircraftLensHome(token)
 	return true
 end
 
-function ArenaService:_setLighting(theme)
-	Lighting.Brightness = theme.brightness or 2
-	Lighting.ClockTime = theme.clockTime or 14
-	Lighting.Ambient = theme.ambient or Color3.fromRGB(0, 0, 0)
-	Lighting.OutdoorAmbient = theme.outdoorAmbient or Color3.fromRGB(0, 0, 0)
-	Lighting.ExposureCompensation = theme.exposureCompensation or 0
-	Lighting.EnvironmentDiffuseScale = theme.environmentDiffuseScale or 1
-	Lighting.EnvironmentSpecularScale = theme.environmentSpecularScale or 1
-	Lighting.GlobalShadows = true
-	Lighting.FogColor = theme.fogColor or Color3.fromRGB(192, 192, 192)
-	Lighting.FogStart = theme.fogStart or 0
-	Lighting.FogEnd = theme.fogEnd or 100000
+function ArenaService:_setLighting()
+    LightingProfileService.Apply()
 
-	local effectNames = {
-		"SkyfallSunriseSky",
-		"SkyfallAtmosphere",
-		"SkyfallColorCorrection",
-		"SkyfallBloom",
-		"SkyfallSunRays",
-	}
-
-	if theme.useCyberpunkLighting then
-		-- Remove any previously installed night/custom sky and create a clean
-		-- Roblox daytime sky. ClockTime and the sun position stay in daylight.
-		for _, child in ipairs(Lighting:GetChildren()) do
-			if child:IsA("Sky") then
-				child:Destroy()
-			end
-		end
-		local daySky = Instance.new("Sky")
-		daySky.Name = "SkyfallDaySky"
-		daySky.CelestialBodiesShown = true
-		daySky.StarCount = 0
-		daySky.SunAngularSize = 14
-		daySky.MoonAngularSize = 0
-		daySky.Parent = Lighting
-
-		local atmosphere = Lighting:FindFirstChild("SkyfallAtmosphere")
-		if not atmosphere or not atmosphere:IsA("Atmosphere") then
-			if atmosphere then
-				atmosphere:Destroy()
-			end
-			atmosphere = Instance.new("Atmosphere")
-			atmosphere.Name = "SkyfallAtmosphere"
-			atmosphere.Parent = Lighting
-		end
-		atmosphere.Color = Color3.fromRGB(199, 226, 246)
-		atmosphere.Decay = Color3.fromRGB(114, 153, 190)
-		atmosphere.Density = 0.12
-		atmosphere.Offset = 0.18
-		atmosphere.Glare = 0.12
-		atmosphere.Haze = 0.7
-
-		local sunRays = Lighting:FindFirstChild("SkyfallSunRays")
-		if not sunRays or not sunRays:IsA("SunRaysEffect") then
-			if sunRays then
-				sunRays:Destroy()
-			end
-			sunRays = Instance.new("SunRaysEffect")
-			sunRays.Name = "SkyfallSunRays"
-			sunRays.Parent = Lighting
-		end
-		sunRays.Intensity = 0.035
-		sunRays.Spread = 0.18
-
-		local bloom = Lighting:FindFirstChild("SkyfallBloom")
-		if not bloom or not bloom:IsA("BloomEffect") then
-			if bloom then
-				bloom:Destroy()
-			end
-			bloom = Instance.new("BloomEffect")
-			bloom.Name = "SkyfallBloom"
-			bloom.Parent = Lighting
-		end
-		bloom.Intensity = 0.3
-		bloom.Size = 20
-		bloom.Threshold = 1.25
-
-		local colorCorrection = Lighting:FindFirstChild("SkyfallColorCorrection")
-		if not colorCorrection or not colorCorrection:IsA("ColorCorrectionEffect") then
-			if colorCorrection then
-				colorCorrection:Destroy()
-			end
-			colorCorrection = Instance.new("ColorCorrectionEffect")
-			colorCorrection.Name = "SkyfallColorCorrection"
-			colorCorrection.Parent = Lighting
-		end
-		colorCorrection.Brightness = 0.01
-		colorCorrection.Contrast = 0.07
-		colorCorrection.Saturation = 0.08
-		colorCorrection.TintColor = Color3.fromRGB(236, 247, 255)
-	else
-		for _, name in ipairs(effectNames) do
-			local effect = Lighting:FindFirstChild(name)
-			if effect then
-				effect:Destroy()
-			end
-		end
-	end
-
-	local clouds = Workspace.Terrain:FindFirstChild("SkyfallClouds")
-	if clouds then
-		clouds:Destroy()
-	end
-end
-function ArenaService:_buildClassicDecoration(theme)
-	local folder = self.mapFolder
-	local center = Config.ARENA_CENTER
-	local half = Config.ARENA_HALF_WIDTH
-	local width = Config.ARENA_WIDTH
-
-	-- A thin visual foundation cannot catch a runner who falls through the arena.
-	local support = createPart(
-		folder,
-		"ClassicArenaSupport",
-		Vector3.new(width + 26, 2, width + 26),
-		center + Vector3.new(0, -60, 0),
-		Color3.fromRGB(82, 68, 52),
-		Enum.Material.Plastic,
-		false
-	)
-	support.CanCollide = false
-	support.CanTouch = false
-	support.CanQuery = false
-
-	-- The trim touches the tile grid underside but remains non-collidable.
-	local trim = createPart(
-		folder,
-		"ClassicArenaOuterTrim",
-		Vector3.new(width + 6, 1, width + 6),
-		center + Vector3.new(0, -1, 0),
-		Color3.fromRGB(49, 103, 54),
-		Enum.Material.Plastic,
-		false
-	)
-	trim.CanQuery = false
-
-	-- Edge beams overlap at all corners and meet the outer tile edges.
-	local frameY = center.Y + 0.65
-	for _, side in ipairs({ -1, 1 }) do
-		local northSouth = createPart(
-			folder,
-			"ClassicPerimeterNorthSouth_" .. tostring(side),
-			Vector3.new(width + 4, 2.3, 3),
-			Vector3.new(center.X, frameY, center.Z + side * (half + 1)),
-			theme.tileColor:Lerp(Color3.fromRGB(30, 80, 40), 0.45),
-			Enum.Material.Plastic,
-			false
-		)
-		applyClassicStudSurface(northSouth)
-		northSouth.CanQuery = false
-
-		local eastWest = createPart(
-			folder,
-			"ClassicPerimeterEastWest_" .. tostring(side),
-			Vector3.new(3, 2.3, width + 4),
-			Vector3.new(center.X + side * (half + 1), frameY, center.Z),
-			theme.tileColor:Lerp(Color3.fromRGB(30, 80, 40), 0.45),
-			Enum.Material.Plastic,
-			false
-		)
-		applyClassicStudSurface(eastWest)
-		eastWest.CanQuery = false
-	end
-
-	-- Corner supports overlap both edge beams, making one connected perimeter frame.
-	for sideX = -1, 1, 2 do
-		for sideZ = -1, 1, 2 do
-			local post = createPart(
-				folder,
-				"ClassicPerimeterCornerPost_" .. tostring(sideX) .. "_" .. tostring(sideZ),
-				Vector3.new(4, 9, 4),
-				center + Vector3.new(sideX * (half + 1), 4.5, sideZ * (half + 1)),
-				Color3.fromRGB(60, 112, 61),
-				Enum.Material.Plastic,
-				false
-			)
-			applyClassicStudSurface(post)
-			post.CanQuery = false
-		end
-	end
-end
-
-local function createVisualPart(parent, name, size, position, color, material)
-	local part = createPart(parent, name, size, position, color, material, false)
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.CastShadow = false
-	return part
-end
-
-function ArenaService:_buildCyberpunkDecoration(theme)
-	local folder = self.mapFolder
-	local center = Config.ARENA_CENTER
-	local half = Config.ARENA_HALF_WIDTH
-	local width = Config.ARENA_WIDTH
-	local navy = Color3.fromRGB(10, 17, 40)
-	local silver = Color3.fromRGB(201, 212, 226)
-
-	local function createSurfacePart(parent, name, size, position, color, material)
-		local part = createVisualPart(parent, name, size, position, color, material)
-		if material ~= Enum.Material.Neon and theme.floorAppearanceProfile then
-			FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)
-		end
-		return part
-	end
-
-	createSurfacePart(
-		folder,
-		"CyberpunkArenaSupport",
-		Vector3.new(width + 34, 2, width + 34),
-		center + Vector3.new(0, -60, 0),
-		navy,
-		Enum.Material.Metal
-	)
-	createSurfacePart(
-		folder,
-		"CyberpunkArenaUnderDeck",
-		Vector3.new(width + 9, 1.3, width + 9),
-		center + Vector3.new(0, -1.15, 0),
-		navy,
-		Enum.Material.Metal
-	)
-
-	local trimY = center.Y + 0.72
-	local neonY = center.Y + 1.16
-	for _, side in ipairs({ -1, 1 }) do
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaOuterTrim_NorthSouth_" .. tostring(side),
-			Vector3.new(width + 10, 1.45, 2.6),
-			Vector3.new(center.X, trimY, center.Z + side * (half + 2)),
-			silver,
-			Enum.Material.Metal
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaOuterTrim_EastWest_" .. tostring(side),
-			Vector3.new(2.6, 1.45, width + 10),
-			Vector3.new(center.X + side * (half + 2), trimY, center.Z),
-			silver,
-			Enum.Material.Metal
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaNeonNorthSouth_" .. tostring(side),
-			Vector3.new(width + 11, 0.16, 0.24),
-			Vector3.new(center.X, neonY, center.Z + side * (half + 3.35)),
-			theme.accent,
-			Enum.Material.Neon
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaNeonEastWest_" .. tostring(side),
-			Vector3.new(0.24, 0.16, width + 11),
-			Vector3.new(center.X + side * (half + 3.35), neonY, center.Z),
-			theme.accent,
-			Enum.Material.Neon
-		)
-	end
-
-	-- Four clean perimeter ribs create depth without entering the playable tile grid.
-	local ribY = center.Y + 8
-	for _, side in ipairs({ -1, 1 }) do
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaCrossBrace_NorthSouth_" .. tostring(side),
-			Vector3.new(width + 8, 1.4, 1.8),
-			Vector3.new(center.X, ribY, center.Z + side * (half + 5.4)),
-			theme.structure,
-			Enum.Material.Metal
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaCrossBrace_EastWest_" .. tostring(side),
-			Vector3.new(1.8, 1.4, width + 8),
-			Vector3.new(center.X + side * (half + 5.4), ribY, center.Z),
-			theme.structure,
-			Enum.Material.Metal
-		)
-	end
-
-	local pillarCount = CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)
-	if pillarCount ~= 4 then
-		warn("Skyfall Cyberpunk pillar service built " .. tostring(pillarCount) .. " of 4 corner pillars.")
-	end
-
+    local clouds = Workspace.Terrain:FindFirstChild("SkyfallClouds")
+    if clouds then
+        clouds:Destroy()
+    end
 end
 
 function ArenaService:_buildMapDecoration(theme)
-	if theme.id == 2 then
-		self:_buildCyberpunkDecoration(theme)
-	else
-		self:_buildClassicDecoration(theme)
+	if not theme.floorAppearanceProfile then
+		error("Skyfall cannot build map decoration without the captured lobby surface profile")
 	end
+
+	local partCount
+	if theme.id == 1 then
+		partCount = ClassicNatureMapBuilder.Build(
+			self.mapFolder,
+			Config.ARENA_CENTER,
+			Config.ARENA_HALF_WIDTH,
+			theme.floorAppearanceProfile
+		)
+	else
+		partCount = CyberpunkMapBuilder.Build(
+			self.mapFolder,
+			Config.ARENA_CENTER,
+			Config.ARENA_HALF_WIDTH,
+			theme.floorAppearanceProfile
+		)
+	end
+
+	self.mapFolder:SetAttribute("SkyfallActiveMapId", theme.id)
+	self.mapFolder:SetAttribute("SkyfallGeometryPartCount", partCount)
+	return partCount
 end
 
 function ArenaService:Build()
@@ -967,24 +691,20 @@ end
 function ArenaService:SetMap(mapId)
 	local selected = MAPS[mapId] or MAPS[1]
 	local theme = table.clone(selected)
-	if theme.useLobbyFloorAppearance == true then
-		local lobbyFloor = self.lobbyFloor
-		if not lobbyFloor or not lobbyFloor.Parent then
-			local candidate = self.lobbyFolder and self.lobbyFolder:FindFirstChild("WaitingPlatform")
-			lobbyFloor = candidate and candidate:IsA("BasePart") and candidate or nil
-		end
-		local profile = FloorAppearanceService.Capture(lobbyFloor)
-		if profile then
-			theme.floorAppearanceProfile = profile
-			theme.tileColor = profile.Color
-			theme.tileAlternateColor = nil
-			theme.tileMaterial = profile.Material
-		else
-			warn("Skyfall could not capture the Lobby WaitingPlatform appearance; the Cyberpunk floor will keep its configured fallback.")
-		end
+	local lobbyFloor = self.lobbyFloor
+	if not lobbyFloor or not lobbyFloor.Parent then
+		local candidate = self.lobbyFolder and self.lobbyFolder:FindFirstChild("WaitingPlatform")
+		lobbyFloor = candidate and candidate:IsA("BasePart") and candidate or nil
 	end
 
-	local mapChanged = self.currentMapId ~= selected.id
+	local profile = FloorAppearanceService.Capture(lobbyFloor)
+	if not profile then
+		error("Skyfall requires a valid Lobby.WaitingPlatform before selecting a playable map")
+	end
+	-- Both maps inherit the full lobby surface finish. Their colors remain independent.
+	theme.floorAppearanceProfile = profile
+	theme.tileMaterial = profile.Material
+
 	self.currentMapId = selected.id
 	self.theme = theme
 
@@ -1002,19 +722,26 @@ function ArenaService:SetMap(mapId)
 		end
 	end
 
-	if mapChanged or not self.mapDecorBuilt then
-		self.mapFolder:ClearAllChildren()
-		self:_buildMapDecoration(theme)
-		local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, self.lobbyFloor)
-		if success then
-			self.elementTransitionCount = countOrError
-		else
-			self.elementTransitionCount = 0
-			warn("Skyfall element visual integration failed without stopping the arena: " .. tostring(countOrError))
-		end
-		self.mapDecorBuilt = true
+	-- Rebuild deterministically on every selection so a changed lobby profile can never leave stale map surfaces.
+	self.mapFolder:ClearAllChildren()
+	local partCount = self:_buildMapDecoration(theme)
+	local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, lobbyFloor, theme.tileColor)
+	if not success then
+		error("Skyfall element visual integration failed: " .. tostring(countOrError))
 	end
-	self:_setLighting(theme)
+	self.elementTransitionCount = countOrError
+	self.mapDecorBuilt = true
+
+	local auditedMapParts = FloorAppearanceService.Audit(self.mapFolder, profile)
+	local auditedTiles = FloorAppearanceService.Audit(self.tilesFolder, profile)
+	if auditedTiles ~= Config.GRID_SIZE * Config.GRID_SIZE then
+		error("Skyfall expected to audit exactly " .. tostring(Config.GRID_SIZE * Config.GRID_SIZE)
+			.. " floor tiles, audited " .. tostring(auditedTiles))
+	end
+	self.mapFolder:SetAttribute("SkyfallAuditedSurfaceCount", auditedMapParts)
+	self.tilesFolder:SetAttribute("SkyfallAuditedSurfaceCount", auditedTiles)
+	self.mapFolder:SetAttribute("SkyfallGeometryPartCount", partCount)
+	self:_setLighting()
 	return theme.name
 end
 function ArenaService:GetMapName()

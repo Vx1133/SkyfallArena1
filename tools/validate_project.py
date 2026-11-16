@@ -30,11 +30,17 @@ require(tools.get("selene") == "Kampfkarren/selene@0.32.0", "Selene must remain 
 required_files = [
     "src/shared/GameConfig.lua",
     "src/shared/MapRotation.lua",
+    "src/shared/WorldDesignProfile.lua",
+    "tests/lune/update_023_world_design.luau",
     "src/shared/DebugControllerPolicy.lua",
     "tests/lune/update_019_policy.luau",
+    "tests/lune/update_023_world_design.luau",
+    "tests/lune/update_023_control_state.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
-    "src/server/Services/CyberpunkPillarService.lua",
+    "src/server/Services/MapDecorationFactory.lua",
+    "src/server/Services/ClassicNatureMapBuilder.lua",
+    "src/server/Services/CyberpunkMapBuilder.lua",
     "src/server/Services/FloorAppearanceService.lua",
     "src/server/Services/ElementIntegrationService.lua",
     "src/server/Services/BotService.lua",
@@ -58,12 +64,33 @@ for relative_path in required_files:
     require(path.is_file(), f"Required project file is missing: {relative_path}")
     require(path.stat().st_size > 0, f"Required project file is empty: {relative_path}")
 
+world_design_source = (ROOT / "src/shared/WorldDesignProfile.lua").read_text(encoding="utf-8")
+world_design_test = (ROOT / "tests/lune/update_023_world_design.luau").read_text(encoding="utf-8")
+for feature in (
+    "PlatformSize = 120",
+    "PlayerSpawnRadius = 42",
+    "BotSpawnRadius = 52",
+    "PrimaryTile = { 79, 170, 66 }",
+    "CanopyDeep = { 31, 101, 49 }",
+    "Bark = { 103, 72, 48 }",
+    "PrimaryTile = { 233, 242, 252 }",
+    "AlternateTile = { 215, 229, 246 }",
+    "Structure = { 67, 114, 181 }",
+    "Earth = { 194, 163, 111 }",
+):
+    require(feature in world_design_source, f"Centralized world design token is missing: {feature}")
+require("UPDATE_023_WORLD_DESIGN_TESTS_OK" in world_design_test, "World design regression test is missing")
+
 config_source = (ROOT / "src/shared/GameConfig.lua").read_text(encoding="utf-8")
+require('local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile"))' in config_source,
+        "Lobby size and spawn radii must use central world design tokens")
 for setting in (
     "Config.MIN_PLAYERS = 1",
     "Config.BOT_COUNT = 10",
     "Config.TILE_GAP = 0",
-    "Config.LOBBY_SIZE = 144",
+    "Config.LOBBY_SIZE = WorldDesignProfile.Lobby.PlatformSize",
+    "Config.LOBBY_SPAWN_RADIUS = WorldDesignProfile.Lobby.PlayerSpawnRadius",
+    "Config.LOBBY_BOT_SPAWN_RADIUS = WorldDesignProfile.Lobby.BotSpawnRadius",
     "Config.LOBBY_CENTER = Vector3.new(-250, 70, 0)",
     "Config.ADMIN_FLIGHT_SPEED = 52",
     "Config.HUD_MAX_WIDTH = 224",
@@ -106,11 +133,8 @@ for feature in (
     "SkyfallLaserAircraft",
     "ControllerLens",
     "WaitingPlatform",
-    "ClassicArenaSupport",
-    "ClassicArenaOuterTrim",
-    "ClassicPerimeterNorthSouth_",
-    "ClassicPerimeterEastWest_",
-    "ClassicPerimeterCornerPost_",
+    "ClassicNatureMapBuilder",
+    "CyberpunkMapBuilder",
     "Enum.SurfaceType.Studs",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
@@ -131,9 +155,7 @@ for forbidden in (
     "LobbyEntranceHeader",
     "ClassicGatePillar_",
     "ClassicArenaGate",
-    "addTree(",
     "addBench(",
-    "ClassicArenaTree_",
     "SquareStud_",
     "addNeonBar",
     "NexusRingSegment",
@@ -148,54 +170,87 @@ for forbidden in (
     "AZURE HARBOR FORTRESS",
 ):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
-for forbidden_lighting in (
-    'Instance.new("Clouds")',
+lighting_profile_source = (ROOT / "src/shared/LightingProfile.lua").read_text(encoding="utf-8")
+lighting_service_source = (ROOT / "src/server/Services/LightingProfileService.lua").read_text(encoding="utf-8")
+lighting_test_source = (ROOT / "tests/lune/update_023_lighting_profile.luau").read_text(encoding="utf-8")
+require('local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))' in arena_source,
+        "ArenaService must use the centralized lighting profile service")
+require("LightingProfileService.Apply()" in arena_source, "Every ArenaService map selection must apply the shared lighting profile")
+require('local Lighting = game:GetService("Lighting")' not in arena_source, "ArenaService must not write global Lighting directly")
+for map_lighting_key in (
+    "ambient = Color3.fromRGB",
+    "outdoorAmbient = Color3.fromRGB",
+    "brightness = ",
+    "clockTime = ",
+    "exposureCompensation = ",
+    "useCyberpunkLighting",
 ):
-    require(forbidden_lighting not in arena_source, f"Unsupported global lighting effect must be removed: {forbidden_lighting}")
-for daylight_feature in (
-    'Instance.new("Sky")',
-    'Instance.new("SunRaysEffect")',
-    'daySky.StarCount = 0',
-    'daySky.MoonAngularSize = 0',
-    'Lighting.ClockTime = theme.clockTime or 14',
+    require(map_lighting_key not in arena_source, f"Map-specific global lighting override remains: {map_lighting_key}")
+for feature in (
+    "Lighting.Brightness = Profile.Brightness",
+    "Lighting.ClockTime = Profile.ClockTime",
+    "Lighting.ExposureCompensation = Profile.ExposureCompensation",
+    "Lighting.Ambient = colorFromRgb(Profile.Ambient)",
+    "Lighting.OutdoorAmbient = colorFromRgb(Profile.OutdoorAmbient)",
+    "Lighting.ShadowSoftness = Profile.ShadowSoftness",
+    "Lighting.LightingStyle = Enum.LightingStyle.Realistic",
+    "Lighting.PrioritizeLightingQuality = Profile.PrioritizeLightingQuality",
+    'getOrCreateManagedEffect("Atmosphere", "SkyfallAtmosphere")',
+    'getOrCreateManagedEffect("SunRaysEffect", "SkyfallSunRays")',
+    'getOrCreateManagedEffect("BloomEffect", "SkyfallBloom")',
+    'getOrCreateManagedEffect("ColorCorrectionEffect", "SkyfallColorCorrection")',
+    'local function removeConflictingPostEffects()',
+    'local expectedName = MANAGED_EFFECT_NAMES[child.ClassName]',
+    'removeConflictingPostEffects()',
+    'Profile.Sky.Name',
 ):
-    require(daylight_feature in arena_source, f"Daylight sky profile is missing: {daylight_feature}")
-require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
-require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
-require("local function setTileSurface(tile, theme, hidden)" in arena_source, "Theme-aware tile surface reset is missing")
-require("part.CastShadow = false" in arena_source, "Static map part shadows should be disabled")
-require("warningLight.Brightness" not in arena_source, "Per-target dynamic warning lights should be removed")
-for neutral_setting in (
-    "Lighting.Brightness = theme.brightness or 2",
-    "Lighting.ClockTime = theme.clockTime or 14",
-    "Lighting.Ambient = theme.ambient or Color3.fromRGB(0, 0, 0)",
-    "Lighting.OutdoorAmbient = theme.outdoorAmbient or Color3.fromRGB(0, 0, 0)",
-    "Lighting.ExposureCompensation = theme.exposureCompensation or 0",
-    "Lighting.EnvironmentDiffuseScale = theme.environmentDiffuseScale or 1",
-    "Lighting.EnvironmentSpecularScale = theme.environmentSpecularScale or 1",
+    require(feature in lighting_service_source, f"Central lighting implementation is missing: {feature}")
+for profile_value in (
+    "Brightness = 2.15",
+    "ExposureCompensation = -0.05",
+    "Ambient = { 78, 86, 100 }",
+    "OutdoorAmbient = { 122, 133, 149 }",
+    'LightingStyle = "Realistic"',
+    "PrioritizeLightingQuality = true",
+    "Density = 0.07",
+    "Glare = 0.035",
+    "Intensity = 0.12",
+    "Threshold = 1.65",
 ):
-    require(neutral_setting in arena_source, f"Neutral lighting setting is missing: {neutral_setting}")
-require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
-require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
-require("localOffset = Vector3.new(0.34, math.cos(angle) * radius, math.sin(angle) * radius)" in arena_source,
-        "Drone reticle must be placed on the outward underside of the lens")
-require("localOffset = Vector3.new(-0.34," not in arena_source,
-        "Drone reticle must not be hidden inside the sphere")
-cyberpunk_decoration = arena_source.split("function ArenaService:_buildCyberpunkDecoration(theme)", 1)[1].split(
-    "function ArenaService:_buildMapDecoration(theme)", 1
-)[0]
-classic_decoration = arena_source.split("function ArenaService:_buildClassicDecoration(theme)", 1)[1].split(
-    "local function createVisualPart", 1
-)[0]
-require("Enum.Material.Neon" not in classic_decoration, "Classic decoration must remain free of Neon surfaces")
-require(cyberpunk_decoration.count("Enum.Material.Neon") == 3, "Cyberpunk accents must use only the perimeter strips and pylon accents")
-for effect in ('Instance.new("Atmosphere")', 'Instance.new("BloomEffect")', 'Instance.new("ColorCorrectionEffect")'):
-    require(effect in arena_source, f"Cyberpunk Lighting effect is missing: {effect}")
-for cleanup_name in ("SkyfallAtmosphere", "SkyfallBloom", "SkyfallColorCorrection", "SkyfallSunRays"):
-    require(cleanup_name in arena_source, f"Map lighting cleanup is missing: {cleanup_name}")
+    require(profile_value in lighting_profile_source, f"Shared lighting value is missing: {profile_value}")
+require("UPDATE_023_LIGHTING_PROFILE_TESTS_OK" in lighting_test_source, "Update #23 lighting regression test is missing")
+require("AmbientOcclusionEffect" not in lighting_service_source, "Do not use a fictitious scriptable AmbientOcclusionEffect")
+lighting_write_tokens = (
+    "Lighting.Brightness =",
+    "Lighting.ClockTime =",
+    "Lighting.ExposureCompensation =",
+    "Lighting.Ambient =",
+    "Lighting.OutdoorAmbient =",
+    "Lighting.EnvironmentDiffuseScale =",
+    "Lighting.EnvironmentSpecularScale =",
+    "Lighting.GlobalShadows =",
+    "Lighting.ShadowSoftness =",
+    "Lighting.FogColor =",
+    "Lighting.FogStart =",
+    "Lighting.FogEnd =",
+    "Lighting.LightingStyle =",
+    "Lighting.PrioritizeLightingQuality =",
+)
+managed_lighting_path = ROOT / "src/server/Services/LightingProfileService.lua"
+for lua_path in (ROOT / "src").rglob("*.lua"):
+    if lua_path == managed_lighting_path:
+        continue
+    source_text = lua_path.read_text(encoding="utf-8")
+    for token in lighting_write_tokens:
+        require(token not in source_text, f"Global Lighting write outside LightingProfileService: {token} in {lua_path.relative_to(ROOT)}")
+require('Instance.new("Clouds")' not in arena_source, "Unsupported global Clouds effect must remain absent")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
-require("Vector3.new(width + 26, 2, width + 26)" in arena_source, "The arena foundation must be thin")
-require("support.CanCollide = false" in arena_source, "The foundation must not catch falling players")
+require("ClassicNatureMapBuilder.Build(" in arena_source and "CyberpunkMapBuilder.Build(" in arena_source,
+        "ArenaService must delegate all map decoration to dedicated map builders")
+require("Vector3.new(width + 26, 2, width + 26)" not in arena_source,
+        "The old full-width hidden support slab must not return")
+require("part.CanCollide = false" in (ROOT / "src/server/Services/MapDecorationFactory.lua").read_text(encoding="utf-8"),
+        "Generated map decoration must remain non-collidable")
 require("AircraftMotionAnchor" in arena_source and "AircraftBodyJoint" in arena_source, "The aircraft needs one central body-motion joint")
 require("AircraftUnifiedWeld" in arena_source, "All aircraft parts must be welded to the fuselage")
 require("ControllerLensGimbal" not in arena_source, "An independently moving lens gimbal must not remain")
@@ -249,7 +304,7 @@ require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NP
 require("createFallbackHair" not in bot_source, "Procedural custom bot hair must not be used")
 for feature in ("function BotService:_setBotHidden(", "function BotService:SetController(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
-require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
+require("Config.LOBBY_BOT_SPAWN_RADIUS = WorldDesignProfile.Lobby.BotSpawnRadius" in config_source, "Ten bots must use the centralized compact-lobby spawn radius")
 fallen_bot_body = bot_source.split("function BotService:EliminateFallenRunners", 1)[1].split("function BotService:SendToLobby", 1)[0]
 require(fallen_bot_body.find("bot.alive = false") < fallen_bot_body.find("self.onBotDied(bot)"), "Bot elimination must update alive state before the round broadcasts")
 require("function BotService:_collectWarningTiles()" in bot_source, "Bot warning grid should be snapshotted once per decision")
@@ -490,17 +545,18 @@ require('remotes:WaitForChild("PlayRequest")' in hud_source, "Lobby Play remote 
 require('playButton.Name = "PlayButton"' in hud_source, "Lobby Play button is missing")
 require("playRemote:FireServer()" in hud_source, "Lobby Play button does not request a round")
 require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile HUD must remain translucent")
-for feature in (
-    'pilotGui.Name = "SkyfallPilotPriorityHUD"',
-    'Enum.ScreenInsets.CoreUISafeInsets',
-    '"DRONE " .. tostring(priority) .. "%"',
-    'GetAttributeChangedSignal("SkyfallPilotPriority")',
-    'role == "Waiting" or role == "Runner"',
-    "pilotGui.Enabled = role == ",
-    'pilotLabel.Text = newText',
+for forbidden in (
+    'PILOT: OFF',
+    'PILOT: ON',
+    'DRONE ',
+    'PilotOptInButton',
+    'SkyfallPilotPriorityHUD',
+    'PilotPriorityLabel',
+    'SkyfallPilotPriority',
+    'updatePilotButton',
+    'updatePilotPriority',
 ):
-    require(feature in hud_source, f"Pilot Priority safe-area HUD is missing: {feature}")
-require("TextSize = 11" in hud_source, "Pilot Priority label should remain compact for phones")
+    require(forbidden not in hud_source, f"Removed pilot/drone HUD element is still present: {forbidden}")
 
 audio_source = (ROOT / "src/client/Audio.client.lua").read_text(encoding="utf-8")
 for feature in (
@@ -581,14 +637,16 @@ for feature in (
     "Lobby streaming focus is added and removed once without changing global radius",
     "Late joiners during an active round are routed to the observation lobby",
     "Round map rotation alternates Classic and Cyberpunk deterministically",
-    "Cyberpunk map switches cleanly without changing the destructible grid",
+    "Classic and Cyberpunk have disjoint layouts and share only the lobby surface finish",
     "A stale disabled debug toggle cannot override normal controller selection",
     "Round cleanup does not auto-ready a debug player after the toggle is disabled",
     "Debug drone request requires both the matching player and a true server attribute",
     "A departing debug controller restores its previous live controller",
     "The active HUD count only includes living arena runners",
     "A fallen bot is removed before the round broadcasts its survivor count",
-    "Pilot Priority selects humans by score and prevents a legacy controller override",
+    "Pilot Priority selects only manually opted-in humans and prevents a legacy controller override",
+    "One human and ten bots default to a bot controller until the human manually opts in",
+    "Ten bots remain independently assigned as one Controller and nine Runners",
     "Legacy nextController cannot select an unready player",
     "Pilot Priority rewards use 54-second threshold, one reward per round, and cap at 100",
     "Pilot Priority tie-break favors the player who waited longest and avoids an immediate repeat",
@@ -615,48 +673,119 @@ for feature in ("function FloorAppearanceService.Capture(", "source.MaterialVari
     require(feature in floor_appearance_source, f"Lobby floor appearance transfer is missing: {feature}")
 
 element_integration_source = (ROOT / "src/server/Services/ElementIntegrationService.lua").read_text(encoding="utf-8")
+require("FloorAppearanceService.Capture(lobbyFloor)" in element_integration_source, "Element transitions must capture the lobby material profile")
+require("mapBaseColor" in element_integration_source, "Element transition blend must use the active map palette")
+require("FloorAppearanceService.ApplySurface(layer, profile)" in element_integration_source,
+        "Element transitions must apply the complete lobby surface profile including top and bottom faces")
 for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallElementType", "Fire", "Water", "Earth", "Air", "TweenService:Create", "CanCollide = false", "CanQuery = false"):
     require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
 
+bot_source = (ROOT / "src/server/Services/BotService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function BotService:StartRound(spawnCFrames, controllerBot)",
+    "bot.isController = true",
+    "bot.isController = false",
+    'bot.model:SetAttribute("SkyfallRole", "Runner")',
+    "bot.root:SetNetworkOwner(nil)",
+):
+    require(feature in bot_source, f"Bot runner/controller isolation is missing: {feature}")
+
 pilot_policy_source = (ROOT / "src/shared/PilotOptInPolicy.lua").read_text(encoding="utf-8")
+control_policy_test = (ROOT / "tests/lune/update_023_control_state.luau").read_text(encoding="utf-8")
 require("function PilotOptInPolicy.Filter(" in pilot_policy_source, "Explicit human pilot opt-in policy is missing")
+require("function PilotOptInPolicy.ResolveCandidates(" in pilot_policy_source, "Manual-human/bot candidate resolver is missing")
+require("UPDATE_023_CONTROL_STATE_TESTS_OK" in control_policy_test, "Update #23 control-state Lune test is missing")
 require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Players must default to no pilot opt-in")
 require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
-require('PilotOptInPolicy.Filter(readyPlayers' in round_source, "Controller selection must filter explicit pilot opt-ins")
 require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
-require('pilotButton.Name = "PilotOptInButton"' in hud_source, "The mobile pilot opt-in button is missing")
-require('playRemote:FireServer("PilotOptIn", desiredState)' in hud_source, "The pilot opt-in button must send an explicit server request")
+require("PilotOptInPolicy.ResolveCandidates(" in round_source, "Controller selection must resolve manual humans separately from bot fallback")
+require('local ready = self.readyPlayers[player] == true' in round_source, "Human aircraft opt-in must be limited to players who joined the round")
+require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "A new Play request must clear stale aircraft selection")
+require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source.split("function RoundService:_clearReadyPlayers()", 1)[1], "Round cleanup must clear manual aircraft choice")
+require('player:SetAttribute("SkyfallAircraftControlActive", false)' in round_source, "Player aircraft control state must default to off")
+require('player:SetAttribute("SkyfallAircraftControlActive", hidden == true)' in round_source, "Server must own the aircraft-control active state")
+require('player:GetAttribute("SkyfallAircraftControlActive") == true' in hud_source, "The client camera must require explicit server aircraft-control state")
+clear_ready_source = round_source.split("function RoundService:_clearReadyPlayers()", 1)[1].split(
+    "function RoundService:_setPlayerControllerHidden", 1
+)[0]
+require("Players:GetPlayers()" in clear_ready_source, "Round cleanup must clear stale aircraft state for every human, not only ready players")
+require("local playersToReset = {}" in clear_ready_source, "Round cleanup must include all active players and queued test players")
+require('debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)' in clear_ready_source, "Owner debug mode must reset at round cleanup")
+require("self.readyPlayers[debugPlayer] = true" not in clear_ready_source, "Owner debug mode must not auto-ready across rounds")
+require("self.debugControllerPlayer = nil" in clear_ready_source, "Owner debug pointer must clear at round cleanup")
+require("SkyfallPilotOptIn" in clear_ready_source, "Manual aircraft opt-in must be cleared at round cleanup")
+require('Name = "AircraftModeIcon"' in hud_source, "A compact manual aircraft mode icon is missing")
+require('aircraftModeButton.Text = "✈"' in hud_source, "Manual aircraft control must be selected from an icon, not the removed text status")
+require('local shouldUseControllerCamera = isAircraftController()' in hud_source, "The aircraft camera must use the explicit control-state guard")
 require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
 require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
 
-cyberpunk_pillar_source = (ROOT / "src/server/Services/CyberpunkPillarService.lua").read_text(encoding="utf-8")
+factory_source = (ROOT / "src/server/Services/MapDecorationFactory.lua").read_text(encoding="utf-8")
+classic_builder_source = (ROOT / "src/server/Services/ClassicNatureMapBuilder.lua").read_text(encoding="utf-8")
+cyberpunk_builder_source = (ROOT / "src/server/Services/CyberpunkMapBuilder.lua").read_text(encoding="utf-8")
 for feature in (
-    "function CyberpunkPillarService.Build(",
-    "PylonFoundation_",
-    "PylonFootBridgeX_",
-    "PylonFootBridgeZ_",
-    "PylonPerimeterJoint_",
-    "PylonCrownBase_",
-    "PylonCrownCap_",
-    "PylonLightSpine_",
+    "function MapDecorationFactory.CreatePart(",
+    "function MapDecorationFactory.CylinderBetween(",
+    "function MapDecorationFactory.CreateBeam(",
     "FloorAppearanceService.ApplySurface(part, profile)",
-    "for sideX = -1, 1, 2 do",
-    "for sideZ = -1, 1, 2 do",
+    'part:SetAttribute("SkyfallMapIdentity", mapIdentity)',
 ):
-    require(feature in cyberpunk_pillar_source, f"Integrated four-pillar system is missing: {feature}")
-
-require("CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)" in arena_source, "Arena must build the four integrated corner pillars")
+    require(feature in factory_source, f"Shared map geometry factory feature is missing: {feature}")
 for feature in (
-    'clockTime = 14.2',
-    'fogColor = Color3.fromRGB(190, 220, 242)',
-    'daySky.Name = "SkyfallDaySky"',
-    "daySky.StarCount = 0",
-    "daySky.MoonAngularSize = 0",
-    "atmosphere.Density = 0.12",
-    "atmosphere.Haze = 0.7",
-    "FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)",
+    "function ClassicNatureMapBuilder.Build(",
+    "ClassicNatureFloatingIslet_",
+    "ClassicNatureTreeTrunk_",
+    "ClassicNatureCanopy_",
+    "ClassicNatureRootArch_",
+    "ClassicNatureVine_",
+    "organic-irregular-floating-nature-sanctuary",
 ):
-    require(feature in arena_source, f"Daylight and all-face lobby material sync are missing: {feature}")
+    require(feature in classic_builder_source, f"Classic nature landmark is missing: {feature}")
+for feature in (
+    "function CyberpunkMapBuilder.Build(",
+    "CyberpunkOrbitalFrame_",
+    "CyberpunkGateSpire_",
+    "CyberpunkEnergyBridge_",
+    "CyberpunkAngularDeck_",
+    "CyberpunkCircuitBeam_",
+    "offset-angular-orbital-sky-station",
+):
+    require(feature in cyberpunk_builder_source, f"Cyberpunk architectural landmark is missing: {feature}")
+for forbidden in ("CyberpunkOrbitalFrame_", "CyberpunkGateSpire_", "CyberpunkAngularDeck_"):
+    require(forbidden not in classic_builder_source, f"Cyberpunk geometry leaked into Classic builder: {forbidden}")
+for forbidden in ("ClassicNatureTreeTrunk_", "ClassicNatureCanopy_", "ClassicNatureRootArch_", "ClassicNatureFloatingIslet_"):
+    require(forbidden not in cyberpunk_builder_source, f"Nature geometry leaked into Cyberpunk builder: {forbidden}")
+for source_name, source_text in (
+    ("ClassicNatureMapBuilder", classic_builder_source),
+    ("CyberpunkMapBuilder", cyberpunk_builder_source),
+    ("MapDecorationFactory", factory_source),
+):
+    require("Enum.Material.Neon" not in source_text, f"{source_name} must not create Neon BaseParts")
+require("ClassicNatureMapBuilder.Build(" in arena_source, "ArenaService must delegate Classic decoration to its dedicated builder")
+require("CyberpunkMapBuilder.Build(" in arena_source, "ArenaService must delegate Cyberpunk decoration to its dedicated builder")
+require("FloorAppearanceService.Audit(self.mapFolder, profile)" in arena_source, "Every map selection must audit all generated surfaces")
+require("FloorAppearanceService.Audit(self.tilesFolder, profile)" in arena_source, "Every map selection must audit all 225 floor tiles")
+require("SkyfallGeometrySignature" in classic_builder_source and "SkyfallGeometrySignature" in cyberpunk_builder_source,
+        "Each map must expose a distinct geometry signature")
+for feature in (
+    'ClockTime = 14',
+    'Name = "SkyfallGlobalDaySky"',
+    'StarCount = 0',
+    'MoonAngularSize = 0',
+    'Density = 0.07',
+    'Haze = 0.42',
+    'Glare = 0.035',
+):
+    require(feature in lighting_profile_source, f"Shared daylight profile is missing: {feature}")
 require("function FloorAppearanceService.ApplySurface(" in floor_appearance_source, "Surface-only lobby material profile application is missing")
+require("function FloorAppearanceService.Audit(" in floor_appearance_source, "Full generated-map material audit is missing")
+require("captureSurfaceObjects(source)" in floor_appearance_source, "Lobby texture/decal capture is missing")
+require("applySurfaceObjects(target, profile)" in floor_appearance_source, "Lobby texture/decal cloning is missing")
+require("target.TopSurface = profile.TopSurface" in floor_appearance_source, "Material synchronization must copy lobby top-surface style")
+require("target.BottomSurface = profile.BottomSurface" in floor_appearance_source, "Material synchronization must copy lobby bottom-surface style")
+require("theme.tileColor = profile.Color" not in arena_source, "Lobby green must not overwrite the Cyberpunk map palette")
+require("paletteColor(CYBERPUNK_PALETTE.PrimaryTile)" in arena_source, "Cyberpunk primary ice-white tile palette is missing")
+require("paletteColor(CYBERPUNK_PALETTE.AlternateTile)" in arena_source, "Cyberpunk alternate blue-white tile palette is missing")
+
 
 print("Skyfall Arena structural and gameplay validation passed.")

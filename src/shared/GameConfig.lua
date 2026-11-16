@@ -1,5 +1,7 @@
 local Config = {}
 
+local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile"))
+
 Config.MIN_PLAYERS = 1
 Config.BOT_COUNT = 10
 Config.MAX_PLAYER_CAPACITY = 30
@@ -23,9 +25,9 @@ Config.ARENA_HALF_WIDTH = Config.ARENA_WIDTH / 2
 Config.RUNNER_SPAWN_RADIUS = 68
 
 Config.LOBBY_CENTER = Vector3.new(-250, 70, 0)
-Config.LOBBY_SIZE = 144
-Config.LOBBY_SPAWN_RADIUS = 49
-Config.LOBBY_BOT_SPAWN_RADIUS = 66
+Config.LOBBY_SIZE = WorldDesignProfile.Lobby.PlatformSize
+Config.LOBBY_SPAWN_RADIUS = WorldDesignProfile.Lobby.PlayerSpawnRadius
+Config.LOBBY_BOT_SPAWN_RADIUS = WorldDesignProfile.Lobby.BotSpawnRadius
 
 Config.CONTROL_CENTER = Vector3.new(0, 132, 0)
 Config.CONTROLLER_CAMERA_FOV = 70

@@ -1,6 +1,6 @@
 local Config = {}
 
-local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile"))
+local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile", 8))
 
 Config.MIN_PLAYERS = 1
 Config.BOT_COUNT = 10

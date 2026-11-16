@@ -5,20 +5,52 @@ local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
-local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
-local stateRemote = remotes:WaitForChild("RoundState")
-local targetRemote = remotes:WaitForChild("TargetTile")
-local playRemote = remotes:WaitForChild("PlayRequest")
--- World geometry may stream in after the HUD. Never block client startup on it.
-local function getTileFolder()
-	local arena = Workspace:FindFirstChild("SkyfallArena")
-	local tiles = arena and arena:FindFirstChild("Tiles")
-	if tiles and tiles:IsA("Folder") then
-		return tiles
+local STARTUP_WAIT_SECONDS = 8
+
+local function waitForChildOrWarn(parent: Instance, name: string): Instance?
+	local child = parent:WaitForChild(name, STARTUP_WAIT_SECONDS)
+	if not child then
+		warn(string.format("[SkyfallStartup] HUD missing %s under %s after %.1fs", name, parent:GetFullName(), STARTUP_WAIT_SECONDS))
 	end
-	return nil
+	return child
+end
+
+local playerGui = waitForChildOrWarn(player, "PlayerGui")
+if not playerGui then
+	return
+end
+
+local sharedFolder = waitForChildOrWarn(ReplicatedStorage, "Shared")
+if not sharedFolder then
+	return
+end
+local configModule = waitForChildOrWarn(sharedFolder, "GameConfig")
+if not configModule or not configModule:IsA("ModuleScript") then
+	warn("[SkyfallStartup] HUD cannot load Shared.GameConfig; initialization stopped safely")
+	return
+end
+local Config = require(configModule)
+local readinessModule = waitForChildOrWarn(sharedFolder, "StartupReadinessPolicy")
+if not readinessModule or not readinessModule:IsA("ModuleScript") then
+	warn("[SkyfallStartup] HUD cannot load StartupReadinessPolicy; Play input disabled safely")
+	return
+end
+local StartupReadinessPolicy = require(readinessModule)
+
+local remotes = waitForChildOrWarn(ReplicatedStorage, "SkyfallRemotes")
+if not remotes then
+	return
+end
+local stateRemote = waitForChildOrWarn(remotes, "RoundState")
+local targetRemote = waitForChildOrWarn(remotes, "TargetTile")
+local playRemote = waitForChildOrWarn(remotes, "PlayRequest")
+if not stateRemote or not targetRemote or not playRemote
+	or not stateRemote:IsA("RemoteEvent")
+	or not targetRemote:IsA("RemoteEvent")
+	or not playRemote:IsA("RemoteEvent")
+then
+	warn("[SkyfallStartup] HUD remotes are incomplete; initialization stopped safely")
+	return
 end
 
 local state = {
@@ -142,12 +174,30 @@ playStroke.Transparency = 0.58
 playStroke.Thickness = 1
 playStroke.Parent = playButton
 
+local playRequestPending = false
+
 local function updatePlayButton()
 	local waiting = state.phase == "Waiting"
+	local gameReady = ReplicatedStorage:GetAttribute("SkyfallGameReady") == true
+	local characterReady = player:GetAttribute("SkyfallCharacterReady") == true
+	local playerReady = player:GetAttribute("SkyfallReady") == true
+	local canStart = StartupReadinessPolicy.CanStartPlay(gameReady, characterReady, state.phase, playerReady)
+
 	playButton.Visible = waiting
-	if player:GetAttribute("SkyfallReady") == true then
+	playButton.Active = canStart and not playRequestPending
+	playButton.AutoButtonColor = playButton.Active
+	if not gameReady then
+		playButton.Text = "LOADING..."
+		playButton.BackgroundColor3 = Color3.fromRGB(91, 104, 117)
+	elseif not characterReady then
+		playButton.Text = "SPAWNING..."
+		playButton.BackgroundColor3 = Color3.fromRGB(91, 104, 117)
+	elseif playerReady then
 		playButton.Text = "READY"
 		playButton.BackgroundColor3 = Color3.fromRGB(53, 111, 161)
+	elseif playRequestPending then
+		playButton.Text = "JOINING..."
+		playButton.BackgroundColor3 = Color3.fromRGB(91, 104, 117)
 	else
 		playButton.Text = "PLAY"
 		playButton.BackgroundColor3 = Color3.fromRGB(56, 150, 69)
@@ -155,10 +205,26 @@ local function updatePlayButton()
 end
 
 playButton.Activated:Connect(function()
-	if state.phase == "Waiting" and player:GetAttribute("SkyfallReady") ~= true then
-		playButton.Text = "JOINING..."
-		playRemote:FireServer()
+	local canStart = StartupReadinessPolicy.CanStartPlay(
+		ReplicatedStorage:GetAttribute("SkyfallGameReady") == true,
+		player:GetAttribute("SkyfallCharacterReady") == true,
+		state.phase,
+		player:GetAttribute("SkyfallReady") == true
+	)
+	if not canStart or playRequestPending then
+		updatePlayButton()
+		return
 	end
+
+	playRequestPending = true
+	updatePlayButton()
+	playRemote:FireServer()
+	task.delay(6, function()
+		if playRequestPending and player:GetAttribute("SkyfallReady") ~= true then
+			playRequestPending = false
+			updatePlayButton()
+		end
+	end)
 end)
 
 -- Minimal manual aircraft opt-in icon. The previous status text indicators
@@ -357,19 +423,27 @@ local function updateHud()
 	cellLabels.PlayersLabel.Text = "PLAYERS\n" .. tostring(math.max(0, totalPlayers))
 end
 
+local warnedMissingTiles = false
+
 local function targetAt(screenPosition)
 	if not isAircraftController() then
 		return
 	end
 
-	local camera = Workspace.CurrentCamera
-	if not camera then
+	-- Workspace instances can stream in after the HUD. Never block HUD creation
+	-- while waiting for arena geometry; resolve the folder only when targeting.
+	local arenaRoot = Workspace:FindFirstChild("SkyfallArena")
+	local tileFolder = arenaRoot and arenaRoot:FindFirstChild("Tiles")
+	if not tileFolder then
+		if not warnedMissingTiles then
+			warnedMissingTiles = true
+			warn("[SkyfallStartup] Arena tiles are not streamed in yet; controller targeting is temporarily unavailable")
+		end
 		return
 	end
 
-	local tileFolder = getTileFolder()
-	if not tileFolder then
-		warn("Skyfall HUD: arena tiles are not available yet; controller targeting will retry on the next input.")
+	local camera = Workspace.CurrentCamera
+	if not camera then
 		return
 	end
 
@@ -415,9 +489,13 @@ player:GetAttributeChangedSignal("SkyfallRole"):Connect(function()
 	updateHud()
 end)
 player:GetAttributeChangedSignal("SkyfallReady"):Connect(function()
+	playRequestPending = false
 	updateHud()
 	updateAircraftModeButton()
 end)
+
+player:GetAttributeChangedSignal("SkyfallCharacterReady"):Connect(updateHud)
+ReplicatedStorage:GetAttributeChangedSignal("SkyfallGameReady"):Connect(updateHud)
 player:GetAttributeChangedSignal("SkyfallPilotOptIn"):Connect(function()
 	aircraftModePending = false
 	aircraftModeRequestSerial += 1

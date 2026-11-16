@@ -29,7 +29,7 @@ local function buildGateSpire(
 	local basePosition = horizontalPoint(center, radius, angle, 1)
 	local yaw = math.rad(angle + 90)
 
-	local deck = Factory.CreatePart(
+	Factory.CreatePart(
 		folder, profile, "Cyberpunk", "CyberpunkGateSpireBase_" .. string.format("%02d", index),
 		Vector3.new(13, 1.8, 10),
 		CFrame.new(basePosition) * CFrame.Angles(0, yaw, math.rad(index == 1 and -4 or 6)),

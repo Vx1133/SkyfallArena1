@@ -76,6 +76,10 @@ function BotService.new(arenaService)
 	self.folder = getOrCreateFolder(Workspace, "SkyfallBots")
 	self.bots = {}
 	self.random = Random.new()
+	self.rigBuildQueue = {}
+	self.rigBuildWorkerActive = false
+	self.rigBuildTimeoutSeconds = 14
+	self.rigBuildRetrySeconds = 30
 
 	for botIndex = 1, Config.BOT_COUNT do
 		local profile = BOT_PROFILES[((botIndex - 1) % #BOT_PROFILES) + 1]
@@ -96,15 +100,19 @@ function BotService.new(arenaService)
 			isController = false,
 			targetTile = nil,
 			lastTarget = nil,
+			rigBuildState = "Pending",
+			rigBuildToken = 0,
+			lastRigBuildAttemptAt = 0,
 		}
-		self:_buildRig(bot)
 		table.insert(self.bots, bot)
 		task.spawn(function()
 			self:_runBot(bot)
 		end)
+		self:_queueRigBuild(bot)
 	end
 
-	self:SendToLobby()
+	-- Return immediately. The first player and core round services must not wait
+	-- for ten sequential avatar-description network operations.
 	return self
 end
 
@@ -202,9 +210,106 @@ function BotService:_loadAnimations(bot, model, humanoid)
 	self:_playAnimation(bot, "idle", 0)
 end
 
-function BotService:_buildRig(bot)
+function BotService:_queueRigBuild(bot)
+	if not bot then
+		return false
+	end
+	if bot.rigBuildState == "Queued" or bot.rigBuildState == "Building" then
+		return false
+	end
+	if bot.rigBuildState == "Ready"
+		and bot.model and bot.model.Parent
+		and bot.humanoid and bot.humanoid.Health > 0
+	then
+		return false
+	end
+	if (bot.rigBuildState == "TimedOut" or bot.rigBuildState == "Failed")
+		and os.clock() - (bot.lastRigBuildAttemptAt or 0) < self.rigBuildRetrySeconds
+	then
+		return false
+	end
+
+	bot.rigBuildState = "Queued"
+	table.insert(self.rigBuildQueue, bot)
+	if self.rigBuildWorkerActive then
+		return true
+	end
+
+	self.rigBuildWorkerActive = true
+	task.spawn(function()
+		while #self.rigBuildQueue > 0 do
+			local queuedBot = table.remove(self.rigBuildQueue, 1)
+			if queuedBot and queuedBot.rigBuildState == "Queued" then
+				queuedBot.rigBuildState = "Building"
+				queuedBot.rigBuildToken += 1
+				queuedBot.lastRigBuildAttemptAt = os.clock()
+				local buildToken = queuedBot.rigBuildToken
+				local completed = false
+				local succeeded = false
+
+				task.spawn(function()
+					local success, result = xpcall(function()
+						return self:_buildRig(queuedBot, buildToken)
+					end, debug.traceback)
+
+					if queuedBot.rigBuildToken ~= buildToken then
+						return
+					end
+
+					succeeded = success and result == true
+					queuedBot.rigBuildState = succeeded and "Ready" or "Failed"
+					completed = true
+					if succeeded then
+						print("[SkyfallStartup] Bot rig ready: " .. queuedBot.name)
+					else
+						warn("[SkyfallStartup] Bot rig failed: " .. queuedBot.name .. ", " .. tostring(result))
+					end
+				end)
+
+				local deadline = os.clock() + self.rigBuildTimeoutSeconds
+				while not completed and os.clock() < deadline do
+					task.wait(0.1)
+				end
+
+				if not completed and queuedBot.rigBuildToken == buildToken then
+					-- Invalidate the worker token. If Roblox returns the avatar model
+					-- later, _buildRig destroys that late result instead of publishing it.
+					queuedBot.rigBuildToken += 1
+					queuedBot.rigBuildState = "TimedOut"
+					warn(string.format(
+						"[SkyfallStartup] Bot rig timed out: %s after %.1fs; continuing startup queue",
+						queuedBot.name,
+						self.rigBuildTimeoutSeconds
+					))
+				end
+			end
+			task.wait(0.05)
+		end
+
+		self.rigBuildWorkerActive = false
+		if #self.rigBuildQueue > 0 then
+			for _, queuedBot in ipairs(self.rigBuildQueue) do
+				if queuedBot.rigBuildState == "Building" then
+					queuedBot.rigBuildState = "Queued"
+				end
+			end
+			self:_queueRigBuild(self.rigBuildQueue[1])
+		end
+	end)
+
+	return true
+end
+
+function BotService:_buildRig(bot, buildToken)
+	local function isCurrentBuild()
+		return buildToken == nil or bot.rigBuildToken == buildToken
+	end
+
 	if bot.model then
 		bot.model:Destroy()
+		bot.model = nil
+		bot.humanoid = nil
+		bot.root = nil
 	end
 
 	local description = Instance.new("HumanoidDescription")
@@ -226,6 +331,14 @@ function BotService:_buildRig(bot)
 		)
 	end)
 
+	if not isCurrentBuild() then
+		if success and modelOrError then
+			modelOrError:Destroy()
+		end
+		description:Destroy()
+		return false
+	end
+
 	if not success then
 		description.HairAccessory = ""
 		success, modelOrError = pcall(function()
@@ -235,6 +348,15 @@ function BotService:_buildRig(bot)
 			)
 		end)
 	end
+
+	if not isCurrentBuild() then
+		if success and modelOrError then
+			modelOrError:Destroy()
+		end
+		description:Destroy()
+		return false
+	end
+
 	description:Destroy()
 
 	if not success then
@@ -242,7 +364,13 @@ function BotService:_buildRig(bot)
 		return false
 	end
 
-	local model = modelOrError
+	local model = modelOrError :: Model
+	if not model:IsA("Model") then
+		model:Destroy()
+		warn("AI bot rig generator returned a non-Model for " .. bot.name)
+		return false
+	end
+
 	for _, descendant in ipairs(model:GetDescendants()) do
 		if descendant:IsA("BasePart") then
 			descendant.CastShadow = false
@@ -270,7 +398,6 @@ function BotService:_buildRig(bot)
 	humanoid.JumpPower = bot.jumpPower
 	model.Parent = self.folder
 
-
 	pcall(function()
 		root:SetNetworkOwner(nil)
 	end)
@@ -281,12 +408,22 @@ function BotService:_buildRig(bot)
 	bot.alive = false
 	bot.isController = false
 
+	for index, candidate in ipairs(self.bots) do
+		if candidate == bot then
+			model:PivotTo(self.arena:GetLobbySpawnCFrame(index, #self.bots, true))
+			root.AssemblyLinearVelocity = Vector3.zero
+			root.AssemblyAngularVelocity = Vector3.zero
+			break
+		end
+	end
+
 	self:_loadAnimations(bot, model, humanoid)
 
 	humanoid.Died:Connect(function()
 		bot.alive = false
 		bot.isController = false
 		bot.targetTile = nil
+		bot.rigBuildState = "Dead"
 		model:SetAttribute("SkyfallRole", "Spectator")
 
 		if self.onBotDied then
@@ -296,12 +433,12 @@ function BotService:_buildRig(bot)
 		task.defer(function()
 			for index, candidate in ipairs(self.bots) do
 				if candidate == bot
-					and bot.model
-					and bot.model.Parent
+					and bot.model == model
+					and model.Parent
 					and bot.root
 					and bot.root.Parent
 				then
-					bot.model:PivotTo(
+					model:PivotTo(
 						self.arena:GetLobbySpawnCFrame(index, #self.bots, true)
 					)
 					bot.root.AssemblyLinearVelocity = Vector3.zero
@@ -321,6 +458,19 @@ end
 
 function BotService:GetBotCount()
 	return #self.bots
+end
+
+function BotService:GetReadyBotCount()
+	local readyCount = 0
+	for _, bot in ipairs(self.bots) do
+		if bot.model and bot.model.Parent
+			and bot.humanoid and bot.humanoid.Health > 0
+			and bot.root and bot.root.Parent
+		then
+			readyCount += 1
+		end
+	end
+	return readyCount
 end
 
 function BotService:GetAliveBots()
@@ -690,10 +840,10 @@ function BotService:StartRound(spawnCFrames, controllerBot)
 			or not bot.model
 			or not bot.model.Parent
 		then
-			self:_buildRig(bot)
+			self:_queueRigBuild(bot)
 		end
 
-		if bot.model and bot.model.Parent and bot.humanoid and bot.root then
+		if bot.model and bot.model.Parent and bot.humanoid and bot.humanoid.Health > 0 and bot.root then
 			bot.targetTile = nil
 			bot.lastTarget = nil
 			bot.humanoid.Health = bot.humanoid.MaxHealth
@@ -753,10 +903,10 @@ function BotService:EliminateFallenRunners(outOfBoundsY)
 			end
 
 			if not bot.humanoid or bot.humanoid.Health <= 0 or not bot.model or not bot.model.Parent then
-				self:_buildRig(bot)
+				self:_queueRigBuild(bot)
 			end
 
-			if bot.model and bot.humanoid and bot.root then
+			if bot.model and bot.humanoid and bot.humanoid.Health > 0 and bot.root then
 				bot.isController = false
 				bot.model:SetAttribute("SkyfallRole", "Spectator")
 				bot.humanoid.WalkSpeed = 0
@@ -782,10 +932,10 @@ function BotService:SendToLobby()
 			or not bot.model
 			or not bot.model.Parent
 		then
-			self:_buildRig(bot)
+			self:_queueRigBuild(bot)
 		end
 
-		if bot.model and bot.model.Parent and bot.humanoid and bot.root then
+		if bot.model and bot.model.Parent and bot.humanoid and bot.humanoid.Health > 0 and bot.root then
 			self:_setBotHidden(bot, false)
 			bot.model:SetAttribute("SkyfallRole", "Waiting")
 			bot.humanoid.Health = bot.humanoid.MaxHealth

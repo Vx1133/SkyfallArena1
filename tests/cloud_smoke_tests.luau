@@ -601,6 +601,14 @@ runTest("Cyberpunk map switches cleanly without changing the destructible grid",
 		),
 		"Cyberpunk floor must use the new ice-white primary palette, not the lobby green"
 	)
+
+	for _, tile in pairs(arena.tiles) do
+		assert(tile.Material == lobbyPlatform.Material, "Every Cyberpunk tile must copy the lobby material")
+		assert(tile.MaterialVariant == lobbyPlatform.MaterialVariant, "Every Cyberpunk tile must copy the lobby MaterialVariant")
+		assert(tile.Reflectance == lobbyPlatform.Reflectance, "Every Cyberpunk tile must copy lobby reflectance")
+		assert(tile.TopSurface == lobbyPlatform.TopSurface, "Every Cyberpunk tile must copy the lobby top surface")
+		assert(tile.BottomSurface == lobbyPlatform.BottomSurface, "Every Cyberpunk tile must copy the lobby bottom surface")
+	end
 	assert(
 		arena:GetTile(8, 9).Color == Color3.fromRGB(
 			WorldDesignProfile.Cyberpunk.AlternateTile[1],

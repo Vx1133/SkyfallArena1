@@ -259,7 +259,14 @@ end
 function BubbleGunService:_findOwnedTool(player)
 	local character = player.Character
 	local backpack = player:FindFirstChildOfClass("Backpack")
-	for _, container in ipairs({backpack, character}) do
+	local containers = {}
+	if backpack then
+		table.insert(containers, backpack)
+	end
+	if character then
+		table.insert(containers, character)
+	end
+	for _, container in ipairs(containers) do
 		if container then
 			local tool = container:FindFirstChild(Config.BUBBLE_GUN_TOOL_NAME)
 			if tool and tool:IsA("Tool") and tool:GetAttribute("SkyfallBubbleTool") == true then
@@ -273,8 +280,14 @@ end
 function BubbleGunService:_removeDuplicateTools(player, keep)
 	local character = player.Character
 	local backpack = player:FindFirstChildOfClass("Backpack")
-	for _, container in ipairs({backpack, character}) do
-		if container then
+	local containers = {}
+	if backpack then
+		table.insert(containers, backpack)
+	end
+	if character then
+		table.insert(containers, character)
+	end
+	for _, container in ipairs(containers) do
 			for _, child in ipairs(container:GetChildren()) do
 				if child:IsA("Tool")
 					and child.Name == Config.BUBBLE_GUN_TOOL_NAME
@@ -434,6 +447,10 @@ function BubbleGunService:_releaseHold(hold)
 		hold.root.Anchored = hold.rootAnchored
 		hold.root.AssemblyLinearVelocity = hold.linearVelocity
 		hold.root.AssemblyAngularVelocity = hold.angularVelocity
+	end
+	if hold.diedConnection then
+		hold.diedConnection:Disconnect()
+		hold.diedConnection = nil
 	end
 	if hold.humanoid and hold.humanoid.Parent then
 		hold.humanoid.WalkSpeed = hold.walkSpeed
@@ -650,20 +667,19 @@ function BubbleGunService:Start()
 	self.shotRemote.OnServerEvent:Connect(function(player, direction)
 		self:_handleShot(player, direction)
 	end)
-	self.displayStand:FindFirstChild("BubbleBlasterDisplay", true)
-		:FindFirstChild("Handle").BubbleBlasterTryPrompt.Triggered:Connect(function(player)
-			self:GrantTrial(player)
-		end)
-
 	Players.PlayerAdded:Connect(function(player)
 		self:_bindPlayer(player)
 	end)
 	Players.PlayerRemoving:Connect(function(player)
 		self.cooldowns[player] = nil
+		local holdsToRelease = {}
 		for hold in pairs(self.activeHolds) do
 			if hold.player == player then
-				self:_releaseHold(hold)
+				table.insert(holdsToRelease, hold)
 			end
+		end
+		for _, hold in ipairs(holdsToRelease) do
+			self:_releaseHold(hold)
 		end
 	end)
 	for _, player in ipairs(Players:GetPlayers()) do

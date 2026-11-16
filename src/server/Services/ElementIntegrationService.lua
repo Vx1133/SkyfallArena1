@@ -5,8 +5,8 @@ local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
-local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("WorldDesignProfile", 8))
+local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService", 8))
 
 local ElementIntegrationService = {}
 local warnedMissingTargets = false

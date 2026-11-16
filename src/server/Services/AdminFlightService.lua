@@ -1,7 +1,7 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared", 8):WaitForChild("GameConfig", 8))
 
 local AdminFlightService = {}
 AdminFlightService.__index = AdminFlightService

@@ -1,11 +1,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(sharedFolder:WaitForChild("GameConfig"))
-local MapRotation = require(sharedFolder:WaitForChild("MapRotation"))
-local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy"))
-local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy"))
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared", 8)
+local Config = require(sharedFolder:WaitForChild("GameConfig", 8))
+local MapRotation = require(sharedFolder:WaitForChild("MapRotation", 8))
+local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy", 8))
+local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy", 8))
+local StartupReadinessPolicy = require(sharedFolder:WaitForChild("StartupReadinessPolicy", 8))
 
 local RoundService = {}
 RoundService.__index = RoundService
@@ -774,7 +775,9 @@ function RoundService:_chooseController(readyPlayerOverride)
 				and candidate:GetAttribute("SkyfallPilotOptIn") == true
 		end,
 		function(bot)
-			return self:_isCandidateValid({ kind = "Bot", value = bot })
+			return self.botService
+				and self.botService:IsRigReady(bot)
+				and self:_isCandidateValid({ kind = "Bot", value = bot })
 		end
 	)
 
@@ -894,6 +897,9 @@ function RoundService:_moveEliminatedPlayerToLobby(player)
 end
 
 function RoundService:HandleDeath(player, deadCharacter)
+	if player and player.Parent == Players then
+		player:SetAttribute("SkyfallCharacterReady", false)
+	end
 	if self.phase ~= "Active" then
 		self:_scheduleRespawnRecovery(player, deadCharacter or player.Character)
 		return
@@ -1262,7 +1268,8 @@ function RoundService:_runRound()
 	local botList = self.botService:GetBots()
 	self.roundHumanCount = #playersInRound
 	self.winnerCandidates = {}
-	local totalContestants = #playersInRound + #botList
+	local readyBotCount = self.botService:GetReadyBotCount()
+	local totalContestants = #playersInRound + readyBotCount
 	local runnerCount = math.max(0, totalContestants - 1)
 	self.roundRunnerCount = runnerCount
 	local spawnIndex = 0
@@ -1292,7 +1299,7 @@ function RoundService:_runRound()
 
 	local botSpawnCFrames = {}
 	for index, bot in ipairs(botList) do
-		if bot ~= controllerBot then
+		if bot ~= controllerBot and self.botService:IsRigReady(bot) then
 			spawnIndex += 1
 			botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(runnerCount, 1))
 			self.roundRunners[bot] = { kind = "Bot", value = bot }
@@ -1391,28 +1398,49 @@ function RoundService:_runLoop()
 			break
 		end
 
-		self.phase = "Intermission"
-		local canceled = false
-		for seconds = Config.INTERMISSION_SECONDS, 1, -1 do
-			if self:_readyPlayerCount() == 0 then
-				canceled = true
-				break
+		-- A normal round needs one fully created bot controller. Avatar creation is
+		-- now asynchronous, so keep the game responsive while the first rig loads.
+		-- A human can still proceed by explicitly opting into aircraft control.
+		local readyBotCount = self.botService and self.botService:GetReadyBotCount() or 0
+		local hasManualPilot = false
+		if readyBotCount == 0 then
+			for _, readyPlayer in ipairs(self:_getReadyPlayers()) do
+				if readyPlayer:GetAttribute("SkyfallPilotOptIn") == true then
+					hasManualPilot = true
+					break
+				end
 			end
-
-			self.countdownSeconds = seconds
-			self:_broadcast()
-			task.wait(1)
 		end
 
-		if not canceled and self:_readyPlayerCount() >= Config.MIN_PLAYERS then
-			self:_runRound()
-		else
+		if not StartupReadinessPolicy.CanBeginIntermission(readyBotCount, hasManualPilot) then
 			self.phase = "Waiting"
 			self.countdownSeconds = 0
 			self:_broadcast()
-		end
+			task.wait(0.5)
+		else
+			self.phase = "Intermission"
+			local canceled = false
+			for seconds = Config.INTERMISSION_SECONDS, 1, -1 do
+				if self:_readyPlayerCount() == 0 then
+					canceled = true
+					break
+				end
 
-		task.wait(0.5)
+				self.countdownSeconds = seconds
+				self:_broadcast()
+				task.wait(1)
+			end
+
+			if not canceled and self:_readyPlayerCount() >= Config.MIN_PLAYERS then
+				self:_runRound()
+			else
+				self.phase = "Waiting"
+				self.countdownSeconds = 0
+				self:_broadcast()
+			end
+
+			task.wait(0.5)
+		end
 	end
 end
 

@@ -2,8 +2,8 @@
 -- Angular orbital sky-station. No nature geometry or corner-pillar template is used.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
-local Factory = require(script.Parent:WaitForChild("MapDecorationFactory"))
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("WorldDesignProfile", 8))
+local Factory = require(script.Parent:WaitForChild("MapDecorationFactory", 8))
 
 local CyberpunkMapBuilder = {}
 

@@ -4,10 +4,29 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
-local playerGui = player:WaitForChild("PlayerGui")
-local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
-local flightRemote = remotes:WaitForChild("AdminFlight")
-local stateRemote = remotes:WaitForChild("RoundState")
+local STARTUP_WAIT_SECONDS = 8
+
+local function waitForChildOrWarn(parent: Instance, name: string): Instance?
+	local child = parent:WaitForChild(name, STARTUP_WAIT_SECONDS)
+	if not child then
+		warn(string.format("[SkyfallStartup] Admin flight missing %s under %s after %.1fs", name, parent:GetFullName(), STARTUP_WAIT_SECONDS))
+	end
+	return child
+end
+
+local playerGui = waitForChildOrWarn(player, "PlayerGui")
+local remotes = waitForChildOrWarn(ReplicatedStorage, "SkyfallRemotes")
+if not playerGui or not remotes then
+	return
+end
+local flightRemote = waitForChildOrWarn(remotes, "AdminFlight")
+local stateRemote = waitForChildOrWarn(remotes, "RoundState")
+if not flightRemote or not flightRemote:IsA("RemoteEvent")
+	or not stateRemote or not stateRemote:IsA("RemoteEvent")
+then
+	warn("[SkyfallStartup] Admin flight remotes are incomplete; controls disabled safely")
+	return
+end
 
 local state = { phase = "Waiting" }
 local verticalUp = false

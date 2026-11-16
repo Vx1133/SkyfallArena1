@@ -1,7 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("GameConfig", 8))
 
 local PilotPriorityService = {}
 PilotPriorityService.__index = PilotPriorityService

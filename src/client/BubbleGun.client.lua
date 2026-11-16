@@ -3,16 +3,40 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
-local remote = ReplicatedStorage:WaitForChild("SkyfallRemotes"):WaitForChild("BubbleShot")
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local STARTUP_WAIT_SECONDS = 8
 
+local function waitForChildOrWarn(parent: Instance, name: string): Instance?
+	local child = parent:WaitForChild(name, STARTUP_WAIT_SECONDS)
+	if not child then
+		warn(string.format("[SkyfallStartup] Bubble client missing %s under %s after %.1fs", name, parent:GetFullName(), STARTUP_WAIT_SECONDS))
+	end
+	return child
+end
+
+local remotes = waitForChildOrWarn(ReplicatedStorage, "SkyfallRemotes")
+local sharedFolder = waitForChildOrWarn(ReplicatedStorage, "Shared")
+local playerGui = waitForChildOrWarn(player, "PlayerGui")
+local backpack = waitForChildOrWarn(player, "Backpack")
+if not remotes or not sharedFolder or not playerGui or not backpack then
+	return
+end
+
+local remote = waitForChildOrWarn(remotes, "BubbleShot")
+local configModule = waitForChildOrWarn(sharedFolder, "GameConfig")
+if not remote or not remote:IsA("RemoteEvent")
+	or not configModule or not configModule:IsA("ModuleScript")
+then
+	warn("[SkyfallStartup] Bubble client dependencies are incomplete; tool input disabled safely")
+	return
+end
+local Config = require(configModule)
 local reticleGui = Instance.new("ScreenGui")
 reticleGui.Name = "SkyfallBubbleReticle"
 reticleGui.ResetOnSpawn = false
 reticleGui.IgnoreGuiInset = true
 reticleGui.DisplayOrder = 25
 reticleGui.Enabled = false
-reticleGui.Parent = player:WaitForChild("PlayerGui")
+reticleGui.Parent = playerGui
 
 local reticle = Instance.new("Frame")
 reticle.Name = "Reticle"
@@ -91,7 +115,7 @@ local function bindTool(instance)
 	end)
 end
 
-local backpack = player:WaitForChild("Backpack")
+-- Backpack was resolved through the bounded startup dependency check above.
 for _, child in ipairs(backpack:GetChildren()) do
 	bindTool(child)
 end

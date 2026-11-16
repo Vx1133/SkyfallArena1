@@ -221,7 +221,7 @@ The actual map-builder implementation has been committed to the target branch.
 - Legacy tests that prohibited trees globally, expected the old Classic perimeter rails, or expected Cyberpunk Neon strips/corner pillars were replaced with map-identity, cross-map separation, surface-profile, and deterministic-switch tests.
 
 Latest successful PR validation at the time of this record:
-https://github.com/Vx1133/SkyfallArena1/actions/runs/43935755946
+https://github.com/Vx1133/SkyfallArena1/actions/runs/43936283555
 
 That run passed Lune, Python structural validation, Selene, Rojo build, and artifact upload. Cloud smoke tests were updated and linted, but are not executed by the default validation workflow.
 

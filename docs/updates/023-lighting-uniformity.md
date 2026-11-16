@@ -75,3 +75,6 @@ The configured roster remains 10 bots. BotService creates the bots before RoundS
 - Lune verifies only a strict `true` manual opt-in resolves to a Player controller.
 - Cloud smoke tests cover the one-human/ten-bot path, opt-in cancellation, and one-round-only debug override.
 - Structural validation checks that server control state gates the custom aircraft camera.
+
+- The aircraft icon is shown only after a player presses PLAY and joins the next round. A player can enable or cancel the icon during Waiting/Intermission, but not after Active begins.
+- New PLAY requests clear any stale opt-in; end-of-round cleanup clears opt-in/control for every human, including lobby users who did not join the round.

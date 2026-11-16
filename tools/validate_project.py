@@ -33,6 +33,8 @@ required_files = [
     "src/shared/MapRotation.lua",
     "src/shared/StartupReadinessPolicy.lua",
     "tests/lune/update_024_startup_guard.luau",
+    "docs/updates/024-global-startup-freeze-fix.md",
+    "docs/handoffs/CODEX_UPDATE_024_STARTUP_FREEZE.md",
     "src/shared/WorldDesignProfile.lua",
     "tests/lune/update_023_world_design.luau",
     "src/shared/DebugControllerPolicy.lua",
@@ -317,6 +319,7 @@ require("for botIndex = 1, Config.BOT_COUNT do" in bot_source, "BotService must 
 require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NPCs must use Roblox's built-in HumanoidDescription rig generator")
 require("self.rigBuildTimeoutSeconds = 14" in bot_source, "Bot rig generation must have a bounded timeout")
 require("function BotService:_queueRigBuild(" in bot_source, "Bot rig generation must use the asynchronous build queue")
+require("function BotService:IsRigReady(" in bot_source, "Bot readiness must validate the complete rig")
 require("function BotService:GetReadyBotCount()" in bot_source, "Round startup must count only completed bot rigs")
 require("queuedBot.rigBuildToken += 1" in bot_source, "Timed-out bot rig requests must be invalidated")
 require(bot_source.count("self:_buildRig(") == 1, "Bot rigs must only be built inside the asynchronous queue")
@@ -743,8 +746,6 @@ for feature in (
     "[SkyfallStartup] BEGIN",
     "[SkyfallStartup] TIMEOUT",
     "[SkyfallStartup] FAILED",
-    'runStartupStage("ArenaBuild", 20',
-    'runStartupStage("StartGameServices", 10',
     'runStartupStage("ArenaBuild", 20',
     'runStartupStage("StartGameServices", 10',
 ):

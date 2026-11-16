@@ -169,15 +169,15 @@ pilotButton.AutoButtonColor = true
 pilotButton.Visible = true
 pilotButton.Parent = screenGui
 
-local pilotCorner = Instance.new("UICorner")
-pilotCorner.CornerRadius = UDim.new(0, 9)
-pilotCorner.Parent = pilotButton
+local pilotOptInCorner = Instance.new("UICorner")
+pilotOptInCorner.CornerRadius = UDim.new(0, 9)
+pilotOptInCorner.Parent = pilotButton
 
-local pilotStroke = Instance.new("UIStroke")
-pilotStroke.Color = Color3.fromRGB(220, 235, 250)
-pilotStroke.Transparency = 0.62
-pilotStroke.Thickness = 1
-pilotStroke.Parent = pilotButton
+local pilotOptInStroke = Instance.new("UIStroke")
+pilotOptInStroke.Color = Color3.fromRGB(220, 235, 250)
+pilotOptInStroke.Transparency = 0.62
+pilotOptInStroke.Thickness = 1
+pilotOptInStroke.Parent = pilotButton
 
 local function updatePilotButton()
 	local waiting = state.phase == "Waiting"

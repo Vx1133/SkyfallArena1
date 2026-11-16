@@ -1082,6 +1082,12 @@ function RoundService:_awardWinners(candidates)
 		if candidate.kind == "Player" then
 			local player = candidate.value
 			if player.Parent == Players then
+				local isCurrentController = self.controller
+					and self.controller.kind == "Player"
+					and self.controller.value == player
+				if isCurrentController then
+					self:_setPlayerControllerHidden(player, false)
+				end
 				local statSet = self.stats[player]
 				if statSet and statSet.wins then
 					statSet.wins.Value += 1

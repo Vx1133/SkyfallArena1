@@ -307,9 +307,18 @@ function RoundService:_restoreDebugController(player)
 		return false
 	end
 
-	self:_movePlayerToSpectator(player)
 	local previous = self.debugPreviousController
 	self.debugPreviousController = nil
+	if previous and previous.kind == "Player" and previous.value == player then
+		self:_setArenaStreamingFocus(player, false)
+		player:SetAttribute("SkyfallRole", "Controller")
+		self:_setPlayerControllerHidden(player, true)
+		self.controller = previous
+		self:_broadcast()
+		return true
+	end
+
+	self:_movePlayerToSpectator(player)
 	if self:_isCandidateValid(previous) then
 		if previous.kind == "Player" then
 			self:_setArenaStreamingFocus(previous.value, false)

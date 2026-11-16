@@ -3,7 +3,7 @@
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Profile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("LightingProfile"))
+local Profile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("LightingProfile", 8))
 
 local LightingProfileService = {}
 

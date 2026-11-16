@@ -775,7 +775,9 @@ function RoundService:_chooseController(readyPlayerOverride)
 				and candidate:GetAttribute("SkyfallPilotOptIn") == true
 		end,
 		function(bot)
-			return self:_isCandidateValid({ kind = "Bot", value = bot })
+			return self.botService
+				and self.botService:IsRigReady(bot)
+				and self:_isCandidateValid({ kind = "Bot", value = bot })
 		end
 	)
 

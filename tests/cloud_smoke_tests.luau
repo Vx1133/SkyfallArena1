@@ -406,7 +406,7 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 			"Runner spawn is outside the arena"
 		)
 
-		local lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
+		lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
 		assert(
 			math.abs(lobbyPosition.X - Config.LOBBY_CENTER.X) < Config.LOBBY_SIZE / 2,
 			"Lobby spawn is outside the waiting platform"

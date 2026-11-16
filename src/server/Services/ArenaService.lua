@@ -1,4 +1,3 @@
-local Lighting = game:GetService("Lighting")
 local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -8,6 +7,7 @@ local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
 local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService"))
 local CyberpunkPillarService = require(script.Parent:WaitForChild("CyberpunkPillarService"))
+local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))
 
 local ArenaService = {}
 ArenaService.__index = ArenaService
@@ -27,16 +27,6 @@ local MAPS = {
 		roof = Color3.fromRGB(230, 61, 61),
 		accent = Color3.fromRGB(255, 207, 56),
 		secondary = Color3.fromRGB(64, 166, 220),
-		ambient = Color3.fromRGB(0, 0, 0),
-		outdoorAmbient = Color3.fromRGB(0, 0, 0),
-		fogColor = Color3.fromRGB(192, 192, 192),
-		brightness = 2,
-		clockTime = 14,
-		exposureCompensation = 0,
-		environmentDiffuseScale = 1,
-		environmentSpecularScale = 1,
-		fogStart = 0,
-		fogEnd = 100000,
 	},
 	{
 		id = 2,
@@ -53,17 +43,6 @@ local MAPS = {
 		roof = Color3.fromRGB(244, 247, 251),
 		accent = Color3.fromRGB(0, 240, 255),
 		secondary = Color3.fromRGB(10, 17, 40),
-		ambient = Color3.fromRGB(124, 151, 177),
-		outdoorAmbient = Color3.fromRGB(151, 180, 205),
-		fogColor = Color3.fromRGB(190, 220, 242),
-		brightness = 2.8,
-		clockTime = 14.2,
-		exposureCompensation = 0.08,
-		environmentDiffuseScale = 1,
-		environmentSpecularScale = 1,
-		fogStart = 420,
-		fogEnd = 2200,
-		useCyberpunkLighting = true,
 	},
 }
 
@@ -594,111 +573,15 @@ function ArenaService:ReturnAircraftLensHome(token)
 	return true
 end
 
-function ArenaService:_setLighting(theme)
-	Lighting.Brightness = theme.brightness or 2
-	Lighting.ClockTime = theme.clockTime or 14
-	Lighting.Ambient = theme.ambient or Color3.fromRGB(0, 0, 0)
-	Lighting.OutdoorAmbient = theme.outdoorAmbient or Color3.fromRGB(0, 0, 0)
-	Lighting.ExposureCompensation = theme.exposureCompensation or 0
-	Lighting.EnvironmentDiffuseScale = theme.environmentDiffuseScale or 1
-	Lighting.EnvironmentSpecularScale = theme.environmentSpecularScale or 1
-	Lighting.GlobalShadows = true
-	Lighting.FogColor = theme.fogColor or Color3.fromRGB(192, 192, 192)
-	Lighting.FogStart = theme.fogStart or 0
-	Lighting.FogEnd = theme.fogEnd or 100000
+function ArenaService:_setLighting()
+    LightingProfileService.Apply()
 
-	local effectNames = {
-		"SkyfallSunriseSky",
-		"SkyfallAtmosphere",
-		"SkyfallColorCorrection",
-		"SkyfallBloom",
-		"SkyfallSunRays",
-	}
-
-	if theme.useCyberpunkLighting then
-		-- Remove any previously installed night/custom sky and create a clean
-		-- Roblox daytime sky. ClockTime and the sun position stay in daylight.
-		for _, child in ipairs(Lighting:GetChildren()) do
-			if child:IsA("Sky") then
-				child:Destroy()
-			end
-		end
-		local daySky = Instance.new("Sky")
-		daySky.Name = "SkyfallDaySky"
-		daySky.CelestialBodiesShown = true
-		daySky.StarCount = 0
-		daySky.SunAngularSize = 14
-		daySky.MoonAngularSize = 0
-		daySky.Parent = Lighting
-
-		local atmosphere = Lighting:FindFirstChild("SkyfallAtmosphere")
-		if not atmosphere or not atmosphere:IsA("Atmosphere") then
-			if atmosphere then
-				atmosphere:Destroy()
-			end
-			atmosphere = Instance.new("Atmosphere")
-			atmosphere.Name = "SkyfallAtmosphere"
-			atmosphere.Parent = Lighting
-		end
-		atmosphere.Color = Color3.fromRGB(199, 226, 246)
-		atmosphere.Decay = Color3.fromRGB(114, 153, 190)
-		atmosphere.Density = 0.12
-		atmosphere.Offset = 0.18
-		atmosphere.Glare = 0.12
-		atmosphere.Haze = 0.7
-
-		local sunRays = Lighting:FindFirstChild("SkyfallSunRays")
-		if not sunRays or not sunRays:IsA("SunRaysEffect") then
-			if sunRays then
-				sunRays:Destroy()
-			end
-			sunRays = Instance.new("SunRaysEffect")
-			sunRays.Name = "SkyfallSunRays"
-			sunRays.Parent = Lighting
-		end
-		sunRays.Intensity = 0.035
-		sunRays.Spread = 0.18
-
-		local bloom = Lighting:FindFirstChild("SkyfallBloom")
-		if not bloom or not bloom:IsA("BloomEffect") then
-			if bloom then
-				bloom:Destroy()
-			end
-			bloom = Instance.new("BloomEffect")
-			bloom.Name = "SkyfallBloom"
-			bloom.Parent = Lighting
-		end
-		bloom.Intensity = 0.3
-		bloom.Size = 20
-		bloom.Threshold = 1.25
-
-		local colorCorrection = Lighting:FindFirstChild("SkyfallColorCorrection")
-		if not colorCorrection or not colorCorrection:IsA("ColorCorrectionEffect") then
-			if colorCorrection then
-				colorCorrection:Destroy()
-			end
-			colorCorrection = Instance.new("ColorCorrectionEffect")
-			colorCorrection.Name = "SkyfallColorCorrection"
-			colorCorrection.Parent = Lighting
-		end
-		colorCorrection.Brightness = 0.01
-		colorCorrection.Contrast = 0.07
-		colorCorrection.Saturation = 0.08
-		colorCorrection.TintColor = Color3.fromRGB(236, 247, 255)
-	else
-		for _, name in ipairs(effectNames) do
-			local effect = Lighting:FindFirstChild(name)
-			if effect then
-				effect:Destroy()
-			end
-		end
-	end
-
-	local clouds = Workspace.Terrain:FindFirstChild("SkyfallClouds")
-	if clouds then
-		clouds:Destroy()
-	end
+    local clouds = Workspace.Terrain:FindFirstChild("SkyfallClouds")
+    if clouds then
+        clouds:Destroy()
+    end
 end
+
 function ArenaService:_buildClassicDecoration(theme)
 	local folder = self.mapFolder
 	local center = Config.ARENA_CENTER
@@ -1014,7 +897,7 @@ function ArenaService:SetMap(mapId)
 		end
 		self.mapDecorBuilt = true
 	end
-	self:_setLighting(theme)
+	self:_setLighting()
 	return theme.name
 end
 function ArenaService:GetMapName()

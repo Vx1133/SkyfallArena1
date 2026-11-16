@@ -1391,28 +1391,50 @@ function RoundService:_runLoop()
 			break
 		end
 
-		self.phase = "Intermission"
-		local canceled = false
-		for seconds = Config.INTERMISSION_SECONDS, 1, -1 do
-			if self:_readyPlayerCount() == 0 then
-				canceled = true
-				break
+		-- A normal round needs one fully created bot controller. Avatar creation is
+		-- now asynchronous, so keep the game responsive while the first rig loads.
+		-- A human can still proceed by explicitly opting into aircraft control.
+		local hasReadyBot = not self.botService
+			or self.botService:GetReadyBotCount() > 0
+		local hasManualPilot = false
+		if not hasReadyBot then
+			for _, readyPlayer in ipairs(self:_getReadyPlayers()) do
+				if readyPlayer:GetAttribute("SkyfallPilotOptIn") == true then
+					hasManualPilot = true
+					break
+				end
 			end
-
-			self.countdownSeconds = seconds
-			self:_broadcast()
-			task.wait(1)
 		end
 
-		if not canceled and self:_readyPlayerCount() >= Config.MIN_PLAYERS then
-			self:_runRound()
-		else
+		if not hasReadyBot and not hasManualPilot then
 			self.phase = "Waiting"
 			self.countdownSeconds = 0
 			self:_broadcast()
-		end
+			task.wait(0.5)
+		else
+			self.phase = "Intermission"
+			local canceled = false
+			for seconds = Config.INTERMISSION_SECONDS, 1, -1 do
+				if self:_readyPlayerCount() == 0 then
+					canceled = true
+					break
+				end
 
-		task.wait(0.5)
+				self.countdownSeconds = seconds
+				self:_broadcast()
+				task.wait(1)
+			end
+
+			if not canceled and self:_readyPlayerCount() >= Config.MIN_PLAYERS then
+				self:_runRound()
+			else
+				self.phase = "Waiting"
+				self.countdownSeconds = 0
+				self:_broadcast()
+			end
+
+			task.wait(0.5)
+		end
 	end
 end
 

@@ -600,4 +600,23 @@ for feature in (
 ):
     require(feature in cloud_tests, f"Cloud smoke test is missing: {feature}")
 
+floor_appearance_source = (ROOT / "src/server/Services/FloorAppearanceService.lua").read_text(encoding="utf-8")
+for feature in ("function FloorAppearanceService.Capture(", "source.MaterialVariant", "source.Color", "source.Reflectance", "function FloorAppearanceService.Apply(", "profile.TopSurface", "profile.BottomSurface"):
+    require(feature in floor_appearance_source, f"Lobby floor appearance transfer is missing: {feature}")
+
+element_integration_source = (ROOT / "src/server/Services/ElementIntegrationService.lua").read_text(encoding="utf-8")
+for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallElementType", "Fire", "Water", "Earth", "Air", "TweenService:Create", "CanCollide = false", "CanQuery = false"):
+    require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
+
+pilot_policy_source = (ROOT / "src/shared/PilotOptInPolicy.lua").read_text(encoding="utf-8")
+require("function PilotOptInPolicy.Filter(" in pilot_policy_source, "Explicit human pilot opt-in policy is missing")
+require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Players must default to no pilot opt-in")
+require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
+require('PilotOptInPolicy.Filter(readyPlayers' in round_source, "Controller selection must filter explicit pilot opt-ins")
+require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
+require('pilotButton.Name = "PilotOptInButton"' in hud_source, "The mobile pilot opt-in button is missing")
+require('playRemote:FireServer("PilotOptIn", desiredState)' in hud_source, "The pilot opt-in button must send an explicit server request")
+require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
+require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
+
 print("Skyfall Arena structural and gameplay validation passed.")

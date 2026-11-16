@@ -51,3 +51,34 @@ Then open the built place in Roblox Studio and compare a full round/map rotation
 ## Completion report
 
 Report exact commit, files reviewed, any code corrections, CI results, runtime/Studio checks actually performed, and remaining limitations. Never claim zero bugs or a completed Codex review unless the Codex session actually performed and returned the review.
+
+
+## Additional Update #23 review: round-start aircraft-control state
+
+### Verified root cause
+`RoundService:_clearReadyPlayers()` preserved an enabled `SkyfallDebugDroneEnabled` flag by re-inserting the owner into the next ready list. `RoundService:_chooseController()` then applied that owner-only debug override before normal bot fallback. If left on, that manual test flag caused repeated owner control on later rounds.
+
+### Changes on this branch
+- The normal HUD now exposes one compact `✈` manual opt-in icon. The old `PILOT: OFF/ON` and `DRONE 0%` text indicators remain absent.
+- Manual opt-in can be toggled on/off during Waiting and during Intermission for a player already marked Ready.
+- `PilotOptInPolicy.ResolveCandidates` selects manually opted-in ready humans first, otherwise valid bots. There is no solo-human fallback.
+- Owner Debug Drone remains separate and manual, but is now a one-round override. End-of-round cleanup disables the flag and clears debug auto-ready/pointer state.
+- The server initializes and owns `SkyfallAircraftControlActive`. The character is unhidden/unanchored and the flag cleared for normal character control. Only the explicit server-side controller transition sets it true.
+- The client camera requires Active phase + Controller role + `SkyfallAircraftControlActive == true`. A stale role by itself cannot lock the camera to the aircraft.
+- `_runRound` resolves a valid controller before switching to Active or changing human roles. If no valid candidate exists, it fails closed to Waiting.
+
+### Required review
+1. Confirm a single ready human and ten valid bots selects a bot by default.
+2. Confirm the `✈` icon is the only normal-player path to human aircraft control and can be switched off before round start.
+3. Confirm a player without explicit opt-in remains Runner with normal character movement, visible body, and default camera.
+4. Confirm the owner Debug Drone override only affects the explicitly requested round and resets at cleanup.
+5. Confirm nine non-controller bots are still spawned as independent Runners when one bot pilots.
+6. Confirm the active camera flag cannot remain true after cleanup, respawn, or demotion.
+7. Preserve map/lighting changes already in this PR and do not merge or publish.
+
+### Additional checks
+- `lune run tests/lune/update_023_control_state.luau`
+- Existing Lune policy tests and full project CI.
+- Roblox Studio runtime checks must include one real player plus all ten bots, manual icon on/off, respawn, round-end cleanup, and a second round without touching the aircraft icon.
+
+No Codex session is connected to this workspace, so this brief is committed for a real Codex session to review. Do not claim that a live Codex review occurred.

@@ -7,7 +7,8 @@ local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):Wait
 local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
 local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService"))
-local CyberpunkPillarService = require(script.Parent:WaitForChild("CyberpunkPillarService"))
+local ClassicNatureMapBuilder = require(script.Parent:WaitForChild("ClassicNatureMapBuilder"))
+local CyberpunkMapBuilder = require(script.Parent:WaitForChild("CyberpunkMapBuilder"))
 local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))
 
 local ArenaService = {}
@@ -23,8 +24,8 @@ local MAPS = {
 	{
 		id = 1,
 		name = "SKYFALL CLASSIC ARENA",
-		tileColor = Color3.fromRGB(79, 170, 66),
-		tileAlternateColor = Color3.fromRGB(79, 170, 66),
+		tileColor = paletteColor(WorldDesignProfile.Classic.PrimaryTile),
+		tileAlternateColor = paletteColor(WorldDesignProfile.Classic.AlternateTile),
 		tileMaterial = Enum.Material.Plastic,
 		useClassicStuds = true,
 		studColor = Color3.fromRGB(112, 204, 83),
@@ -42,7 +43,6 @@ local MAPS = {
 		tileAlternateColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
 		tileMaterial = Enum.Material.SmoothPlastic,
 		useClassicStuds = false,
-		useLobbyFloorAppearance = true,
 		studColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
 		warningColor = Color3.fromRGB(255, 64, 92),
 		brokenColor = paletteColor(CYBERPUNK_PALETTE.Navy),
@@ -589,197 +589,31 @@ function ArenaService:_setLighting()
     end
 end
 
-function ArenaService:_buildClassicDecoration(theme)
-	local folder = self.mapFolder
-	local center = Config.ARENA_CENTER
-	local half = Config.ARENA_HALF_WIDTH
-	local width = Config.ARENA_WIDTH
-
-	-- A thin visual foundation cannot catch a runner who falls through the arena.
-	local support = createPart(
-		folder,
-		"ClassicArenaSupport",
-		Vector3.new(width + 26, 2, width + 26),
-		center + Vector3.new(0, -60, 0),
-		Color3.fromRGB(82, 68, 52),
-		Enum.Material.Plastic,
-		false
-	)
-	support.CanCollide = false
-	support.CanTouch = false
-	support.CanQuery = false
-
-	-- The trim touches the tile grid underside but remains non-collidable.
-	local trim = createPart(
-		folder,
-		"ClassicArenaOuterTrim",
-		Vector3.new(width + 6, 1, width + 6),
-		center + Vector3.new(0, -1, 0),
-		Color3.fromRGB(49, 103, 54),
-		Enum.Material.Plastic,
-		false
-	)
-	trim.CanQuery = false
-
-	-- Edge beams overlap at all corners and meet the outer tile edges.
-	local frameY = center.Y + 0.65
-	for _, side in ipairs({ -1, 1 }) do
-		local northSouth = createPart(
-			folder,
-			"ClassicPerimeterNorthSouth_" .. tostring(side),
-			Vector3.new(width + 4, 2.3, 3),
-			Vector3.new(center.X, frameY, center.Z + side * (half + 1)),
-			theme.tileColor:Lerp(Color3.fromRGB(30, 80, 40), 0.45),
-			Enum.Material.Plastic,
-			false
-		)
-		applyClassicStudSurface(northSouth)
-		northSouth.CanQuery = false
-
-		local eastWest = createPart(
-			folder,
-			"ClassicPerimeterEastWest_" .. tostring(side),
-			Vector3.new(3, 2.3, width + 4),
-			Vector3.new(center.X + side * (half + 1), frameY, center.Z),
-			theme.tileColor:Lerp(Color3.fromRGB(30, 80, 40), 0.45),
-			Enum.Material.Plastic,
-			false
-		)
-		applyClassicStudSurface(eastWest)
-		eastWest.CanQuery = false
-	end
-
-	-- Corner supports overlap both edge beams, making one connected perimeter frame.
-	for sideX = -1, 1, 2 do
-		for sideZ = -1, 1, 2 do
-			local post = createPart(
-				folder,
-				"ClassicPerimeterCornerPost_" .. tostring(sideX) .. "_" .. tostring(sideZ),
-				Vector3.new(4, 9, 4),
-				center + Vector3.new(sideX * (half + 1), 4.5, sideZ * (half + 1)),
-				Color3.fromRGB(60, 112, 61),
-				Enum.Material.Plastic,
-				false
-			)
-			applyClassicStudSurface(post)
-			post.CanQuery = false
-		end
-	end
-end
-
-local function createVisualPart(parent, name, size, position, color, material)
-	local part = createPart(parent, name, size, position, color, material, false)
-	part.CanCollide = false
-	part.CanTouch = false
-	part.CanQuery = false
-	part.CastShadow = false
-	return part
-end
-
-function ArenaService:_buildCyberpunkDecoration(theme)
-	local folder = self.mapFolder
-	local center = Config.ARENA_CENTER
-	local half = Config.ARENA_HALF_WIDTH
-	local width = Config.ARENA_WIDTH
-	local navy = paletteColor(CYBERPUNK_PALETTE.Navy)
-	local silver = paletteColor(CYBERPUNK_PALETTE.Silver)
-
-	local function createSurfacePart(parent, name, size, position, color, material)
-		local part = createVisualPart(parent, name, size, position, color, material)
-		if material ~= Enum.Material.Neon and theme.floorAppearanceProfile then
-			FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)
-		end
-		return part
-	end
-
-	createSurfacePart(
-		folder,
-		"CyberpunkArenaSupport",
-		Vector3.new(width + 34, 2, width + 34),
-		center + Vector3.new(0, -60, 0),
-		navy,
-		Enum.Material.Metal
-	)
-	createSurfacePart(
-		folder,
-		"CyberpunkArenaUnderDeck",
-		Vector3.new(width + 9, 1.3, width + 9),
-		center + Vector3.new(0, -1.15, 0),
-		navy,
-		Enum.Material.Metal
-	)
-
-	local trimY = center.Y + 0.72
-	local neonY = center.Y + 1.16
-	for _, side in ipairs({ -1, 1 }) do
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaOuterTrim_NorthSouth_" .. tostring(side),
-			Vector3.new(width + 10, 1.45, 2.6),
-			Vector3.new(center.X, trimY, center.Z + side * (half + 2)),
-			silver,
-			Enum.Material.Metal
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaOuterTrim_EastWest_" .. tostring(side),
-			Vector3.new(2.6, 1.45, width + 10),
-			Vector3.new(center.X + side * (half + 2), trimY, center.Z),
-			silver,
-			Enum.Material.Metal
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaNeonNorthSouth_" .. tostring(side),
-			Vector3.new(width + 11, 0.16, 0.24),
-			Vector3.new(center.X, neonY, center.Z + side * (half + 3.35)),
-			theme.accent,
-			Enum.Material.Neon
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaNeonEastWest_" .. tostring(side),
-			Vector3.new(0.24, 0.16, width + 11),
-			Vector3.new(center.X + side * (half + 3.35), neonY, center.Z),
-			theme.accent,
-			Enum.Material.Neon
-		)
-	end
-
-	-- Four clean perimeter ribs create depth without entering the playable tile grid.
-	local ribY = center.Y + 8
-	for _, side in ipairs({ -1, 1 }) do
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaCrossBrace_NorthSouth_" .. tostring(side),
-			Vector3.new(width + 8, 1.4, 1.8),
-			Vector3.new(center.X, ribY, center.Z + side * (half + 5.4)),
-			theme.structure,
-			Enum.Material.Metal
-		)
-		createSurfacePart(
-			folder,
-			"CyberpunkArenaCrossBrace_EastWest_" .. tostring(side),
-			Vector3.new(1.8, 1.4, width + 8),
-			Vector3.new(center.X + side * (half + 5.4), ribY, center.Z),
-			theme.structure,
-			Enum.Material.Metal
-		)
-	end
-
-	local pillarCount = CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)
-	if pillarCount ~= 4 then
-		warn("Skyfall Cyberpunk pillar service built " .. tostring(pillarCount) .. " of 4 corner pillars.")
-	end
-
-end
-
 function ArenaService:_buildMapDecoration(theme)
-	if theme.id == 2 then
-		self:_buildCyberpunkDecoration(theme)
-	else
-		self:_buildClassicDecoration(theme)
+	if not theme.floorAppearanceProfile then
+		error("Skyfall cannot build map decoration without the captured lobby surface profile")
 	end
+
+	local partCount
+	if theme.id == 1 then
+		partCount = ClassicNatureMapBuilder.Build(
+			self.mapFolder,
+			Config.ARENA_CENTER,
+			Config.ARENA_HALF_WIDTH,
+			theme.floorAppearanceProfile
+		)
+	else
+		partCount = CyberpunkMapBuilder.Build(
+			self.mapFolder,
+			Config.ARENA_CENTER,
+			Config.ARENA_HALF_WIDTH,
+			theme.floorAppearanceProfile
+		)
+	end
+
+	self.mapFolder:SetAttribute("SkyfallActiveMapId", theme.id)
+	self.mapFolder:SetAttribute("SkyfallGeometryPartCount", partCount)
+	return partCount
 end
 
 function ArenaService:Build()
@@ -857,23 +691,20 @@ end
 function ArenaService:SetMap(mapId)
 	local selected = MAPS[mapId] or MAPS[1]
 	local theme = table.clone(selected)
-	if theme.useLobbyFloorAppearance == true then
-		local lobbyFloor = self.lobbyFloor
-		if not lobbyFloor or not lobbyFloor.Parent then
-			local candidate = self.lobbyFolder and self.lobbyFolder:FindFirstChild("WaitingPlatform")
-			lobbyFloor = candidate and candidate:IsA("BasePart") and candidate or nil
-		end
-		local profile = FloorAppearanceService.Capture(lobbyFloor)
-		if profile then
-			-- Inherit only the lobby material/surface profile, not its green Color.
-			theme.floorAppearanceProfile = profile
-			theme.tileMaterial = profile.Material
-		else
-			warn("Skyfall could not capture the Lobby WaitingPlatform appearance; the Cyberpunk floor will keep its configured fallback.")
-		end
+	local lobbyFloor = self.lobbyFloor
+	if not lobbyFloor or not lobbyFloor.Parent then
+		local candidate = self.lobbyFolder and self.lobbyFolder:FindFirstChild("WaitingPlatform")
+		lobbyFloor = candidate and candidate:IsA("BasePart") and candidate or nil
 	end
 
-	local mapChanged = self.currentMapId ~= selected.id
+	local profile = FloorAppearanceService.Capture(lobbyFloor)
+	if not profile then
+		error("Skyfall requires a valid Lobby.WaitingPlatform before selecting a playable map")
+	end
+	-- Both maps inherit the full lobby surface finish. Their colors remain independent.
+	theme.floorAppearanceProfile = profile
+	theme.tileMaterial = profile.Material
+
 	self.currentMapId = selected.id
 	self.theme = theme
 
@@ -891,18 +722,25 @@ function ArenaService:SetMap(mapId)
 		end
 	end
 
-	if mapChanged or not self.mapDecorBuilt then
-		self.mapFolder:ClearAllChildren()
-		self:_buildMapDecoration(theme)
-		local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, self.lobbyFloor, theme.tileColor)
-		if success then
-			self.elementTransitionCount = countOrError
-		else
-			self.elementTransitionCount = 0
-			warn("Skyfall element visual integration failed without stopping the arena: " .. tostring(countOrError))
-		end
-		self.mapDecorBuilt = true
+	-- Rebuild deterministically on every selection so a changed lobby profile can never leave stale map surfaces.
+	self.mapFolder:ClearAllChildren()
+	local partCount = self:_buildMapDecoration(theme)
+	local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, lobbyFloor, theme.tileColor)
+	if not success then
+		error("Skyfall element visual integration failed: " .. tostring(countOrError))
 	end
+	self.elementTransitionCount = countOrError
+	self.mapDecorBuilt = true
+
+	local auditedMapParts = FloorAppearanceService.Audit(self.mapFolder, profile)
+	local auditedTiles = FloorAppearanceService.Audit(self.tilesFolder, profile)
+	if auditedTiles ~= Config.GRID_SIZE * Config.GRID_SIZE then
+		error("Skyfall expected to audit exactly " .. tostring(Config.GRID_SIZE * Config.GRID_SIZE)
+			.. " floor tiles, audited " .. tostring(auditedTiles))
+	end
+	self.mapFolder:SetAttribute("SkyfallAuditedSurfaceCount", auditedMapParts)
+	self.tilesFolder:SetAttribute("SkyfallAuditedSurfaceCount", auditedTiles)
+	self.mapFolder:SetAttribute("SkyfallGeometryPartCount", partCount)
 	self:_setLighting()
 	return theme.name
 end

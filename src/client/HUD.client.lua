@@ -11,7 +11,15 @@ local remotes = ReplicatedStorage:WaitForChild("SkyfallRemotes")
 local stateRemote = remotes:WaitForChild("RoundState")
 local targetRemote = remotes:WaitForChild("TargetTile")
 local playRemote = remotes:WaitForChild("PlayRequest")
-local tileFolder = Workspace:WaitForChild("SkyfallArena"):WaitForChild("Tiles")
+-- World geometry may stream in after the HUD. Never block client startup on it.
+local function getTileFolder()
+	local arena = Workspace:FindFirstChild("SkyfallArena")
+	local tiles = arena and arena:FindFirstChild("Tiles")
+	if tiles and tiles:IsA("Folder") then
+		return tiles
+	end
+	return nil
+end
 
 local state = {
 	phase = "Waiting",
@@ -356,6 +364,12 @@ local function targetAt(screenPosition)
 
 	local camera = Workspace.CurrentCamera
 	if not camera then
+		return
+	end
+
+	local tileFolder = getTileFolder()
+	if not tileFolder then
+		warn("Skyfall HUD: arena tiles are not available yet; controller targeting will retry on the next input.")
 		return
 	end
 

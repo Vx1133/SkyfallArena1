@@ -1846,6 +1846,44 @@ runTest("Owner debug control overrides first-round bot selection and can take ov
 	)
 end)
 
+runTest("Aircraft opt-in is available only after PLAY and is reset for every human at round cleanup", function()
+	local waitingPlayer = makeFakePlayer("WaitingWithoutPlay", "Waiting")
+	waitingPlayer:SetAttribute("SkyfallPilotOptIn", false)
+	local waitingHarness = setmetatable({
+		phase = "Waiting",
+		readyPlayers = {},
+	}, RoundService)
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, true) == false,
+		"A waiting player who has not pressed PLAY cannot set aircraft opt-in"
+	)
+
+	waitingHarness.readyPlayers[waitingPlayer] = true
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, true) == true,
+		"A queued player may manually opt in while waiting"
+	)
+	waitingHarness.phase = "Intermission"
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, false) == true,
+		"A queued player may cancel aircraft opt-in during intermission"
+	)
+	waitingHarness.phase = "Active"
+	assert(
+		waitingHarness:RequestPilotOptIn(waitingPlayer, true) == false,
+		"Aircraft opt-in cannot change after a round becomes active"
+	)
+
+	local nonReadyPlayer = makeFakePlayer("NonReadyStaleOptIn", "Waiting")
+	nonReadyPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	nonReadyPlayer:SetAttribute("SkyfallAircraftControlActive", true)
+	waitingPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	waitingHarness.phase = "Waiting"
+	waitingHarness:_clearReadyPlayers()
+	assert(nonReadyPlayer:GetAttribute("SkyfallPilotOptIn") == false, "Stale lobby opt-in must clear for non-ready humans too")
+	assert(nonReadyPlayer:GetAttribute("SkyfallAircraftControlActive") == false, "No waiting player may retain aircraft control")
+end)
+
 runTest("A stale disabled debug toggle cannot override normal controller selection", function()
 	local debugPlayer = makeFakePlayer("StaleDebugOwner", "Runner")
 	debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)

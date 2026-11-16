@@ -19,7 +19,7 @@ local function buildTree(
 	baseOffset: Vector3,
 	height: number,
 	crownScale: number
-): (BasePart, BasePart)
+): BasePart
 	local palette = WorldDesignProfile.Classic
 	local base = center + baseOffset
 	local top = base + Vector3.new(0, height, 0)
@@ -84,7 +84,7 @@ local function buildTree(
 		7 * crownScale
 	)
 
-	return trunk, branchLeft
+	return trunk
 end
 
 local function buildFloatingIslet(
@@ -201,10 +201,10 @@ function ClassicNatureMapBuilder.Build(
 		{ offset = Vector3.new(-22, 15, halfWidth + 24), height = 24, scale = 0.92 },
 	}
 	for index, layout in ipairs(treeLayouts) do
-		local trunk, _ = buildTree(folder, profile, center, index, layout.offset, layout.height, layout.scale)
+		local trunk = buildTree(folder, profile, center, index, layout.offset, layout.height, layout.scale)
 		buildExposedRoots(folder, profile, center, index, layout.offset)
 		if index == 2 then
-			Factory.CreatePointLight(trunk, "ClassicNatureCanopyLight", color(WorldDesignProfile.Classic.CanopyLight), 0.18, 16)
+			Factory.CreatePointLight(trunk, "ClassicNatureCanopyLight", color(WorldDesignProfile.Classic.CanopyMid), 0.18, 16)
 		end
 	end
 

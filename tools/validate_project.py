@@ -186,7 +186,7 @@ for profile_value in (
     "Ambient = { 78, 86, 100 }",
     "OutdoorAmbient = { 122, 133, 149 }",
     'LightingStyle = "Realistic"',
-    "PrioritizeLightingQuality = false",
+    "PrioritizeLightingQuality = true",
     "Density = 0.07",
     "Glare = 0.035",
     "Intensity = 0.12",

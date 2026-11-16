@@ -3,6 +3,7 @@ local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
 local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
 local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService"))
@@ -11,6 +12,12 @@ local LightingProfileService = require(script.Parent:WaitForChild("LightingProfi
 
 local ArenaService = {}
 ArenaService.__index = ArenaService
+
+local function paletteColor(rgb: { number }): Color3
+	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
+end
+
+local CYBERPUNK_PALETTE = WorldDesignProfile.Cyberpunk
 
 local MAPS = {
 	{
@@ -31,18 +38,18 @@ local MAPS = {
 	{
 		id = 2,
 		name = "SKYFALL CYBERPUNK WHITE & BLUE ARENA",
-		tileColor = Color3.fromRGB(255, 255, 255),
-		tileAlternateColor = Color3.fromRGB(244, 247, 251),
+		tileColor = paletteColor(CYBERPUNK_PALETTE.PrimaryTile),
+		tileAlternateColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
 		tileMaterial = Enum.Material.SmoothPlastic,
 		useClassicStuds = false,
 		useLobbyFloorAppearance = true,
-		studColor = Color3.fromRGB(244, 247, 251),
+		studColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
 		warningColor = Color3.fromRGB(255, 64, 92),
-		brokenColor = Color3.fromRGB(10, 17, 40),
-		structure = Color3.fromRGB(0, 119, 255),
-		roof = Color3.fromRGB(244, 247, 251),
-		accent = Color3.fromRGB(0, 240, 255),
-		secondary = Color3.fromRGB(10, 17, 40),
+		brokenColor = paletteColor(CYBERPUNK_PALETTE.Navy),
+		structure = paletteColor(CYBERPUNK_PALETTE.Structure),
+		roof = paletteColor(CYBERPUNK_PALETTE.Roof),
+		accent = paletteColor(CYBERPUNK_PALETTE.Accent),
+		secondary = paletteColor(CYBERPUNK_PALETTE.Secondary),
 	},
 }
 
@@ -104,9 +111,8 @@ local function setTileSurface(tile, theme, hidden)
 end
 
 local function getTileBaseColor(tile, theme)
-	if theme.floorAppearanceProfile then
-		return theme.floorAppearanceProfile.Color
-	end
+	-- Material is inherited from the lobby profile, but the map owns its palette.
+	-- Never copy the lobby's green baseplate Color into the Cyberpunk tiles.
 	local alternateColor = theme.tileAlternateColor
 	if alternateColor then
 		local gridX = tile:GetAttribute("GridX") or 0
@@ -121,15 +127,16 @@ end
 local function applyTileBaseAppearance(tile, theme)
 	local profile = theme.floorAppearanceProfile
 	if profile then
-		FloorAppearanceService.Apply(tile, profile)
-		return
+		FloorAppearanceService.ApplySurface(tile, profile)
+	else
+		tile.Material = theme.tileMaterial
+		tile.MaterialVariant = ""
+		tile.Reflectance = 0
+		setTileSurface(tile, theme, false)
 	end
 
+	-- Use the active map's palette even when its material comes from the lobby.
 	tile.Color = getTileBaseColor(tile, theme)
-	tile.Material = theme.tileMaterial
-	tile.MaterialVariant = ""
-	tile.Reflectance = 0
-	setTileSurface(tile, theme, false)
 end
 
 local function tileKey(gridX, gridZ)
@@ -674,8 +681,8 @@ function ArenaService:_buildCyberpunkDecoration(theme)
 	local center = Config.ARENA_CENTER
 	local half = Config.ARENA_HALF_WIDTH
 	local width = Config.ARENA_WIDTH
-	local navy = Color3.fromRGB(10, 17, 40)
-	local silver = Color3.fromRGB(201, 212, 226)
+	local navy = paletteColor(CYBERPUNK_PALETTE.Navy)
+	local silver = paletteColor(CYBERPUNK_PALETTE.Silver)
 
 	local function createSurfacePart(parent, name, size, position, color, material)
 		local part = createVisualPart(parent, name, size, position, color, material)
@@ -858,9 +865,8 @@ function ArenaService:SetMap(mapId)
 		end
 		local profile = FloorAppearanceService.Capture(lobbyFloor)
 		if profile then
+			-- Inherit only the lobby material/surface profile, not its green Color.
 			theme.floorAppearanceProfile = profile
-			theme.tileColor = profile.Color
-			theme.tileAlternateColor = nil
 			theme.tileMaterial = profile.Material
 		else
 			warn("Skyfall could not capture the Lobby WaitingPlatform appearance; the Cyberpunk floor will keep its configured fallback.")
@@ -888,7 +894,7 @@ function ArenaService:SetMap(mapId)
 	if mapChanged or not self.mapDecorBuilt then
 		self.mapFolder:ClearAllChildren()
 		self:_buildMapDecoration(theme)
-		local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, self.lobbyFloor)
+		local success, countOrError = pcall(ElementIntegrationService.Build, self.mapFolder, self.lobbyFloor, theme.tileColor)
 		if success then
 			self.elementTransitionCount = countOrError
 		else

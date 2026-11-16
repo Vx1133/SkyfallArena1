@@ -56,19 +56,39 @@ local function requireService(servicesFolder: Instance, name: string): any
 	return require(moduleScript)
 end
 
-local function runStartupStage(name: string, callback: () -> any): any
+local function runStartupStage(name: string, timeoutSeconds: number, callback: () -> any): any
 	local startedAt = os.clock()
-	print(string.format("[SkyfallStartup] BEGIN %s", name))
+	local completed = false
+	local stageSuccess = false
+	local stageResult: any = nil
+	print(string.format("[SkyfallStartup] BEGIN %s (timeout %.1fs)", name, timeoutSeconds))
 
-	local success, result = xpcall(callback, debug.traceback)
+	-- Run each stage in its own scheduled task so yielding waits can be monitored.
+	-- A timed-out stage is cancelled before bootstrap reports a clear failure.
+	local stageThread = task.spawn(function()
+		stageSuccess, stageResult = xpcall(callback, debug.traceback)
+		completed = true
+	end)
+
+	while not completed and os.clock() - startedAt < timeoutSeconds do
+		task.wait(0.1)
+	end
+
 	local elapsed = os.clock() - startedAt
-	if not success then
-		warn(string.format("[SkyfallStartup] FAILED %s after %.2fs: %s", name, elapsed, tostring(result)))
-		error(result, 0)
+	if not completed then
+		task.cancel(stageThread)
+		local message = string.format("[SkyfallStartup] TIMEOUT %s after %.2fs", name, elapsed)
+		warn(message)
+		error(message, 0)
+	end
+
+	if not stageSuccess then
+		warn(string.format("[SkyfallStartup] FAILED %s after %.2fs: %s", name, elapsed, tostring(stageResult)))
+		error(stageResult, 0)
 	end
 
 	print(string.format("[SkyfallStartup] READY %s (%.2fs)", name, elapsed))
-	return result
+	return stageResult
 end
 
 local servicesFolder = waitForRequiredChild(script.Parent, "Services")
@@ -92,7 +112,7 @@ local PilotPriorityService = requireService(servicesFolder, "PilotPriorityServic
 local BubbleGunService = requireService(servicesFolder, "BubbleGunService")
 
 local arena = ArenaService.new()
-runStartupStage("ArenaBuild", function()
+runStartupStage("ArenaBuild", 20, function()
 	arena:Build()
 end)
 
@@ -115,7 +135,7 @@ rounds.onRoundEnded = function()
 	bubbleGun:ClearAll()
 end
 
-runStartupStage("StartGameServices", function()
+runStartupStage("StartGameServices", 10, function()
 	laser:Start()
 	adminFlight:Start()
 	bubbleGun:Start()

@@ -738,11 +738,15 @@ bootstrap_source = (ROOT / "src/server/Bootstrap.server.lua").read_text(encoding
 for feature in (
     "function waitForRequiredChild(",
     "function requireService(",
-    "function runStartupStage(",
+    "function runStartupStage(name: string, timeoutSeconds: number, callback: () -> any)",
+    "task.cancel(stageThread)",
     "[SkyfallStartup] BEGIN",
+    "[SkyfallStartup] TIMEOUT",
     "[SkyfallStartup] FAILED",
-    'runStartupStage("ArenaBuild"',
-    'runStartupStage("StartGameServices"',
+    'runStartupStage("ArenaBuild", 20',
+    'runStartupStage("StartGameServices", 10',
+    'runStartupStage("ArenaBuild", 20',
+    'runStartupStage("StartGameServices", 10',
 ):
     require(feature in bootstrap_source, f"Bounded startup diagnostics are missing: {feature}")
 

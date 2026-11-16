@@ -336,7 +336,6 @@ for feature in (
     "player.ReplicationFocus = focusPart",
     "player.ReplicationFocus = nil",
     "local readyPlayers = readyPlayerOverride or self:_getReadyPlayers()",
-    "Pilot opt-in requires an explicit true attribute",
     "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
     "function RoundService:_getLivingHumanRunners(",

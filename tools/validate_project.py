@@ -38,7 +38,9 @@ required_files = [
     "tests/lune/update_023_control_state.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
-    "src/server/Services/CyberpunkPillarService.lua",
+    "src/server/Services/MapDecorationFactory.lua",
+    "src/server/Services/ClassicNatureMapBuilder.lua",
+    "src/server/Services/CyberpunkMapBuilder.lua",
     "src/server/Services/FloorAppearanceService.lua",
     "src/server/Services/ElementIntegrationService.lua",
     "src/server/Services/BotService.lua",
@@ -128,11 +130,8 @@ for feature in (
     "SkyfallLaserAircraft",
     "ControllerLens",
     "WaitingPlatform",
-    "ClassicArenaSupport",
-    "ClassicArenaOuterTrim",
-    "ClassicPerimeterNorthSouth_",
-    "ClassicPerimeterEastWest_",
-    "ClassicPerimeterCornerPost_",
+    "ClassicNatureMapBuilder",
+    "CyberpunkMapBuilder",
     "Enum.SurfaceType.Studs",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
@@ -153,9 +152,7 @@ for forbidden in (
     "LobbyEntranceHeader",
     "ClassicGatePillar_",
     "ClassicArenaGate",
-    "addTree(",
     "addBench(",
-    "ClassicArenaTree_",
     "SquareStud_",
     "addNeonBar",
     "NexusRingSegment",
@@ -715,27 +712,53 @@ require('local shouldUseControllerCamera = isAircraftController()' in hud_source
 require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
 require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
 
-cyberpunk_pillar_source = (ROOT / "src/server/Services/CyberpunkPillarService.lua").read_text(encoding="utf-8")
+factory_source = (ROOT / "src/server/Services/MapDecorationFactory.lua").read_text(encoding="utf-8")
+classic_builder_source = (ROOT / "src/server/Services/ClassicNatureMapBuilder.lua").read_text(encoding="utf-8")
+cyberpunk_builder_source = (ROOT / "src/server/Services/CyberpunkMapBuilder.lua").read_text(encoding="utf-8")
 for feature in (
-    "function CyberpunkPillarService.Build(",
-    "PylonFoundation_",
-    "PylonFootBridgeX_",
-    "PylonFootBridgeZ_",
-    "PylonPerimeterJoint_",
-    "PylonCrownBase_",
-    "PylonCrownCap_",
-    "PylonLightSpine_",
+    "function MapDecorationFactory.CreatePart(",
+    "function MapDecorationFactory.CylinderBetween(",
+    "function MapDecorationFactory.CreateBeam(",
     "FloorAppearanceService.ApplySurface(part, profile)",
-    "for sideX = -1, 1, 2 do",
-    "for sideZ = -1, 1, 2 do",
+    'part:SetAttribute("SkyfallMapIdentity", mapIdentity)',
 ):
-    require(feature in cyberpunk_pillar_source, f"Integrated four-pillar system is missing: {feature}")
-
-require("CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)" in arena_source, "Arena must build the four integrated corner pillars")
+    require(feature in factory_source, f"Shared map geometry factory feature is missing: {feature}")
 for feature in (
-    'FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)',
+    "function ClassicNatureMapBuilder.Build(",
+    "ClassicNatureFloatingIslet_",
+    "ClassicNatureTreeTrunk_",
+    "ClassicNatureCanopy_",
+    "ClassicNatureRootArch_",
+    "ClassicNatureVine_",
+    "organic-irregular-floating-nature-sanctuary",
 ):
-    require(feature in arena_source, f"Cyberpunk architecture surface profile is missing: {feature}")
+    require(feature in classic_builder_source, f"Classic nature landmark is missing: {feature}")
+for feature in (
+    "function CyberpunkMapBuilder.Build(",
+    "CyberpunkOrbitalFrame_",
+    "CyberpunkGateSpire_",
+    "CyberpunkEnergyBridge_",
+    "CyberpunkAngularDeck_",
+    "CyberpunkCircuitBeam_",
+    "offset-angular-orbital-sky-station",
+):
+    require(feature in cyberpunk_builder_source, f"Cyberpunk architectural landmark is missing: {feature}")
+for forbidden in ("CyberpunkOrbitalFrame_", "CyberpunkGateSpire_", "CyberpunkAngularDeck_"):
+    require(forbidden not in classic_builder_source, f"Cyberpunk geometry leaked into Classic builder: {forbidden}")
+for forbidden in ("ClassicNatureTreeTrunk_", "ClassicNatureCanopy_", "ClassicNatureRootArch_", "ClassicNatureFloatingIslet_"):
+    require(forbidden not in cyberpunk_builder_source, f"Nature geometry leaked into Cyberpunk builder: {forbidden}")
+for source_name, source_text in (
+    ("ClassicNatureMapBuilder", classic_builder_source),
+    ("CyberpunkMapBuilder", cyberpunk_builder_source),
+    ("MapDecorationFactory", factory_source),
+):
+    require("Enum.Material.Neon" not in source_text, f"{source_name} must not create Neon BaseParts")
+require("ClassicNatureMapBuilder.Build(" in arena_source, "ArenaService must delegate Classic decoration to its dedicated builder")
+require("CyberpunkMapBuilder.Build(" in arena_source, "ArenaService must delegate Cyberpunk decoration to its dedicated builder")
+require("FloorAppearanceService.Audit(self.mapFolder, profile)" in arena_source, "Every map selection must audit all generated surfaces")
+require("FloorAppearanceService.Audit(self.tilesFolder, profile)" in arena_source, "Every map selection must audit all 225 floor tiles")
+require("SkyfallGeometrySignature" in classic_builder_source and "SkyfallGeometrySignature" in cyberpunk_builder_source,
+        "Each map must expose a distinct geometry signature")
 for feature in (
     'ClockTime = 14',
     'Name = "SkyfallGlobalDaySky"',
@@ -747,6 +770,9 @@ for feature in (
 ):
     require(feature in lighting_profile_source, f"Shared daylight profile is missing: {feature}")
 require("function FloorAppearanceService.ApplySurface(" in floor_appearance_source, "Surface-only lobby material profile application is missing")
+require("function FloorAppearanceService.Audit(" in floor_appearance_source, "Full generated-map material audit is missing")
+require("captureSurfaceObjects(source)" in floor_appearance_source, "Lobby texture/decal capture is missing")
+require("applySurfaceObjects(target, profile)" in floor_appearance_source, "Lobby texture/decal cloning is missing")
 require("target.TopSurface = profile.TopSurface" in floor_appearance_source, "Material synchronization must copy lobby top-surface style")
 require("target.BottomSurface = profile.BottomSurface" in floor_appearance_source, "Material synchronization must copy lobby bottom-surface style")
 require("theme.tileColor = profile.Color" not in arena_source, "Lobby green must not overwrite the Cyberpunk map palette")

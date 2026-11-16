@@ -611,7 +611,8 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 		activeRound = activeRound,
 		token = self.lifecycleToken,
 		tween = tween,
-		hitInstance = hit and hit.Instance or nil,
+		origin = origin,
+		direction = direction,
 		hitPosition = hit and hit.Position or nil,
 		target = target,
 	}
@@ -638,9 +639,18 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 			return
 		end
 
-		-- Re-resolve the hit on the server at impact time. The target may have died,
-		-- left, changed role, or left the round while the projectile was travelling.
-		local currentTarget = self:_findTarget(record.shooter, record.hitInstance)
+		-- Recast the original server-approved ray at impact time. This catches targets
+		-- that moved out of range/line-of-sight, died, left, or changed roles in flight.
+		local parameters = RaycastParams.new()
+		parameters.FilterType = Enum.RaycastFilterType.Exclude
+		parameters.FilterDescendantsInstances = {record.shooter.Character, self.displayStand}
+		parameters.IgnoreWater = true
+		local impactHit = Workspace:Raycast(
+			record.origin,
+			record.direction * Config.BUBBLE_GUN_RANGE,
+			parameters
+		)
+		local currentTarget = impactHit and self:_findTarget(record.shooter, impactHit.Instance) or nil
 		if not currentTarget
 			or currentTarget.kind ~= record.target.kind
 			or currentTarget.model ~= record.target.model
@@ -656,8 +666,8 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 			self:_showTrainingHit(currentTarget.part)
 		elseif not currentTarget.humanoid or currentTarget.humanoid.Health <= 0 then
 			self:_showBurst(record.hitPosition or endPosition)
-		else
-			self:_holdTarget(currentTarget, record.shooter)
+		elseif not self:_holdTarget(currentTarget, record.shooter) then
+			self:_showBurst(impactHit.Position)
 		end
 	end)
 end

@@ -198,6 +198,7 @@ function RoundService:_bindPlayer(player)
 		self.pilotPriority:Initialize(player)
 	end
 	player:SetAttribute("SkyfallRole", "Waiting")
+	player:SetAttribute("SkyfallCharacterReady", false)
 	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallPilotOptIn", false)
 	player:SetAttribute("SkyfallAircraftControlActive", false)
@@ -231,7 +232,7 @@ end
 function RoundService:_readyPlayerCount()
 	local count = 0
 	for player in pairs(self.readyPlayers) do
-		if player.Parent == Players then
+		if player.Parent == Players and player:GetAttribute("SkyfallCharacterReady") == true then
 			count += 1
 		end
 	end
@@ -241,7 +242,10 @@ end
 function RoundService:_getReadyPlayers()
 	local ready = {}
 	for _, player in ipairs(Players:GetPlayers()) do
-		if self.readyPlayers[player] and player.Parent == Players then
+		if self.readyPlayers[player]
+			and player.Parent == Players
+			and player:GetAttribute("SkyfallCharacterReady") == true
+		then
 			table.insert(ready, player)
 		end
 	end
@@ -249,7 +253,11 @@ function RoundService:_getReadyPlayers()
 end
 
 function RoundService:RequestPlay(player)
-	if not player or player.Parent ~= Players or self.phase ~= "Waiting" then
+	if not player
+		or player.Parent ~= Players
+		or self.phase ~= "Waiting"
+		or player:GetAttribute("SkyfallCharacterReady") ~= true
+	then
 		return false
 	end
 	if self.readyPlayers[player] then
@@ -429,6 +437,9 @@ function RoundService:RequestDebugController(player, enabled)
 	end
 
 	if enabled then
+		if player:GetAttribute("SkyfallCharacterReady") ~= true then
+			return false
+		end
 		self.debugControllerPlayer = player
 		player:SetAttribute("SkyfallDebugDroneEnabled", true)
 		self:_queueDebugPlayer(player)
@@ -613,6 +624,7 @@ function RoundService:_placePlayer(player, spawnCFrame, characterOverride)
 end
 
 function RoundService:_onCharacterAdded(player, character)
+	player:SetAttribute("SkyfallCharacterReady", false)
 	local serial = (self.characterSerial[player] or 0) + 1
 	self.characterSerial[player] = serial
 
@@ -683,7 +695,13 @@ function RoundService:_onCharacterAdded(player, character)
 		self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
 	end
 
-	if player.Character == character and self.characterSerial[player] == serial then
+	if player.Character == character
+		and self.characterSerial[player] == serial
+		and character.Parent
+		and humanoid.Health > 0
+		and root.Parent
+	then
+		player:SetAttribute("SkyfallCharacterReady", true)
 		humanoid.Died:Connect(function()
 			if self.characterSerial[player] == serial then
 				self:HandleDeath(player, character)
@@ -737,7 +755,9 @@ function RoundService:_isCandidateValid(candidate)
 	end
 
 	if candidate.kind == "Player" then
-		return candidate.value and candidate.value.Parent == Players
+		return candidate.value
+			and candidate.value.Parent == Players
+			and candidate.value:GetAttribute("SkyfallCharacterReady") == true
 	end
 
 	if candidate.kind == "Bot" then
@@ -933,6 +953,7 @@ function RoundService:Eliminate(player)
 	self:_recordSurvival({ kind = "Player", value = player })
 	self.aliveRunners[player] = nil
 	self:_setArenaStreamingFocus(player, true)
+	player:SetAttribute("SkyfallCharacterReady", false)
 	player:SetAttribute("SkyfallRole", "Spectator")
 	player.ReplicationFocus = nil
 

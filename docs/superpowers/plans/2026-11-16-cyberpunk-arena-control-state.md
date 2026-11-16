@@ -18,7 +18,7 @@
 - Cyberpunk decorative parts must be anchored and non-colliding, non-touching, and non-queryable.
 - No more than six PointLights and roughly 60 static map decoration Parts for Cyberpunk.
 - Debug takeover requires matching server pointer plus `SkyfallDebugDroneEnabled == true` and readiness.
-- Do not publish, push, merge, or change Roblox access settings.
+- Push the feature branch and open a PR after available checks pass; do not merge, publish, or change Roblox access settings without explicit approval.
 - Do not claim Studio/device/live multiplayer verification from this cloud sandbox.
 
 ## Review Focus
@@ -162,4 +162,4 @@
 - [x] Inspect the final diff and map geometry bounds/counts; no protected behavior changes.
 - [x] Request independent review with exact base and head SHAs, then address all critical/important findings.
 - [x] Record that live Roblox Studio, device, and multiplayer tests remain pending if the required environment is unavailable.
-- [x] Do not push or publish.
+- [x] Push the feature branch and open PR #19 after the available local checks; no Roblox upload or publish was performed.

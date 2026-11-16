@@ -52,3 +52,26 @@ Roblox Studio visual comparison, mobile graphics-level checks, and a live server
 - https://create.roblox.com/docs/environment/post-processing-effects
 - https://create.roblox.com/docs/environment/atmosphere
 - https://create.roblox.com/docs/onboarding/artists
+
+
+## Round-start aircraft-control state fix
+
+### Confirmed failure path
+The owner-only `SkyfallDebugDroneEnabled` test override was intentionally preserved at the end of each round by `_clearReadyPlayers()`. When that toggle remained true, the owner was inserted into the next round's ready list automatically and `_chooseController()` selected the player before the normal bot fallback. This could make the same player appear to be forcibly locked into the aircraft every round.
+
+### Changes
+- Normal players get one compact `✈` icon in the lobby. The icon only changes the server-owned `SkyfallPilotOptIn` choice. Tapping it again cancels the choice. It stays available through the intermission countdown for players already queued.
+- The visible `PILOT: OFF/ON` and `DRONE 0%` labels remain removed.
+- Controller selection is resolved in one pure policy: manually opted-in ready humans first; otherwise valid bots. A sole human is never used as an automatic fallback.
+- The owner-only debug drone remains a separate manual test override, but it is reset at the end of each round and never auto-readies the owner for the next round.
+- A server-owned `SkyfallAircraftControlActive` attribute is initialized false and only becomes true when the server hides the player's character for an explicitly selected controller. The client switches to the overhead camera only when the round is active, the role is Controller, and this explicit server attribute is true.
+- The round does not enter the Active state or alter any player's role until a valid controller has been resolved. If there is no eligible bot and no manually opted-in player, it fails closed and returns to Waiting.
+
+### Bot independence
+The configured roster remains 10 bots. BotService creates the bots before RoundService starts. At round start, one valid bot can be assigned as Controller, while the other nine bots are independently spawned as Runners alongside the human Runner. A human pilot is only removed from the runner roster after manual opt-in.
+
+### Regression coverage
+- Lune verifies one non-opted-in human plus ten valid bots resolves to a Bot controller.
+- Lune verifies only a strict `true` manual opt-in resolves to a Player controller.
+- Cloud smoke tests cover the one-human/ten-bot path, opt-in cancellation, and one-round-only debug override.
+- Structural validation checks that server control state gates the custom aircraft camera.

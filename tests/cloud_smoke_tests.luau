@@ -999,6 +999,52 @@ runTest("Bubble Blaster server rejects invalid aim and enforces its cooldown", f
 	remote:Destroy()
 end)
 
+runTest("Bubble projectile revalidates and hits the training target after travel", function()
+	local remote = Instance.new("RemoteEvent")
+	local fakePlayer = makeFakePlayer("TrainingProjectileTester", "Waiting")
+	local character = Instance.new("Model")
+	character.Name = "TrainingProjectileCharacter"
+	character.Parent = Workspace
+	fakePlayer.Character = character
+	local tool = Instance.new("Tool")
+	tool.Name = Config.BUBBLE_GUN_TOOL_NAME
+	tool:SetAttribute("SkyfallBubbleTool", true)
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Anchored = true
+	handle.Position = Vector3.new(800, 500, 800)
+	handle.Parent = tool
+	tool.Parent = character
+
+	local target = Instance.new("Model")
+	target.Name = "IsolatedTrainingProjectileTarget"
+	local core = Instance.new("Part")
+	core.Name = "TargetCore"
+	core.Anchored = true
+	core.Size = Vector3.new(3, 3, 3)
+	core.Position = Vector3.new(812, 500, 800)
+	core.Parent = target
+	target.Parent = Workspace
+
+	local service = BubbleGunService.new(arena, {
+		IsActive = function() return false end,
+		IsAliveRunner = function() return false end,
+	}, {GetAliveBots = function() return {} end}, remote)
+	service.trainingTarget = target
+	service.displayStand = nil
+
+	assert(service:_handleShot(fakePlayer, Vector3.new(1, 0, 0)),
+		"An equipped waiting player must be able to fire toward the training target")
+	task.wait(0.16)
+	assert(Workspace:FindFirstChild("BubbleImpactBurst") ~= nil,
+		"Projectile arrival must re-raycast and produce the target hit burst")
+	assert(next(service.activeProjectiles) == nil, "Resolved projectile records must be removed")
+	service:ClearAll()
+	target:Destroy()
+	character:Destroy()
+	remote:Destroy()
+end)
+
 runTest("Bubble hold restores movement and physics state exactly once", function()
 	local remote = Instance.new("RemoteEvent")
 	local service = BubbleGunService.new(arena, {

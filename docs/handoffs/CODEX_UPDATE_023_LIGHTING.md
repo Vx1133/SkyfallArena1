@@ -82,3 +82,5 @@ Report exact commit, files reviewed, any code corrections, CI results, runtime/S
 - Roblox Studio runtime checks must include one real player plus all ten bots, manual icon on/off, respawn, round-end cleanup, and a second round without touching the aircraft icon.
 
 No Codex session is connected to this workspace, so this brief is committed for a real Codex session to review. Do not claim that a live Codex review occurred.
+
+- The normal aircraft icon is intentionally gated by `SkyfallReady`: the player must press PLAY first, then can opt in or cancel during Waiting/Intermission. New PLAY requests and end-of-round cleanup clear stale opt-in for all humans.

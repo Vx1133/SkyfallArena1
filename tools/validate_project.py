@@ -177,6 +177,9 @@ for feature in (
     'getOrCreateManagedEffect("SunRaysEffect", "SkyfallSunRays")',
     'getOrCreateManagedEffect("BloomEffect", "SkyfallBloom")',
     'getOrCreateManagedEffect("ColorCorrectionEffect", "SkyfallColorCorrection")',
+    'local function removeConflictingPostEffects()',
+    'local expectedName = MANAGED_EFFECT_NAMES[child.ClassName]',
+    'removeConflictingPostEffects()',
     'Profile.Sky.Name',
 ):
     require(feature in lighting_service_source, f"Central lighting implementation is missing: {feature}")

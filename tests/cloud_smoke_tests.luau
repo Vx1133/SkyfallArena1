@@ -837,6 +837,56 @@ runTest("Owner debug control overrides first-round bot selection and can take ov
 		"A group ID match must not authorize a player debug request")
 end)
 
+runTest("Bot controller can be hidden and restored after a debug takeover", function()
+	local model = Instance.new("Model")
+	model.Name = "DebugBotControllerTest"
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Size = Vector3.new(2, 2, 1)
+	root.Parent = model
+	local humanoid = Instance.new("Humanoid")
+	humanoid.Parent = model
+	model.PrimaryPart = root
+	model.Parent = Workspace
+
+	local bot = {
+		model = model,
+		root = root,
+		humanoid = humanoid,
+		alive = false,
+		isController = false,
+		targetTile = nil,
+	}
+	local lobbySpawn = CFrame.new(52, 80, 0)
+	local harness = setmetatable({
+		bots = {bot},
+		arena = {
+			GetLobbySpawnCFrame = function()
+				return lobbySpawn
+			end,
+		},
+	}, BotService)
+	harness._setBotHidden = function(_, candidate, hidden)
+		candidate.root.Anchored = hidden
+		if hidden then
+			candidate.model:PivotTo(CFrame.new(Config.CONTROLLER_HIDDEN_POSITION))
+		end
+	end
+
+	assert(harness:SetController(bot, true), "A valid bot should accept controller mode")
+	assert(bot.isController == true and bot.alive == false, "The controller bot must not remain a living runner")
+	assert(model:GetAttribute("SkyfallRole") == "Controller", "The bot role must change to Controller")
+	assert(root.Anchored == true, "The hidden controller bot should be anchored")
+
+	assert(harness:SetController(bot, false), "The controller bot should be demoted safely")
+	assert(bot.isController == false and bot.alive == false, "A demoted bot should remain a spectator")
+	assert(model:GetAttribute("SkyfallRole") == "Spectator", "The bot role should return to Spectator")
+	assert(root.Anchored == false, "A spectator bot must be unanchored")
+	assert((model:GetPivot().Position - lobbySpawn.Position).Magnitude < 0.1,
+		"The demoted bot should return to the waiting platform")
+	model:Destroy()
+end)
+
 runTest("Human laser requests validate the controller, coordinates, phase, and three-second cooldown", function()
 	local controller = {UserId = 8675309}
 	local canControl = false

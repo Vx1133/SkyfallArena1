@@ -151,3 +151,49 @@ All work below is committed to `feat/018-bubble-blaster-pilot-priority`. The pre
 - Pull Request: not created.
 - Merge and Roblox publish: not performed.
 - Do not mark any implementation checkbox complete until its tests/evidence exist.
+
+
+## Recovery checkpoint (2026-11-16, latest source review)
+
+The work below is saved on `feat/018-bubble-blaster-pilot-priority`. Continue on this branch; do not restart or replace existing code.
+
+### Persisted changes at this checkpoint
+- `src/server/Services/BubbleGunService.lua`: server-owned Tool template and lobby display; prompt distance verification; server-side role, tool, direction, range, and cooldown gates; impact-time raycast and target revalidation; projectile cancellation at round cleanup; hold restoration on timeout, death, character removal, player removal, and role transition; winner anchoring preservation; world impact burst.
+- `src/server/Services/PilotPriorityService.lua`: session-only score state, 0..100 cap, one award per round, 54-second elimination threshold, winner reward, controller wait-time tie-break, selected-controller score reset.
+- `src/server/Services/RoundService.lua`: human-first priority selection, first-solo-round bot exception, removal of the legacy `nextController` selection path, timeout co-winners, living humanoid checks, Controller victory fallback, safe result payloads containing winner names/roles, and restoration of a winning human Controller to the visible lobby.
+- `src/client/HUD.client.lua`: compact DRONE percentage indicator on a separate Core UI safe-area ScreenGui, visible for Waiting/Runner and hidden for Controller, updated from the score attribute.
+- `tests/cloud_smoke_tests.luau`: added Pilot Priority, selection, co-winner, dead-runner, controller restoration, trial prompt, server-shot, projectile-impact, and bubble hold lifecycle cases.
+- `tools/validate_project.py`: structural checks for the new services, remote, config, server validation, safe HUD, and regression tests.
+
+### Confirmed source-level observations
+- The branch comparison against `main` reports 39 commits ahead and 0 behind.
+- The comparison reports only the intended 10 changed files: checklist, BubbleGun client/service, PilotPriority service, HUD, Bootstrap, RoundService, GameConfig, smoke tests, and project validator.
+- The existing `StrikeService.lua`, `BotService.lua`, `ArenaService.lua`, `Audio.client.lua`, `default.project.json`, and upload workflow are unchanged in the branch diff.
+- `ROUND_SECONDS = 180`, `MAP_COUNT = 1`, and the existing Universe/Place IDs remain unchanged.
+- No Pull Request for Update #18 has been created. No merge or Roblox upload has been performed.
+
+### Remaining verification and delivery work
+- [ ] Run `python tools/validate_project.py` against this exact branch.
+- [ ] Run `selene src tests` and resolve all diagnostics.
+- [ ] Run `rojo build default.project.json` and inspect the generated place.
+- [ ] Confirm GitHub Actions validation is green for this branch.
+- [ ] Review the full diff for protected drone, lens, laser, map, round duration, and publishing workflow changes.
+- [ ] Execute the Roblox cloud smoke test only after the place version is deliberately uploaded to the existing private test place.
+- [ ] Verify mobile touch input, Safe Area/thumbstick separation, and multiple clients in Studio/device testing. These cannot be inferred from static source review.
+- [ ] Perform a final separate code-review pass.
+- [ ] Create the Update #18 Pull Request against `main` only after the repository checks succeed.
+- [ ] Do not merge or publish.
+
+### Verification status at this checkpoint
+- Source changes: committed to the feature branch.
+- Structural validator: updated, not executed in this environment.
+- Selene: not executed.
+- Rojo build: not executed.
+- GitHub Actions check result: not confirmed by the available status response.
+- Roblox cloud/runtime tests: not executed.
+- Device Simulator/real phone: not tested.
+- Multiplayer clients: not tested.
+- Pull Request: not created.
+- Merge/upload/publication: not performed.
+
+Do not mark implementation or test items complete based only on source inspection. The source-level work is not a substitute for a successful build, lint, Roblox runtime test, or phone test.

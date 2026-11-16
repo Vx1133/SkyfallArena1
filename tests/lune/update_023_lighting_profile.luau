@@ -23,7 +23,7 @@ assert(Profile.EnvironmentDiffuseScale >= 0 and Profile.EnvironmentDiffuseScale 
 assert(Profile.EnvironmentSpecularScale >= 0 and Profile.EnvironmentSpecularScale <= 1, "Specular scale is out of range")
 
 assert(Profile.LightingStyle == "Realistic", "Use engine-managed realistic contact shading where supported")
-assert(Profile.PrioritizeLightingQuality == false, "Prioritize mobile view distance when quality must scale down")
+assert(Profile.PrioritizeLightingQuality == true, "Prioritize close-range lighting quality for the compact arena when quality must scale down")
 
 assert(Profile.Atmosphere.Density <= 0.1, "Atmosphere density must remain subtle")
 assert(Profile.Atmosphere.Haze <= 0.6, "Atmosphere haze must not obscure gameplay")

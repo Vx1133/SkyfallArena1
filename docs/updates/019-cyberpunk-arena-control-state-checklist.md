@@ -36,6 +36,7 @@
 | `rojo sourcemap default.project.json` | PASS, includes `MapRotation` and `DebugControllerPolicy` |
 | `lune run tests/lune/update_019_policy.luau` | PASS, `UPDATE_019_POLICY_TESTS_OK` |
 | `rojo build default.project.json` | PASS, generates `build/SkyfallArena.rbxlx` |
+| GitHub Actions PR validation (run #398) | PASS, repository validation, Selene, Rojo build, and artifact upload |
 | Codex MCP source review | PASS, no important P1/P2 findings in the final focused review |
 
 ### Known baseline/static limitations
@@ -48,5 +49,5 @@
 ## Release boundary
 
 - The generated `.rbxlx` is a Rojo build artifact, not a proof of a successful Studio runtime or a Roblox upload.
-- The feature branch was pushed to GitHub in four commits and Pull Request #19 was opened against `main`. No merge, Roblox Open Cloud upload, place publish, or experience visibility change was performed.
+- The feature branch was pushed to GitHub in five commits and Pull Request #19 was opened against `main`. No merge, Roblox Open Cloud upload, place publish, or experience visibility change was performed.
 - The feature branch is ready for review/integration subject to the pending Roblox runtime/device validation above.

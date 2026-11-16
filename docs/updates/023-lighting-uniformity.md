@@ -30,7 +30,7 @@ A single default daylight Sky is retained across map changes, with stars and moo
 
 ## Ambient occlusion and mobile
 
-Roblox does not expose a normal script-controlled `AmbientOcclusionEffect` intensity setting. Ambient occlusion/contact shading is engine-generated through `LightingStyle.Realistic` where the client supports it. Roblox can automatically scale lighting quality down on lower-end devices. `PrioritizeLightingQuality = true` favors view distance when quality must scale down. The implementation does not force the older `Lighting.Technology` property.
+Roblox does not expose a normal script-controlled `AmbientOcclusionEffect` intensity setting. Ambient occlusion/contact shading is engine-generated through `LightingStyle.Realistic` where the client supports it. Roblox can automatically scale lighting quality down on lower-end devices. `PrioritizeLightingQuality = true` prioritizes lighting/shading quality and closer high-quality effects when rendering quality must scale down, rather than prioritizing distant view range. The implementation does not force the older `Lighting.Technology` property.
 
 ## Scope protection
 

@@ -937,9 +937,11 @@ runTest("Creator flight authorization only grants the personal experience owner"
 	)
 end)
 
-runTest("Pilot Priority selects humans by score and prevents a legacy controller override", function()
+runTest("Pilot Priority selects only manually opted-in humans and prevents a legacy controller override", function()
 	local lowPriority = makeFakePlayer("LowPriority", "Runner")
 	local highPriority = makeFakePlayer("HighPriority", "Runner")
+	lowPriority:SetAttribute("SkyfallPilotOptIn", true)
+	highPriority:SetAttribute("SkyfallPilotOptIn", true)
 	local bot = {
 		name = "LegacyNextBot",
 		model = { Parent = Workspace },
@@ -972,6 +974,7 @@ runTest("Pilot Priority selects humans by score and prevents a legacy controller
 	)
 	assert(priority:GetScore(highPriority) == 0, "Selected human priority must reset to zero")
 
+	lowPriority:SetAttribute("SkyfallPilotOptIn", false)
 	local soloHarness = setmetatable({
 		roundNumber = 1,
 		readyPlayers = {},
@@ -1002,6 +1005,52 @@ runTest("Pilot Priority selects humans by score and prevents a legacy controller
 	}, RoundService)
 	local fallback = fallbackHarness:_chooseController({})
 	assert(fallback and fallback.kind == "Bot", "A bot must be used when no ready human exists")
+end)
+
+runTest("One human and ten bots default to a bot controller until the human manually opts in", function()
+	local mainPlayer = makeFakePlayer("OnlyHumanTester", "Waiting")
+	mainPlayer:SetAttribute("SkyfallPilotOptIn", false)
+	local bots = {}
+	for index = 1, 10 do
+		table.insert(bots, {
+			name = "IndependentBot" .. tostring(index),
+			model = { Parent = Workspace },
+			humanoid = { Health = 100 },
+			alive = false,
+		})
+	end
+
+	local harness = setmetatable({
+		readyPlayers = { [mainPlayer] = true },
+		pilotPriority = nil,
+		botService = {
+			GetBots = function()
+				return bots
+			end,
+		},
+		random = Random.new(19023),
+	}, RoundService)
+
+	local automatic = harness:_chooseController({ mainPlayer })
+	assert(
+		automatic and automatic.kind == "Bot" and table.find(bots, automatic.value) ~= nil,
+		"The only human must remain a normal character while a bot controls the aircraft"
+	)
+	assert(mainPlayer:GetAttribute("SkyfallAircraftControlActive") ~= true, "Automatic selection must not activate aircraft control on the human")
+
+	mainPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	local manual = harness:_chooseController({ mainPlayer })
+	assert(
+		manual and manual.kind == "Player" and manual.value == mainPlayer,
+		"Manual aircraft icon opt-in must be the only normal route to human aircraft control"
+	)
+
+	mainPlayer:SetAttribute("SkyfallPilotOptIn", false)
+	local canceled = harness:_chooseController({ mainPlayer })
+	assert(
+		canceled and canceled.kind == "Bot",
+		"Turning the manual icon off must restore bot controller selection"
+	)
 end)
 
 runTest("Legacy nextController cannot select an unready player", function()
@@ -1850,6 +1899,31 @@ runTest("Round cleanup does not auto-ready a debug player after the toggle is di
 	assert(harness.readyPlayers[debugPlayer] == nil, "A disabled debug owner must not be auto-readied")
 	assert(harness.debugAutoReady[debugPlayer] == nil, "Debug auto-ready marker must be removed")
 	assert(debugPlayer:GetAttribute("SkyfallReady") == false, "Disabled debug owner must remain not-ready")
+end)
+
+runTest("An enabled owner debug override is cleared after one round", function()
+	local debugPlayer = makeFakePlayer("OneRoundDebugOwner", "Waiting")
+	debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", true)
+	debugPlayer:SetAttribute("SkyfallReady", true)
+	debugPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	debugPlayer:SetAttribute("SkyfallAircraftControlActive", true)
+	local harness = setmetatable({
+		phase = "Waiting",
+		readyPlayers = { [debugPlayer] = true },
+		debugAutoReady = { [debugPlayer] = true },
+		debugControllerPlayer = debugPlayer,
+		debugPreviousController = { kind = "Bot", value = {} },
+		roundHumanCount = 1,
+	}, RoundService)
+
+	harness:_clearReadyPlayers()
+	assert(debugPlayer:GetAttribute("SkyfallDebugDroneEnabled") == false, "Debug mode must be disabled after its one manual round")
+	assert(debugPlayer:GetAttribute("SkyfallReady") == false, "Debug auto-ready must not survive the round")
+	assert(debugPlayer:GetAttribute("SkyfallPilotOptIn") == false, "Aircraft opt-in must be consumed after round cleanup")
+	assert(debugPlayer:GetAttribute("SkyfallAircraftControlActive") == false, "Aircraft control state must be cleared after round cleanup")
+	assert(harness.debugControllerPlayer == nil, "The owner debug pointer must be cleared")
+	assert(harness.debugPreviousController == nil, "The prior controller pointer must be cleared")
+	assert(next(harness.debugAutoReady) == nil, "No debug auto-ready marker may survive")
 end)
 
 runTest("A departing debug controller restores its previous live controller", function()

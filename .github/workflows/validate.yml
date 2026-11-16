@@ -43,6 +43,7 @@ jobs:
           lune run tests/lune/update_019_policy.luau
           lune run tests/lune/update_022_policy.luau
           lune run tests/lune/update_023_lighting_profile.luau
+          lune run tests/lune/update_023_world_design.luau
           lune run tests/lune/update_023_control_state.luau
 
       - name: Validate repository structure

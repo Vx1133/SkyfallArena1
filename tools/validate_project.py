@@ -618,4 +618,34 @@ require('playRemote:FireServer("PilotOptIn", desiredState)' in hud_source, "The 
 require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
 require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
 
+cyberpunk_pillar_source = (ROOT / "src/server/Services/CyberpunkPillarService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function CyberpunkPillarService.Build(",
+    "PylonFoundation_",
+    "PylonFootBridgeX_",
+    "PylonFootBridgeZ_",
+    "PylonPerimeterJoint_",
+    "PylonCrownBase_",
+    "PylonCrownCap_",
+    "PylonLightSpine_",
+    "FloorAppearanceService.ApplySurface(part, profile)",
+    "for sideX = -1, 1, 2 do",
+    "for sideZ = -1, 1, 2 do",
+):
+    require(feature in cyberpunk_pillar_source, f"Integrated four-pillar system is missing: {feature}")
+
+require("CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)" in arena_source, "Arena must build the four integrated corner pillars")
+for feature in (
+    'clockTime = 14.2',
+    'fogColor = Color3.fromRGB(190, 220, 242)',
+    'daySky.Name = "SkyfallDaySky"',
+    "daySky.StarCount = 0",
+    "daySky.MoonAngularSize = 0",
+    "atmosphere.Density = 0.12",
+    "atmosphere.Haze = 0.7",
+    "FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)",
+):
+    require(feature in arena_source, f"Daylight and all-face lobby material sync are missing: {feature}")
+require("function FloorAppearanceService.ApplySurface(" in floor_appearance_source, "Surface-only lobby material profile application is missing")
+
 print("Skyfall Arena structural and gameplay validation passed.")

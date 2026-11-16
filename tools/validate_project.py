@@ -339,6 +339,13 @@ for feature in (
     "eliminatedPlayers = math.max(0, self.roundRunnerCount - remainingPlayers)",
 ):
     require(feature in round_source, f"Round feature is missing: {feature}")
+sole_survivor_body = round_source.split("function RoundService:_getSoleSurvivor()", 1)[1].split("function RoundService:_isGrounded(", 1)[0]
+require("self:_getLivingHumanRunners()" in sole_survivor_body,
+        "Sole-survivor selection must use the same living-human filter as timeout winners")
+longest_survivor_body = round_source.split("function RoundService:_getLongestSurvivor()", 1)[1].split("function RoundService:_getTimeoutWinners()", 1)[0]
+require('value:GetAttribute("SkyfallRole") == "Runner"' in longest_survivor_body
+        and "humanoid.Health > 0" in longest_survivor_body,
+        "Longest-survivor fallback must reject dead or non-Runner human entries")
 require("self.nextController" not in round_source, "Legacy nextController must not bypass Pilot Priority")
 require('winners = self:_getWinnerDetails()' in round_source, "Round broadcasts must send safe winner name/role data only")
 require('winner = table.concat(winnerNames, ", ")' in round_source, "All winner names must be represented in results")
@@ -551,6 +558,7 @@ for feature in (
     "Timeout gives every living human Runner a win and ten Pilot Priority points",
     "A single living human Runner wins before timeout even if bots remain",
     "If no Runner remains, a valid human Controller receives the win and priority reward",
+    "Dead stale human Runners cannot win through survivor fallback",
     "Winner broadcast contains only safe names and role strings",
     "A winning human Controller is restored from hidden drone state",
     "Bubble Blaster server asset, lobby station, and training target exist",

@@ -31,6 +31,9 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 	self.roundRunnerCount = 0
 	self.characterSerial = {}
 	self.arenaStreamingFocusPlayers = {}
+	self.debugControllerPlayer = nil
+	self.debugPreviousController = nil
+	self.debugAutoReady = {}
 	self.random = Random.new()
 
 	if self.botService then
@@ -61,6 +64,17 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote)
 		self.roundRunners[player] = nil
 		self.survivalTimes[player] = nil
 		self.characterSerial[player] = nil
+		self.debugAutoReady[player] = nil
+		if self.debugControllerPlayer == player then
+			self.debugControllerPlayer = nil
+			self.debugPreviousController = nil
+		end
+		if self.debugPreviousController
+			and self.debugPreviousController.kind == "Player"
+			and self.debugPreviousController.value == player
+		then
+			self.debugPreviousController = nil
+		end
 		player.ReplicationFocus = nil
 
 		if self.controller
@@ -237,6 +251,118 @@ function RoundService:RequestPlay(player)
 	return true
 end
 
+function RoundService:_queueDebugPlayer(player)
+	if not self.readyPlayers[player] then
+		self.readyPlayers[player] = true
+		self.debugAutoReady[player] = true
+		player:SetAttribute("SkyfallReady", true)
+	end
+end
+
+function RoundService:_movePlayerToSpectator(player)
+	self:_setPlayerControllerHidden(player, false)
+	self:_setArenaStreamingFocus(player, true)
+	player:SetAttribute("SkyfallRole", "Spectator")
+	self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
+end
+
+function RoundService:_activateDebugController(player)
+	if self.phase ~= "Active" or not player or player.Parent ~= Players then
+		return false
+	end
+	if self.controller
+		and self.controller.kind == "Player"
+		and self.controller.value == player
+	then
+		return true
+	end
+
+	local previous = self.controller
+	self.debugPreviousController = previous
+	if previous and previous.kind == "Player" and previous.value.Parent == Players then
+		self:_movePlayerToSpectator(previous.value)
+	elseif previous and previous.kind == "Bot" and self.botService then
+		self.botService:SetController(previous.value, false)
+	end
+
+	if self.aliveRunners[player] then
+		self:_recordSurvival({kind = "Player", value = player})
+		self.aliveRunners[player] = nil
+	end
+
+	self:_setArenaStreamingFocus(player, false)
+	player:SetAttribute("SkyfallRole", "Controller")
+	self:_setPlayerControllerHidden(player, true)
+	self.controller = {kind = "Player", value = player}
+	self:_broadcast()
+	return true
+end
+
+function RoundService:_restoreDebugController(player)
+	if not self.controller
+		or self.controller.kind ~= "Player"
+		or self.controller.value ~= player
+	then
+		return false
+	end
+
+	self:_movePlayerToSpectator(player)
+	local previous = self.debugPreviousController
+	self.debugPreviousController = nil
+	if self:_isCandidateValid(previous) then
+		if previous.kind == "Player" then
+			self:_setArenaStreamingFocus(previous.value, false)
+			previous.value:SetAttribute("SkyfallRole", "Controller")
+			self:_setPlayerControllerHidden(previous.value, true)
+		elseif previous.kind == "Bot" and self.botService then
+			self.botService:SetController(previous.value, true)
+		end
+		self.controller = previous
+	else
+		self.controller = nil
+	end
+	self:_broadcast()
+	return true
+end
+
+-- AdminFlightService calls this only after its server-side owner authorization check.
+function RoundService:RequestDebugController(player, enabled)
+	if not player or player.Parent ~= Players or typeof(enabled) ~= "boolean" then
+		return false
+	end
+
+	if enabled then
+		self.debugControllerPlayer = player
+		player:SetAttribute("SkyfallDebugDroneEnabled", true)
+		self:_queueDebugPlayer(player)
+		if self.phase == "Active" then
+			return self:_activateDebugController(player)
+		end
+		self:_broadcast()
+		return true
+	end
+
+	player:SetAttribute("SkyfallDebugDroneEnabled", false)
+	if self.debugControllerPlayer == player then
+		self.debugControllerPlayer = nil
+		if self.phase == "Active"
+			and self.controller
+			and self.controller.kind == "Player"
+			and self.controller.value == player
+			and self.debugPreviousController
+		then
+			self:_restoreDebugController(player)
+		end
+		if self.debugAutoReady[player] then
+			self.readyPlayers[player] = nil
+			self.debugAutoReady[player] = nil
+			player:SetAttribute("SkyfallReady", false)
+		end
+	end
+	self:_broadcast()
+	return true
+end
+
 function RoundService:_clearReadyPlayers()
 	for player in pairs(self.readyPlayers) do
 		if player.Parent == Players then
@@ -245,6 +371,14 @@ function RoundService:_clearReadyPlayers()
 	end
 	self.readyPlayers = {}
 	self.roundHumanCount = 0
+
+	-- Preserve an enabled owner debug request for the next round.
+	local debugPlayer = self.debugControllerPlayer
+	if debugPlayer and debugPlayer.Parent == Players then
+		self.readyPlayers[debugPlayer] = true
+		self.debugAutoReady[debugPlayer] = true
+		debugPlayer:SetAttribute("SkyfallReady", true)
+	end
 end
 
 function RoundService:_setPlayerControllerHidden(player, hidden, characterOverride)
@@ -494,6 +628,12 @@ function RoundService:_chooseNextMapId()
 end
 
 function RoundService:_chooseController()
+	-- An explicit owner debug request takes priority over normal controller rotation.
+	local debugPlayer = self.debugControllerPlayer
+	if debugPlayer and debugPlayer.Parent == Players and self.readyPlayers[debugPlayer] then
+		return {kind = "Player", value = debugPlayer}
+	end
+
 	-- Give a solo human a fair first test as a runner, with a bot piloting the drone.
 	if self.roundNumber == 1 and #self:_getReadyPlayers() == 1 then
 		local botCandidates = {}
@@ -877,6 +1017,7 @@ function RoundService:_runRound()
 	self.countdownSeconds = 0
 	self.winner = ""
 	self.winnerCandidate = nil
+	self.debugPreviousController = nil
 	self.roundStartedAt = os.clock()
 	self.phase = "Active"
 

@@ -231,7 +231,7 @@ function ElementIntegrationService.Build(
 	if not appearance then
 		error("Skyfall element transitions require the live Lobby.WaitingPlatform profile")
 	end
-	local floorColor = mapBaseColor or lobbyFloor.Color
+	local floorColor = mapBaseColor or appearance.Color
 	local candidates = findElementRoots(transitionFolder)
 	local builtCount = 0
 

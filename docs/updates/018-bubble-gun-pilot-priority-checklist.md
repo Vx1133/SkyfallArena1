@@ -1,6 +1,6 @@
 # Update 018: Bubble Blaster + Pilot Priority + Multiple Winners
 
-> Status: Planning. A checkbox may be marked complete only after the named test or direct evidence is recorded below.
+ > Status: Implementation in progress. A checkbox may be marked complete only after the named test or direct evidence is recorded below.
 > Branch: `feat/018-bubble-blaster-pilot-priority`
 > Base: `main`
 
@@ -105,8 +105,18 @@
 | Item | Evidence / command / result |
 |---|---|
 | Repository baseline | Existing files read from `main`; current service interfaces inspected |
-| Checklist created | Commit SHA to be recorded |
+| Checklist created | `9d7244e0bbefd289f4304221a72211b46860f51f`, plan update `566ead38d40be670eed813294a08ab782e0dfdf9` |
 | Tests | Pending |
 | Device / multiplayer runtime | Pending |
 | Review | Pending |
-\n## Implementation plan (approved scope from the supplied specification)\n- `src/shared/GameConfig.lua`: add only bubble and Pilot Priority constants, preserving `ROUND_SECONDS = 180` and all laser/drone values.\n- `src/server/Bootstrap.server.lua`: create the BubbleShot remote, require/start the two new services, and connect RoundService lifecycle callbacks.\n- `src/server/Services/PilotPriorityService.lua` (new): own in-memory per-human scores, one-reward-per-round guard, tie-breaking timestamps, and selection.\n- `src/server/Services/BubbleGunService.lua` (new): build the trusted native Tool and lobby station, centralize grants, validate shots on the server, create projectile/bubble visuals, and restore held targets on every cleanup path.\n- `src/server/Services/RoundService.lua`: delegate score/selection, grant the Tool to Runners only, remove nextController bypass, reward eliminations/winners, and broadcast all human co-winners.\n- `src/client/BubbleGun.client.lua` (new): connect standard Tool equip/Activated input, camera aim, and a compact equipped reticle.\n- `src/client/HUD.client.lua`: add only the small DRONE percentage text, update on the score attribute, and keep it away from thumbstick/safe-area edges.\n- `tests/cloud_smoke_tests.luau` and `tools/validate_project.py`: add regression and structural checks.\n- Reviewed but planned unchanged: `StrikeService.lua`, `BotService.lua`, `Audio.client.lua`, `default.project.json`, and `ArenaService.lua`. Their current interfaces already support the requested integration. No external models, DataStore, map edits, laser edits, or publishing workflow changes.\n
+
+## Implementation plan (approved scope from the supplied specification)
+- `src/shared/GameConfig.lua`: add only bubble and Pilot Priority constants, preserving `ROUND_SECONDS = 180` and all laser/drone values.
+- `src/server/Bootstrap.server.lua`: create the BubbleShot remote, require/start the two new services, and connect RoundService lifecycle callbacks.
+- `src/server/Services/PilotPriorityService.lua` (new): own in-memory per-human scores, one-reward-per-round guard, tie-breaking timestamps, and selection.
+- `src/server/Services/BubbleGunService.lua` (new): build the trusted native Tool and lobby station, centralize grants, validate shots on the server, create projectile/bubble visuals, and restore held targets on every cleanup path.
+- `src/server/Services/RoundService.lua`: delegate score/selection, grant the Tool to Runners only, remove nextController bypass, reward eliminations/winners, and broadcast all human co-winners.
+- `src/client/BubbleGun.client.lua` (new): connect standard Tool equip/Activated input, camera aim, and a compact equipped reticle.
+- `src/client/HUD.client.lua`: add only the small DRONE percentage text, update on the score attribute, and keep it away from thumbstick/safe-area edges.
+- `tests/cloud_smoke_tests.luau` and `tools/validate_project.py`: add regression and structural checks.
+- Reviewed but planned unchanged: `StrikeService.lua`, `BotService.lua`, `Audio.client.lua`, `default.project.json`, and `ArenaService.lua`. Their current interfaces already support the requested integration. No external models, DataStore, map edits, laser edits, or publishing workflow changes.

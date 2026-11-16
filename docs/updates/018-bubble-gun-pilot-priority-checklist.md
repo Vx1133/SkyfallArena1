@@ -7,10 +7,10 @@
 ## Implementation checklist
 
 ### A. Repository audit and constraints
-- [ ] Read `GameConfig.lua`, `Bootstrap.server.lua`, `RoundService.lua`, `StrikeService.lua`, `BotService.lua`, `HUD.client.lua`, `Audio.client.lua`, `default.project.json`, and `cloud_smoke_tests.luau`.
-- [ ] Trace current lobby geometry, player roles, runner/bot state, controller selection, winner resolution, and round cleanup.
-- [ ] Preserve the existing experience, Start Place, Classic arena, golden drone, red lens, laser implementation, map count, 180-second round, and private publishing state.
-- [ ] Record implementation plan and changed-file scope before gameplay code changes.
+- [x] Read `GameConfig.lua`, `Bootstrap.server.lua`, `RoundService.lua`, `StrikeService.lua`, `BotService.lua`, `HUD.client.lua`, `Audio.client.lua`, `default.project.json`, and `cloud_smoke_tests.luau`.
+- [x] Trace current lobby geometry, player roles, runner/bot state, controller selection, winner resolution, and round cleanup.
+- [x] Preserve the existing experience, Start Place, Classic arena, golden drone, red lens, laser implementation, map count, 180-second round, and private publishing state.
+- [x] Record implementation plan and changed-file scope before gameplay code changes.
 
 ### B. Bubble Blaster asset and lobby trial station
 - [ ] Build a project-owned Classic Roblox-style turquoise, pearl-white, and subtle-gold Bubble Blaster from native Parts only.
@@ -107,8 +107,8 @@ The golden drone/laser implementation and `default.project.json` are read-only u
 
 ## Evidence log
 
-- Repository audit: pending.
-- First checklist-only commit: pending.
+- Repository audit: source review of all nine requested files, plus `ArenaService.lua` and `validate_project.py`; verified 180-second round, ten NPCs, server-authoritative StrikeService, round/role maps, old `nextController` path, and existing winner selection. Evidence: checklist created in commit `26eb492e3fb1d900fa125df96bf7c3789f5a0f4d` and audit update below.
+- First checklist-only commit: `26eb492e3fb1d900fa125df96bf7c3789f5a0f4d`.
 - Implementation commits: pending.
 - Automated CI: pending.
 - Device Simulator / real phone: pending.

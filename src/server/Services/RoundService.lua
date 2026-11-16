@@ -1037,22 +1037,6 @@ function RoundService:_resolveWinners(aliveCount)
 	return winners
 end
 
-function RoundService:_getTimeoutWinners()
-	local humanWinners = {}
-	for player in pairs(self.aliveRunners) do
-		if player.Parent == Players then
-			table.insert(humanWinners, {kind = "Player", value = player})
-		end
-	end
-	if #humanWinners > 0 then
-		return humanWinners
-	end
-
-	-- If no human Runner remains, preserve the existing bot survivor fallback.
-	local longestSurvivor = self:_getLongestSurvivor()
-	return longestSurvivor and {longestSurvivor} or {}
-end
-
 function RoundService:_recordSurvival(candidate, awardPriority)
 	if not candidate or not candidate.value or not self.roundRunners[candidate.value] then
 		return

@@ -1,5 +1,7 @@
 --!strict
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
 
 local CyberpunkPillarService = {}
@@ -87,7 +89,11 @@ function CyberpunkPillarService.Build(
 	folder:SetAttribute("SkyfallGenerated", true)
 	folder.Parent = parent
 
-	local silver = Color3.fromRGB(218, 230, 241)
+	local silver = Color3.fromRGB(
+		WorldDesignProfile.Cyberpunk.Silver[1],
+		WorldDesignProfile.Cyberpunk.Silver[2],
+		WorldDesignProfile.Cyberpunk.Silver[3]
+	)
 	local pillarOffset = halfWidth + 7
 	local pillarIndex = 0
 

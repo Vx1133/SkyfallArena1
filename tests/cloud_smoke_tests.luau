@@ -12,6 +12,7 @@ assert(sharedFolder, "ReplicatedStorage.Shared is missing")
 local configModule = sharedFolder:FindFirstChild("GameConfig")
 assert(configModule and configModule:IsA("ModuleScript"), "GameConfig ModuleScript is missing")
 local Config = require(configModule)
+local WorldDesignProfile = require(sharedFolder:WaitForChild("WorldDesignProfile"))
 
 local serverRoot = ServerScriptService:FindFirstChild("SkyfallServer")
 assert(serverRoot, "ServerScriptService.SkyfallServer is missing")
@@ -103,6 +104,9 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 	assert(Config.HUMAN_STRIKE_COOLDOWN_SECONDS == 3, "Human laser cooldown must be three seconds")
 	assert(Config.CONTROLLER_CAMERA_FOV == 70, "Controller camera should use a wide overhead field of view")
 	assert(Config.CONTROLLER_CAMERA_MARGIN == 8, "Controller camera should retain a small margin around the full arena")
+	assert(Config.LOBBY_SIZE == 120, "Waiting lobby must use the compact 120-stud platform")
+	assert(Config.LOBBY_SPAWN_RADIUS == 42, "Human spawn ring must be resized for the compact lobby")
+	assert(Config.LOBBY_BOT_SPAWN_RADIUS == 52, "Ten-bot spawn ring must remain inside the compact lobby")
 
 	arena = ArenaService.new()
 	arena:Build()
@@ -119,6 +123,7 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 
 	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
 	assert(lobbyPlatform, "Classic waiting baseplate is missing")
+	assert(lobbyPlatform.Size == Vector3.new(120, 3, 120), "Waiting platform must be resized to 120 by 120 studs")
 	assert(lobbyPlatform.TopSurface == Enum.SurfaceType.Studs, "Lobby baseplate must use native Classic Studs")
 	assert(
 		Players.CharacterAutoLoads == false,
@@ -386,6 +391,11 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 	assert(arena.root:FindFirstChild("ImpactShockwave") == nil, "Legacy blue shockwave rings must not be created")
 
 	for index = 1, Config.MAX_PLAYER_CAPACITY do
+		local lobbyPosition = arena:GetLobbySpawnCFrame(index, Config.MAX_PLAYER_CAPACITY, false).Position
+		assert(
+			(lobbyPosition - Config.LOBBY_CENTER).Magnitude <= Config.LOBBY_SPAWN_RADIUS + 0.01,
+			"All human spawn points must use the resized human spawn ring"
+		)
 		local runnerPosition = arena:GetRunnerSpawnCFrame(index, Config.MAX_PLAYER_CAPACITY).Position
 		assert(
 			math.abs(runnerPosition.X - Config.ARENA_CENTER.X) < Config.ARENA_HALF_WIDTH,
@@ -404,6 +414,19 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 		assert(
 			math.abs(lobbyPosition.Z - Config.LOBBY_CENTER.Z) < Config.LOBBY_SIZE / 2,
 			"Lobby spawn is outside the waiting platform"
+		)
+	end
+
+	for index = 1, Config.BOT_COUNT do
+		local botPosition = arena:GetLobbySpawnCFrame(index, Config.BOT_COUNT, true).Position
+		assert(
+			(botPosition - Config.LOBBY_CENTER).Magnitude <= Config.LOBBY_BOT_SPAWN_RADIUS + 0.01,
+			"All ten bot spawn points must use the resized bot spawn ring"
+		)
+		assert(
+			math.abs(botPosition.X - Config.LOBBY_CENTER.X) <= lobbyPlatform.Size.X / 2
+				and math.abs(botPosition.Z - Config.LOBBY_CENTER.Z) <= lobbyPlatform.Size.Z / 2,
+			"Every bot spawn must remain within the compact waiting platform"
 		)
 	end
 end)
@@ -563,15 +586,28 @@ runTest("Cyberpunk map switches cleanly without changing the destructible grid",
 	assert(arena:GetMapName() == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Active map name must update")
 	assert(#arena.tilesFolder:GetChildren() == tileCount, "Switching maps must not rebuild or duplicate tiles")
 	local centerTile = arena:GetTile(8, 8)
-	assert(centerTile.Material == Enum.Material.SmoothPlastic, "Cyberpunk floor must use smooth, non-glare tiles")
+	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
+	assert(lobbyPlatform, "Lobby surface profile must remain available to the new map")
+	assert(centerTile.Material == lobbyPlatform.Material, "Cyberpunk floor must use the exact lobby floor material")
+	assert(centerTile.MaterialVariant == lobbyPlatform.MaterialVariant, "Cyberpunk floor must use the exact lobby MaterialVariant")
+	assert(centerTile.Reflectance == lobbyPlatform.Reflectance, "Cyberpunk floor must use the exact lobby reflectance")
+	assert(centerTile.TopSurface == lobbyPlatform.TopSurface, "Cyberpunk floor must copy the lobby top surface")
+	assert(centerTile.BottomSurface == lobbyPlatform.BottomSurface, "Cyberpunk floor must copy the lobby bottom surface")
 	assert(
-		centerTile.TopSurface == Enum.SurfaceType.Smooth and centerTile.BottomSurface == Enum.SurfaceType.Smooth,
-		"Cyberpunk floor must not use Classic studs or inlets"
+		centerTile.Color == Color3.fromRGB(
+			WorldDesignProfile.Cyberpunk.PrimaryTile[1],
+			WorldDesignProfile.Cyberpunk.PrimaryTile[2],
+			WorldDesignProfile.Cyberpunk.PrimaryTile[3]
+		),
+		"Cyberpunk floor must use the new ice-white primary palette, not the lobby green"
 	)
-	assert(centerTile.Color == Color3.fromRGB(255, 255, 255), "Cyberpunk floor base color must be pure white")
 	assert(
-		arena:GetTile(8, 9).Color == Color3.fromRGB(244, 247, 251),
-		"Cyberpunk tiles should use the subtle pearl-white alternate"
+		arena:GetTile(8, 9).Color == Color3.fromRGB(
+			WorldDesignProfile.Cyberpunk.AlternateTile[1],
+			WorldDesignProfile.Cyberpunk.AlternateTile[2],
+			WorldDesignProfile.Cyberpunk.AlternateTile[3]
+		),
+		"Cyberpunk alternate tiles must use the new cool blue-white palette"
 	)
 
 	assert(arena.mapFolder:FindFirstChild("CyberpunkArenaSupport"), "Cyberpunk navy foundation is missing")
@@ -604,6 +640,12 @@ runTest("Cyberpunk map switches cleanly without changing the destructible grid",
 			assert(not descendant.CanQuery, "Cyberpunk decoration must not affect queries: " .. descendant.Name)
 			if descendant.Material == Enum.Material.Neon then
 				neonCount += 1
+			else
+				assert(descendant.Material == lobbyPlatform.Material, "Every solid Cyberpunk surface must use the lobby material: " .. descendant.Name)
+				assert(descendant.MaterialVariant == lobbyPlatform.MaterialVariant, "Every solid Cyberpunk surface must use the lobby MaterialVariant: " .. descendant.Name)
+				assert(descendant.Reflectance == lobbyPlatform.Reflectance, "Every solid Cyberpunk surface must use lobby reflectance: " .. descendant.Name)
+				assert(descendant.TopSurface == lobbyPlatform.TopSurface, "Every solid Cyberpunk part must copy the lobby top surface: " .. descendant.Name)
+				assert(descendant.BottomSurface == lobbyPlatform.BottomSurface, "Every solid Cyberpunk part must copy the lobby bottom surface: " .. descendant.Name)
 			end
 		elseif descendant:IsA("PointLight") then
 			lightCount += 1

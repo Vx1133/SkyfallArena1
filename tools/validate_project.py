@@ -667,6 +667,8 @@ require('player:GetAttribute("SkyfallAircraftControlActive") == true' in hud_sou
 clear_ready_source = round_source.split("function RoundService:_clearReadyPlayers()", 1)[1].split(
     "function RoundService:_setPlayerControllerHidden", 1
 )[0]
+require("Players:GetPlayers()" in clear_ready_source, "Round cleanup must clear stale aircraft state for every human, not only ready players")
+require("local playersToReset = {}" in clear_ready_source, "Round cleanup must include all active players and queued test players")
 require('debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)' in clear_ready_source, "Owner debug mode must reset at round cleanup")
 require("self.readyPlayers[debugPlayer] = true" not in clear_ready_source, "Owner debug mode must not auto-ready across rounds")
 require("self.debugControllerPlayer = nil" in clear_ready_source, "Owner debug pointer must clear at round cleanup")

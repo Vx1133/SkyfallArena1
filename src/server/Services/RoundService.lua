@@ -289,6 +289,9 @@ function RoundService:_activateDebugController(player)
 	if self.aliveRunners[player] then
 		self:_recordSurvival({kind = "Player", value = player})
 		self.aliveRunners[player] = nil
+		self.roundRunners[player] = nil
+		self.survivalTimes[player] = nil
+		self.roundRunnerCount = math.max(0, self.roundRunnerCount - 1)
 	end
 
 	self:_setArenaStreamingFocus(player, false)

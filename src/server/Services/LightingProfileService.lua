@@ -7,6 +7,27 @@ local Profile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("L
 
 local LightingProfileService = {}
 
+local MANAGED_EFFECT_NAMES = {
+    Atmosphere = "SkyfallAtmosphere",
+    BloomEffect = "SkyfallBloom",
+    ColorCorrectionEffect = "SkyfallColorCorrection",
+    SunRaysEffect = "SkyfallSunRays",
+}
+
+local function removeConflictingPostEffects()
+    local keptByClass: { [string]: Instance } = {}
+    for _, child in ipairs(Lighting:GetChildren()) do
+        local expectedName = MANAGED_EFFECT_NAMES[child.ClassName]
+        if expectedName then
+            if child.Name ~= expectedName or keptByClass[child.ClassName] then
+                child:Destroy()
+            else
+                keptByClass[child.ClassName] = child
+            end
+        end
+    end
+end
+
 local function colorFromRgb(rgb: { number }): Color3
     return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 end
@@ -45,6 +66,10 @@ local function applySharedSky()
 end
 
 function LightingProfileService.Apply(): string
+    -- Remove legacy/duplicate environment post-effects before applying one
+    -- known stack, preventing effects from older maps from composing twice.
+    removeConflictingPostEffects()
+
     Lighting.ClockTime = Profile.ClockTime
     Lighting.Brightness = Profile.Brightness
     Lighting.ExposureCompensation = Profile.ExposureCompensation

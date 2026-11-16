@@ -474,10 +474,20 @@ function BubbleGunService:_releaseHold(hold)
 		self.holdsByHumanoid[hold.humanoid] = nil
 	end
 
+	local winnerModel = hold.model
+	local targetRole = hold.player and hold.player:GetAttribute("SkyfallRole")
+		or (winnerModel and winnerModel:GetAttribute("SkyfallRole"))
+	local isWinner = targetRole == "Winner"
+
 	if hold.root and hold.root.Parent then
-		hold.root.Anchored = hold.rootAnchored
-		hold.root.AssemblyLinearVelocity = hold.linearVelocity
-		hold.root.AssemblyAngularVelocity = hold.angularVelocity
+		hold.root.Anchored = isWinner or hold.rootAnchored
+		if isWinner then
+			hold.root.AssemblyLinearVelocity = Vector3.zero
+			hold.root.AssemblyAngularVelocity = Vector3.zero
+		else
+			hold.root.AssemblyLinearVelocity = hold.linearVelocity
+			hold.root.AssemblyAngularVelocity = hold.angularVelocity
+		end
 	end
 	if hold.diedConnection then
 		hold.diedConnection:Disconnect()
@@ -522,6 +532,7 @@ function BubbleGunService:_holdTarget(target, shooter)
 	local hold = {
 		humanoid = humanoid,
 		root = root,
+		model = model,
 		player = target.player,
 		shooter = shooter,
 		rootAnchored = root.Anchored,

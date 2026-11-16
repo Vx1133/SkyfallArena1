@@ -150,7 +150,7 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 	)
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWater") == nil, "Lobby water surface must be removed")
 	assert(arena.lobbyFolder:FindFirstChild("LobbyWelcomeSign") == nil, "Floating lobby welcome board must be removed")
-	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
+	for _, descendant in ipairs(arena.lobbyFolder:GetDescendants()) do
 		local name = string.lower(descendant.Name)
 		assert(not string.find(name, "tree"), "All trees must be removed")
 		assert(not string.find(name, "bench") and not string.find(name, "chair"), "All seating must be removed")
@@ -159,14 +159,16 @@ runTest("Arena builds the 15x15 Classic starting arena in a two-map 30-player ex
 			"Water surfaces must be removed"
 		)
 	end
-	local support = arena.mapFolder:FindFirstChild("ClassicArenaSupport")
-	assert(support, "Arena support foundation is missing")
-	assert(support.Size.Y <= 2.1, "Arena support foundation must be thin")
-	assert(support.CanCollide == false, "Arena support foundation must not catch falling players")
-	assert(support.CanTouch == false, "Arena support foundation must not receive touch events")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Continuous perimeter beams are missing")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterEastWest_1"), "Perpendicular edge beams are missing")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterCornerPost_1_1"), "Integrated corner supports are missing")
+	local natureFolder = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(natureFolder, "The organic Classic nature sanctuary must be built")
+	assert(natureFolder:GetAttribute("SkyfallMapIdentity") == "Classic", "Classic nature geometry must declare its map identity")
+	assert(natureFolder:FindFirstChild("ClassicNatureRootArch_01", true), "The natural root arch is missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureTreeTrunk_01", true), "The first mature tree trunk is missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureCanopy_01_1", true), "Layered tree canopies are missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureFloatingIslet_01", true), "The floating natural islets are missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureVine_01", true), "Hanging vines are missing")
+	assert(natureFolder:GetAttribute("SkyfallGeometryPartCount") <= 55, "Classic nature geometry exceeded its measured mobile part budget")
+	assert(arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation") == nil, "Cyberpunk geometry must not appear in Classic")
 	assert(
 		arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"),
 		"Golden controller sphere is missing"
@@ -457,12 +459,16 @@ runTest("The Classic arena uses neutral lighting and connected stud geometry", f
 	assert(math.abs(leftTile.Size.X - Config.TILE_SIZE) < 0.001, "Tile width must match its grid spacing")
 	assert(Lighting.ClockTime >= 10 and Lighting.ClockTime <= 16, "Map lighting is not daytime")
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "No custom Sky instance should be retained")
-	assert(arena.mapFolder:FindFirstChild("ClassicPerimeterNorthSouth_-1"), "Classic arena perimeter frame is missing")
-	assert(
-		arena.mapFolder:FindFirstChild("ClassicArenaGate") == nil,
-		"Separate gate pillars and red header should be removed"
-	)
-	assert(arena.mapFolder:FindFirstChild("LobbyToArenaWalkway") == nil, "A bridge to the lobby must not exist")
+	local natureFolder = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(natureFolder, "Classic nature sanctuary folder is missing")
+	assert(natureFolder:GetAttribute("SkyfallGeometrySignature") == "organic-irregular-floating-nature-sanctuary",
+		"Classic must retain its organic geometry signature")
+	assert(natureFolder:FindFirstChild("ClassicNatureFloatingIslet_02", true), "Second floating islet is missing")
+	assert(natureFolder:FindFirstChild("ClassicNatureRootArch_04", true), "Curved root-arch segments are missing")
+	assert(arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation") == nil, "Cyberpunk station must not be built on Classic")
+	assert(arena:GetTile(8, 8).TopSurface == arena.lobbyFloor.TopSurface, "Classic tiles must use the lobby top surface")
+	assert(arena:GetTile(8, 8).BottomSurface == arena.lobbyFloor.BottomSurface, "Classic tiles must use the lobby bottom surface")
+	assert(arena.mapFolder:GetAttribute("SkyfallAuditedSurfaceCount") > 0, "Classic map surface audit must run")
 
 	for _, descendant in ipairs(arena.decorFolder:GetDescendants()) do
 		if descendant:IsA("BasePart") then
@@ -577,127 +583,154 @@ runTest("Round map rotation alternates Classic and Cyberpunk deterministically",
 	end
 end)
 
-runTest("Cyberpunk map switches cleanly without changing the destructible grid", function()
+runTest("Classic and Cyberpunk have disjoint layouts and share only the lobby surface finish", function()
 	assert(arena ~= nil, "Arena setup did not complete")
 	local tileCount = Config.GRID_SIZE * Config.GRID_SIZE
-	assert(#arena.tilesFolder:GetChildren() == tileCount, "Classic must start with exactly 225 tiles")
-
-	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Map 2 name is incorrect")
-	assert(arena:GetMapName() == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Active map name must update")
-	assert(#arena.tilesFolder:GetChildren() == tileCount, "Switching maps must not rebuild or duplicate tiles")
-	local centerTile = arena:GetTile(8, 8)
+	assert(tileCount == 225, "The destructible gameplay grid must remain exactly 225 tiles")
 	local lobbyPlatform = arena.lobbyFolder:FindFirstChild("WaitingPlatform")
-	assert(lobbyPlatform, "Lobby surface profile must remain available to the new map")
-	assert(centerTile.Material == lobbyPlatform.Material, "Cyberpunk floor must use the exact lobby floor material")
-	assert(centerTile.MaterialVariant == lobbyPlatform.MaterialVariant, "Cyberpunk floor must use the exact lobby MaterialVariant")
-	assert(centerTile.Reflectance == lobbyPlatform.Reflectance, "Cyberpunk floor must use the exact lobby reflectance")
-	assert(centerTile.TopSurface == lobbyPlatform.TopSurface, "Cyberpunk floor must copy the lobby top surface")
-	assert(centerTile.BottomSurface == lobbyPlatform.BottomSurface, "Cyberpunk floor must copy the lobby bottom surface")
-	assert(
-		centerTile.Color == Color3.fromRGB(
-			WorldDesignProfile.Cyberpunk.PrimaryTile[1],
-			WorldDesignProfile.Cyberpunk.PrimaryTile[2],
-			WorldDesignProfile.Cyberpunk.PrimaryTile[3]
-		),
-		"Cyberpunk floor must use the new ice-white primary palette, not the lobby green"
-	)
+	assert(lobbyPlatform, "The lobby surface profile source is missing")
 
-	for _, tile in pairs(arena.tiles) do
-		assert(tile.Material == lobbyPlatform.Material, "Every Cyberpunk tile must copy the lobby material")
-		assert(tile.MaterialVariant == lobbyPlatform.MaterialVariant, "Every Cyberpunk tile must copy the lobby MaterialVariant")
-		assert(tile.Reflectance == lobbyPlatform.Reflectance, "Every Cyberpunk tile must copy lobby reflectance")
-		assert(tile.TopSurface == lobbyPlatform.TopSurface, "Every Cyberpunk tile must copy the lobby top surface")
-		assert(tile.BottomSurface == lobbyPlatform.BottomSurface, "Every Cyberpunk tile must copy the lobby bottom surface")
-	end
-	assert(
-		arena:GetTile(8, 9).Color == Color3.fromRGB(
-			WorldDesignProfile.Cyberpunk.AlternateTile[1],
-			WorldDesignProfile.Cyberpunk.AlternateTile[2],
-			WorldDesignProfile.Cyberpunk.AlternateTile[3]
-		),
-		"Cyberpunk alternate tiles must use the new cool blue-white palette"
-	)
-
-	assert(arena.mapFolder:FindFirstChild("CyberpunkArenaSupport"), "Cyberpunk navy foundation is missing")
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaOuterTrim_NorthSouth_1"),
-		"Cyberpunk perimeter trim is missing"
-	)
-	assert(arena.mapFolder:FindFirstChild("CyberpunkArenaCornerPylon_1_1"), "Cyberpunk corner pylon is missing")
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaPylonAccent_1_1"),
-		"Cyberpunk electric-blue pylon accent is missing"
-	)
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaNeonNorthSouth_1"),
-		"Cyberpunk cyan perimeter channel is missing"
-	)
-	assert(Lighting:FindFirstChild("SkyfallAtmosphere"), "Cyberpunk Atmosphere is missing")
-	assert(Lighting:FindFirstChild("SkyfallBloom"), "Cyberpunk Bloom is missing")
-	assert(Lighting:FindFirstChild("SkyfallColorCorrection"), "Cyberpunk color correction is missing")
-
-	local partCount = 0
-	local neonCount = 0
-	local lightCount = 0
-	for _, descendant in ipairs(arena.mapFolder:GetDescendants()) do
-		if descendant:IsA("BasePart") then
-			partCount += 1
-			assert(descendant.Anchored, "Cyberpunk static geometry must be anchored: " .. descendant.Name)
-			assert(not descendant.CanCollide, "Cyberpunk decoration must not affect collision: " .. descendant.Name)
-			assert(not descendant.CanTouch, "Cyberpunk decoration must not receive touch: " .. descendant.Name)
-			assert(not descendant.CanQuery, "Cyberpunk decoration must not affect queries: " .. descendant.Name)
-			if descendant.Material == Enum.Material.Neon then
-				neonCount += 1
-			else
-				assert(descendant.Material == lobbyPlatform.Material, "Every solid Cyberpunk surface must use the lobby material: " .. descendant.Name)
-				assert(descendant.MaterialVariant == lobbyPlatform.MaterialVariant, "Every solid Cyberpunk surface must use the lobby MaterialVariant: " .. descendant.Name)
-				assert(descendant.Reflectance == lobbyPlatform.Reflectance, "Every solid Cyberpunk surface must use lobby reflectance: " .. descendant.Name)
-				assert(descendant.TopSurface == lobbyPlatform.TopSurface, "Every solid Cyberpunk part must copy the lobby top surface: " .. descendant.Name)
-				assert(descendant.BottomSurface == lobbyPlatform.BottomSurface, "Every solid Cyberpunk part must copy the lobby bottom surface: " .. descendant.Name)
+	local function assertLobbyFinish(root, label)
+		local auditedParts = 0
+		for _, descendant in ipairs(root:GetDescendants()) do
+			if descendant:IsA("BasePart") then
+				auditedParts += 1
+				assert(descendant.Material == lobbyPlatform.Material, label .. " material mismatch: " .. descendant.Name)
+				assert(descendant.MaterialVariant == lobbyPlatform.MaterialVariant, label .. " MaterialVariant mismatch: " .. descendant.Name)
+				assert(descendant.Reflectance == lobbyPlatform.Reflectance, label .. " reflectance mismatch: " .. descendant.Name)
+				assert(descendant.TopSurface == lobbyPlatform.TopSurface, label .. " top surface mismatch: " .. descendant.Name)
+				assert(descendant.BottomSurface == lobbyPlatform.BottomSurface, label .. " bottom surface mismatch: " .. descendant.Name)
 			end
-		elseif descendant:IsA("PointLight") then
-			lightCount += 1
+		end
+		return auditedParts
+	end
+
+	local function assertTilesHaveLobbyFinish()
+		assert(#arena.tilesFolder:GetChildren() == tileCount, "Map switching must preserve all 225 tile instances")
+		for _, tile in pairs(arena.tiles) do
+			assert(tile.Material == lobbyPlatform.Material, "A playable tile did not inherit lobby Material")
+			assert(tile.MaterialVariant == lobbyPlatform.MaterialVariant, "A playable tile did not inherit lobby MaterialVariant")
+			assert(tile.Reflectance == lobbyPlatform.Reflectance, "A playable tile did not inherit lobby reflectance")
+			assert(tile.TopSurface == lobbyPlatform.TopSurface, "A playable tile did not inherit lobby TopSurface")
+			assert(tile.BottomSurface == lobbyPlatform.BottomSurface, "A playable tile did not inherit lobby BottomSurface")
 		end
 	end
-	assert(partCount <= 60, "Cyberpunk static decoration must stay within the 60-part budget")
-	assert(neonCount >= 4 and neonCount <= 12, "Cyberpunk should use a few restrained cyan Neon strips")
-	assert(lightCount <= 6, "Cyberpunk lighting must stay within the six-light budget")
 
-	local mapPartCount = #arena.mapFolder:GetChildren()
-	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "Switching back to Classic must restore the original map")
-	assert(arena:GetTile(8, 8).TopSurface == Enum.SurfaceType.Studs, "Classic tiles must recover native Studs")
-	assert(arena:GetTile(8, 8).BottomSurface == Enum.SurfaceType.Inlet, "Classic tiles must recover native Inlets")
-	assert(arena.mapFolder:FindFirstChild("ClassicArenaSupport"), "Classic foundation must be restored")
-	assert(
-		arena.mapFolder:FindFirstChild("CyberpunkArenaSupport") == nil,
-		"Cyberpunk geometry must be removed on return to Classic"
-	)
-	assert(Lighting:FindFirstChild("SkyfallAtmosphere") == nil, "Classic must clear Cyberpunk Atmosphere")
-	assert(Lighting:FindFirstChild("SkyfallBloom") == nil, "Classic must clear Cyberpunk Bloom")
-	assert(Lighting:FindFirstChild("SkyfallColorCorrection") == nil, "Classic must clear Cyberpunk color correction")
+	-- Classic: natural, irregular, and asymmetrical.
+	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "Classic map selection failed")
+	local classic = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(classic, "Classic nature builder did not produce its dedicated folder")
+	assert(classic:GetAttribute("SkyfallMapIdentity") == "Classic", "Classic identity attribute is missing")
+	assert(classic:GetAttribute("SkyfallGeometrySignature") == "organic-irregular-floating-nature-sanctuary",
+		"Classic geometry signature must be organic")
+	assert(classic:FindFirstChild("ClassicNatureRootArch_01", true), "Classic root arch is missing")
+	assert(classic:FindFirstChild("ClassicNatureTreeTrunk_01", true), "Classic tree trunk is missing")
+	assert(classic:FindFirstChild("ClassicNatureCanopy_01_1", true), "Classic canopy is missing")
+	assert(classic:FindFirstChild("ClassicNatureFloatingIslet_01", true), "Classic floating islet is missing")
+	assert(classic:FindFirstChild("ClassicNatureVine_01", true), "Classic hanging vine is missing")
+	assert(classic:FindFirstChild("CyberpunkOrbitalFrame_01", true) == nil, "Cyberpunk architecture leaked into Classic")
+	assert(classic:FindFirstChild("CyberpunkGateSpire_01", true) == nil, "Cyberpunk spires leaked into Classic")
+	local classicTreeA = classic:FindFirstChild("ClassicNatureTreeTrunk_01", true)
+	local classicTreeB = classic:FindFirstChild("ClassicNatureTreeTrunk_02", true)
+	assert(classicTreeA and classicTreeB, "Classic needs multiple mature tree landmarks")
+	assert((classicTreeA.Position - classicTreeB.Position).Magnitude > 100,
+		"Classic tree landmarks must be spatially separated rather than mirrored at arena corners")
+	local classicCanopies = 0
+	for _, descendant in ipairs(classic:GetDescendants()) do
+		if descendant:IsA("BasePart") and string.find(descendant.Name, "ClassicNatureCanopy_") then
+			classicCanopies += 1
+			assert(descendant.Shape == Enum.PartType.Ball, "Classic canopy masses must use organic rounded silhouettes")
+		end
+	end
+	assert(classicCanopies >= 12, "Classic needs layered canopy groups, not a flat tree marker")
+	assert(classic:GetAttribute("SkyfallGeometryPartCount") <= 55, "Classic exceeded its measured mobile geometry budget")
+	local classicPartCount = assertLobbyFinish(classic)
+	assert(classicPartCount == classic:GetAttribute("SkyfallGeometryPartCount"),
+		"Classic geometry count must agree with the actual BasePart audit")
+	assert(arena.mapFolder:GetAttribute("SkyfallAuditedSurfaceCount") >= classicPartCount,
+		"Classic post-build lobby surface audit did not cover its geometry")
+	assertTilesHaveLobbyFinish()
+	assert(arena:GetTile(8, 8).Color == Color3.fromRGB(
+		WorldDesignProfile.Classic.PrimaryTile[1],
+		WorldDesignProfile.Classic.PrimaryTile[2],
+		WorldDesignProfile.Classic.PrimaryTile[3]
+	), "Classic tile color must use its natural palette, not the lobby color")
+	local classicSignature = classic:GetAttribute("SkyfallGeometrySignature")
+	local classicRootChildren = #arena.mapFolder:GetDescendants()
 
-	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Cyberpunk must be reusable on a later round")
-	assert(#arena.tilesFolder:GetChildren() == tileCount, "Repeated map switches must keep exactly 225 tiles")
-	assert(
-		#arena.mapFolder:GetChildren() == mapPartCount,
-		"Repeated map switches must not accumulate decoration instances"
-	)
-	assert(
-		arena:GetTile(8, 8).TopSurface == Enum.SurfaceType.Smooth,
-		"Cyberpunk smooth surface must be restored after switching"
-	)
-	arena:ResetTiles()
-	assert(
-		arena:GetTile(8, 8).Color == Color3.fromRGB(255, 255, 255),
-		"Cyberpunk round cleanup must restore the white primary tile color"
-	)
-	assert(
-		arena:GetTile(8, 9).Color == Color3.fromRGB(244, 247, 251),
-		"Cyberpunk round cleanup must restore the pearl alternate tile color"
-	)
-	arena:SetMap(1)
-	assert(arena:SetMap(999) == "SKYFALL CLASSIC ARENA", "An invalid map ID must safely fall back to Classic")
-	assert(arena.currentMapId == 1, "An invalid map ID must not corrupt the active map identity")
+	-- Cyberpunk: angular orbital engineering, no organic landmark family.
+	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Cyberpunk map selection failed")
+	local cyberpunk = arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation")
+	assert(cyberpunk, "Cyberpunk builder did not produce its dedicated folder")
+	assert(cyberpunk:GetAttribute("SkyfallMapIdentity") == "Cyberpunk", "Cyberpunk identity attribute is missing")
+	assert(cyberpunk:GetAttribute("SkyfallGeometrySignature") == "offset-angular-orbital-sky-station",
+		"Cyberpunk geometry signature must be angular and orbital")
+	assert(cyberpunk:FindFirstChild("CyberpunkOrbitalFrame_01", true), "Broken orbital frame segment is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkGateSpire_01", true), "First orbital gate spire is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkGateSpire_02", true), "Second orbital gate spire is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkEnergyBridge_Primary", true), "Suspended energy bridge is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkAngularDeck_01", true), "First angular deck is missing")
+	assert(cyberpunk:FindFirstChild("CyberpunkCircuitBeam_01", true), "Orbital circuit beams are missing")
+	assert(cyberpunk:FindFirstChild("ClassicNatureTreeTrunk_01", true) == nil, "Nature tree leaked into Cyberpunk")
+	assert(cyberpunk:FindFirstChild("ClassicNatureRootArch_01", true) == nil, "Nature root arch leaked into Cyberpunk")
+	assert(cyberpunk:FindFirstChild("ClassicNatureFloatingIslet_01", true) == nil, "Natural islet leaked into Cyberpunk")
+	assert(cyberpunk:GetAttribute("SkyfallGeometryPartCount") <= 32, "Cyberpunk exceeded its measured mobile geometry budget")
+	local orbitalFrame = cyberpunk:FindFirstChild("CyberpunkOrbitalFrame_01", true)
+	assert(orbitalFrame and orbitalFrame.Shape == Enum.PartType.Cylinder, "Orbital frame must use engineered linear members")
+	assert(orbitalFrame.Size.X > orbitalFrame.Size.Y * 8, "Orbital frame members must have an elongated structural profile")
+	local angularDeck = cyberpunk:FindFirstChild("CyberpunkAngularDeck_01", true)
+	assert(angularDeck and angularDeck.Size.X > angularDeck.Size.Z, "Cyberpunk deck must have a distinct angular plate silhouette")
+	local cyberPartCount = assertLobbyFinish(cyberpunk)
+	assert(cyberPartCount == cyberpunk:GetAttribute("SkyfallGeometryPartCount"),
+		"Cyberpunk geometry count must agree with the actual BasePart audit")
+	for _, descendant in ipairs(cyberpunk:GetDescendants()) do
+		if descendant:IsA("BasePart") then
+			assert(descendant.Material ~= Enum.Material.Neon,
+				"Emissive effects must use Beam/light objects, never a material-exempt BasePart")
+			assert(descendant.Anchored and not descendant.CanCollide and not descendant.CanTouch and not descendant.CanQuery,
+				"Cyberpunk static geometry must remain anchored and gameplay-inert: " .. descendant.Name)
+		end
+	end
+	assert(cyberpunk:FindFirstChild("ClassicNatureSanctuary", true) == nil, "Classic map folder leaked into Cyberpunk")
+	assert(classicSignature ~= cyberpunk:GetAttribute("SkyfallGeometrySignature"),
+		"Map builders must expose different geometric layout signatures")
+	assertTilesHaveLobbyFinish()
+	assert(arena:GetTile(8, 8).Color == Color3.fromRGB(
+		WorldDesignProfile.Cyberpunk.PrimaryTile[1],
+		WorldDesignProfile.Cyberpunk.PrimaryTile[2],
+		WorldDesignProfile.Cyberpunk.PrimaryTile[3]
+	), "Cyberpunk must keep its ice-white tile palette")
+	assert(arena:GetTile(8, 8).Color ~= lobbyPlatform.Color,
+		"Cyberpunk must not inherit the lobby baseplate color")
+	assert(Lighting:FindFirstChild("SkyfallAtmosphere"), "Shared atmosphere must stay active in Cyberpunk")
+	assert(Lighting:FindFirstChild("SkyfallBloom"), "Shared bloom must stay active in Cyberpunk")
+	assert(Lighting:FindFirstChild("SkyfallColorCorrection"), "Shared color correction must stay active in Cyberpunk")
+
+	-- Verify deterministic cleanup and re-creation in the requested four-map sequence.
+	assert(arena:SetMap(1) == "SKYFALL CLASSIC ARENA", "Switching back to Classic failed")
+	assert(arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation") == nil, "Cyberpunk geometry survived the switch to Classic")
+	local restoredClassic = arena.mapFolder:FindFirstChild("ClassicNatureSanctuary")
+	assert(restoredClassic and restoredClassic:GetAttribute("SkyfallGeometryPartCount") == classicPartCount,
+		"Classic must rebuild the same bounded natural geometry")
+	assert(#arena.mapFolder:GetDescendants() == classicRootChildren,
+		"Classic switching must not accumulate parts, attachments, or effects")
+	assertTilesHaveLobbyFinish()
+
+	assert(arena:SetMap(2) == "SKYFALL CYBERPUNK WHITE & BLUE ARENA", "Repeated Cyberpunk selection failed")
+	assert(arena.mapFolder:FindFirstChild("ClassicNatureSanctuary") == nil, "Classic geometry survived the switch to Cyberpunk")
+	local restoredCyberpunk = arena.mapFolder:FindFirstChild("CyberpunkOrbitalStation")
+	assert(restoredCyberpunk and restoredCyberpunk:GetAttribute("SkyfallGeometryPartCount") == cyberPartCount,
+		"Cyberpunk must rebuild the same bounded orbital geometry")
+	assertTilesHaveLobbyFinish()
+	assert(arena:SetMap(999) == "SKYFALL CLASSIC ARENA", "Invalid map IDs must safely fall back to Classic")
+	assert(arena.currentMapId == 1, "Invalid map ID must not corrupt active map identity")
+	assert(arena:ResetTiles() == nil, "Tile cleanup must remain a no-return mutation")
+	assert(arena:GetTile(8, 8).Color == Color3.fromRGB(
+		WorldDesignProfile.Classic.PrimaryTile[1],
+		WorldDesignProfile.Classic.PrimaryTile[2],
+		WorldDesignProfile.Classic.PrimaryTile[3]
+	), "Classic tile reset must restore its own nature palette")
+	assertTilesHaveLobbyFinish()
 end)
 
 runTest("The active HUD count only includes living arena runners", function()

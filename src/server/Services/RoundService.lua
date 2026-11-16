@@ -889,13 +889,13 @@ end
 function RoundService:_getSoleSurvivor()
 	local survivors = {}
 
-	for player in pairs(self.aliveRunners) do
-		if player.Parent == Players then
-			table.insert(survivors, {
-				kind = "Player",
-				value = player,
-			})
-		end
+	-- Human candidates must pass the same live-character and Runner-role checks
+	-- used by timeout co-winner resolution.
+	for _, player in ipairs(self:_getLivingHumanRunners()) do
+		table.insert(survivors, {
+			kind = "Player",
+			value = player,
+		})
 	end
 
 	for _, bot in ipairs(self.botService:GetAliveBots()) do
@@ -937,7 +937,11 @@ function RoundService:_getLongestSurvivor()
 	for value, candidate in pairs(self.roundRunners) do
 		local isValid = false
 		if candidate.kind == "Player" then
-			isValid = self.aliveRunners[value] == true and value.Parent == Players
+			local isPresent = self.aliveRunners[value] == true and value.Parent == Players
+			local isRunner = isPresent and value:GetAttribute("SkyfallRole") == "Runner"
+			local character = isRunner and value.Character
+			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			isValid = isRunner and character ~= nil and humanoid ~= nil and humanoid.Health > 0
 		elseif candidate.kind == "Bot" then
 			isValid = value.alive == true
 				and value.model

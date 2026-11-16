@@ -34,6 +34,7 @@ required_files = [
     "tests/lune/update_023_world_design.luau",
     "src/shared/DebugControllerPolicy.lua",
     "tests/lune/update_019_policy.luau",
+    "tests/lune/update_023_world_design.luau",
     "tests/lune/update_023_control_state.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
@@ -299,7 +300,7 @@ require("Players:CreateHumanoidModelFromDescriptionAsync" in bot_source, "Bot NP
 require("createFallbackHair" not in bot_source, "Procedural custom bot hair must not be used")
 for feature in ("function BotService:_setBotHidden(", "function BotService:SetController(", 'description.HairAccessory = ""', "if self.onBotDied then", "self.onBotDied(bot)"):
     require(feature in bot_source, f"Bot visibility or safe procedural appearance feature is missing: {feature}")
-require("Config.LOBBY_BOT_SPAWN_RADIUS = 66" in config_source, "Ten bots need the expanded lobby spawn radius")
+require("Config.LOBBY_BOT_SPAWN_RADIUS = WorldDesignProfile.Lobby.BotSpawnRadius" in config_source, "Ten bots must use the centralized compact-lobby spawn radius")
 fallen_bot_body = bot_source.split("function BotService:EliminateFallenRunners", 1)[1].split("function BotService:SendToLobby", 1)[0]
 require(fallen_bot_body.find("bot.alive = false") < fallen_bot_body.find("self.onBotDied(bot)"), "Bot elimination must update alive state before the round broadcasts")
 require("function BotService:_collectWarningTiles()" in bot_source, "Bot warning grid should be snapshotted once per decision")

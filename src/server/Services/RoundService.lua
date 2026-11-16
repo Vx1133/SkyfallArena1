@@ -1086,7 +1086,7 @@ function RoundService:_awardWinners(candidates)
 					and self.controller.kind == "Player"
 					and self.controller.value == player
 				if isCurrentController then
-					self:_setPlayerControllerHidden(player, false)
+					self:_placePlayer(player, self:_lobbySpawnForPlayer(player))
 				end
 				local statSet = self.stats[player]
 				if statSet and statSet.wins then

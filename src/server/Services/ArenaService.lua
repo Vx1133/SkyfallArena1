@@ -2,14 +2,14 @@ local Workspace = game:GetService("Workspace")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
-local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
-local LaserVFX = require(script.Parent:WaitForChild("LaserVFX"))
-local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
-local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService"))
-local ClassicNatureMapBuilder = require(script.Parent:WaitForChild("ClassicNatureMapBuilder"))
-local CyberpunkMapBuilder = require(script.Parent:WaitForChild("CyberpunkMapBuilder"))
-local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService"))
+local Config = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("GameConfig", 8))
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("WorldDesignProfile", 8))
+local LaserVFX = require(script.Parent:WaitForChild("LaserVFX", 8))
+local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService", 8))
+local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService", 8))
+local ClassicNatureMapBuilder = require(script.Parent:WaitForChild("ClassicNatureMapBuilder", 8))
+local CyberpunkMapBuilder = require(script.Parent:WaitForChild("CyberpunkMapBuilder", 8))
+local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService", 8))
 
 local ArenaService = {}
 ArenaService.__index = ArenaService

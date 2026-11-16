@@ -460,13 +460,21 @@ function BotService:GetBotCount()
 	return #self.bots
 end
 
+function BotService:IsRigReady(bot)
+	return bot ~= nil
+		and bot.model ~= nil
+		and bot.model.Parent ~= nil
+		and bot.humanoid ~= nil
+		and bot.humanoid.Parent ~= nil
+		and bot.humanoid.Health > 0
+		and bot.root ~= nil
+		and bot.root.Parent ~= nil
+end
+
 function BotService:GetReadyBotCount()
 	local readyCount = 0
 	for _, bot in ipairs(self.bots) do
-		if bot.model and bot.model.Parent
-			and bot.humanoid and bot.humanoid.Health > 0
-			and bot.root and bot.root.Parent
-		then
+		if self:IsRigReady(bot) then
 			readyCount += 1
 		end
 	end

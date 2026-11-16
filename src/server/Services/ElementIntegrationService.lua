@@ -189,39 +189,26 @@ local function createTransitionLayer(
 	position: Vector3,
 	size: Vector3,
 	color: Color3,
-	material: EnumItem,
-	materialVariant: string,
-	reflectance: number,
-	transparency: number,
-	topSurface: EnumItem,
-	bottomSurface: EnumItem
+	profile: FloorAppearanceService.AppearanceProfile,
+	transparency: number
 ): Part
 	local layer = Instance.new("Part")
 	layer.Name = name
 	layer.Anchored = true
 	layer.Size = size
 	layer.Position = position
-	layer.Color = color
-	layer.Material = material
-	layer.Reflectance = math.clamp(reflectance, 0, 1)
 	layer.Transparency = transparency
-	layer.TopSurface = topSurface
-	layer.BottomSurface = bottomSurface
 	layer.CanCollide = false
 	layer.CanTouch = false
 	layer.CanQuery = false
 	layer.CastShadow = false
 	layer:SetAttribute("SkyfallGenerated", true)
 
-	if materialVariant ~= "" then
-		local success, message = pcall(function()
-			layer.MaterialVariant = materialVariant
-		end)
-		if not success then
-			warn("Skyfall could not apply element transition MaterialVariant: " .. tostring(message))
-		end
+	if not FloorAppearanceService.ApplySurface(layer, profile) then
+		layer:Destroy()
+		error("Skyfall could not apply the lobby surface profile to element transition " .. name)
 	end
-
+	layer.Color = color
 	layer.Parent = parent
 	return layer
 end
@@ -241,12 +228,10 @@ function ElementIntegrationService.Build(
 	transitionFolder.Parent = targetFolder
 
 	local appearance = FloorAppearanceService.Capture(lobbyFloor)
-	local floorColor = mapBaseColor or (lobbyFloor and lobbyFloor.Color) or Color3.fromRGB(49, 139, 56)
-	local floorMaterial = appearance and appearance.Material or Enum.Material.Plastic
-	local floorVariant = appearance and appearance.MaterialVariant or ""
-	local floorReflectance = appearance and appearance.Reflectance or 0
-	local floorTopSurface = appearance and appearance.TopSurface or Enum.SurfaceType.Smooth
-	local floorBottomSurface = appearance and appearance.BottomSurface or Enum.SurfaceType.Smooth
+	if not appearance then
+		error("Skyfall element transitions require the live Lobby.WaitingPlatform profile")
+	end
+	local floorColor = mapBaseColor or lobbyFloor.Color
 	local candidates = findElementRoots(transitionFolder)
 	local builtCount = 0
 
@@ -275,12 +260,8 @@ function ElementIntegrationService.Build(
 						math.min(baseZ + layerData.margin * 2, 176)
 					),
 					color,
-					floorMaterial,
-					floorVariant,
-					floorReflectance,
-					layerData.transparency,
-					floorTopSurface,
-					floorBottomSurface
+					appearance,
+					layerData.transparency
 				)
 				if index == #layers then
 					innerLayer = part

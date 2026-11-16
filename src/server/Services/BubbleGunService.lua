@@ -158,6 +158,7 @@ function BubbleGunService.new(arenaService, roundService, botService, shotRemote
 	self.shotRemote = shotRemote
 	self.template = nil
 	self.displayStand = nil
+	self.promptPart = nil
 	self.trainingTarget = nil
 	self.cooldowns = {}
 	self.activeHolds = {}
@@ -238,6 +239,7 @@ function BubbleGunService:_buildLobbyStation()
 	prompt.MaxActivationDistance = 12
 	prompt.RequiresLineOfSight = false
 	prompt.Parent = displayHandle
+	self.promptPart = displayHandle
 	prompt.Triggered:Connect(function(player)
 		self:GrantTrial(player)
 	end)
@@ -310,8 +312,8 @@ function BubbleGunService:_grant(player)
 		return false
 	end
 
-	local backpack = player:FindFirstChildOfClass("Backpack")
-	if not backpack then
+	local backpack = player:FindFirstChildOfClass("Backpack") or player:WaitForChild("Backpack", 3)
+	if not backpack or player.Parent ~= Players then
 		return false
 	end
 
@@ -331,6 +333,20 @@ function BubbleGunService:GrantTrial(player)
 	if not player or player.Parent ~= Players
 		or self.rounds:IsActive()
 		or player:GetAttribute("SkyfallRole") ~= "Waiting"
+		or not self.displayStand
+		or not self.displayStand.Parent
+		or not self.promptPart
+		or not self.promptPart.Parent
+	then
+		return false
+	end
+
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local prompt = self.promptPart:FindFirstChildOfClass("ProximityPrompt")
+	local maxDistance = prompt and prompt.MaxActivationDistance or 0
+	if not root or maxDistance <= 0
+		or (root.Position - self.promptPart.Position).Magnitude > maxDistance
 	then
 		return false
 	end
@@ -467,6 +483,10 @@ function BubbleGunService:_releaseHold(hold)
 		hold.diedConnection:Disconnect()
 		hold.diedConnection = nil
 	end
+	if hold.roleConnection then
+		hold.roleConnection:Disconnect()
+		hold.roleConnection = nil
+	end
 	if hold.humanoid and hold.humanoid.Parent then
 		hold.humanoid.WalkSpeed = hold.walkSpeed
 		hold.humanoid.JumpPower = hold.jumpPower
@@ -555,6 +575,13 @@ function BubbleGunService:_holdTarget(target, shooter)
 	hold.diedConnection = humanoid.Died:Connect(function()
 		self:_releaseHold(hold)
 	end)
+	if target.player and target.player.GetAttributeChangedSignal then
+		hold.roleConnection = target.player:GetAttributeChangedSignal("SkyfallRole"):Connect(function()
+			if target.player:GetAttribute("SkyfallRole") ~= "Runner" then
+				self:_releaseHold(hold)
+			end
+		end)
+	end
 	task.delay(Config.BUBBLE_GUN_HOLD_SECONDS, function()
 		self:_releaseHold(hold)
 	end)

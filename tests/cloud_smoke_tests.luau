@@ -994,7 +994,11 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 			return candidate:GetAttribute("SkyfallRole") == "Runner"
 		end,
 	}
-	local mockBots = {GetAliveBots = function() return {} end}
+	local mockBots = {
+		GetAliveBots = function()
+			return {}
+		end,
+	}
 	local remote = Instance.new("RemoteEvent")
 	local service = BubbleGunService.new(arena, mockRounds, mockBots, remote)
 	service.template = ServerStorage:FindFirstChild("SkyfallBubbleBlasterTemplate")
@@ -1017,7 +1021,14 @@ runTest("Bubble Blaster grants one copy and accepts only the lobby training targ
 	trialRoot.Position = service.promptPart.Position
 	local target = service:_findTarget(fakePlayer, targetPart)
 	assert(target and target.kind == "Training", "Waiting players may target only the dedicated training target")
-	service.rounds = {IsActive = function() return true end, IsAliveRunner = function() return false end}
+	service.rounds = {
+		IsActive = function()
+			return true
+		end,
+		IsAliveRunner = function()
+			return false
+		end,
+	}
 	assert(service:_findTarget(fakePlayer, targetPart) == nil,
 		"Training target must not be targetable during an active round")
 	service.rounds = mockRounds
@@ -1049,7 +1060,11 @@ runTest("Bubble Blaster server rejects invalid aim and enforces its cooldown", f
 	local service = BubbleGunService.new(arena, {
 		IsActive = function() return false end,
 		IsAliveRunner = function() return false end,
-	}, {GetAliveBots = function() return {} end}, remote)
+	}, {
+		GetAliveBots = function()
+			return {}
+		end,
+	}, remote)
 	service.displayStand = arena.lobbyFolder:FindFirstChild("BubbleBlasterTrialStand")
 	service.trainingTarget = arena.lobbyFolder:FindFirstChild("BubbleTrainingTarget")
 	service.cooldowns = {}
@@ -1096,7 +1111,11 @@ runTest("Bubble projectile revalidates and hits the training target after travel
 	local service = BubbleGunService.new(arena, {
 		IsActive = function() return false end,
 		IsAliveRunner = function() return false end,
-	}, {GetAliveBots = function() return {} end}, remote)
+	}, {
+		GetAliveBots = function()
+			return {}
+		end,
+	}, remote)
 	service.trainingTarget = target
 	service.displayStand = nil
 
@@ -1117,7 +1136,11 @@ runTest("Bubble hold restores movement and physics state exactly once", function
 	local service = BubbleGunService.new(arena, {
 		IsActive = function() return true end,
 		IsAliveRunner = function() return true end,
-	}, {GetAliveBots = function() return {} end}, remote)
+	}, {
+		GetAliveBots = function()
+			return {}
+		end,
+	}, remote)
 	local fakeTargetPlayer = makeFakePlayer("HeldRunner", "Runner")
 	local model = Instance.new("Model")
 	model.Name = "BubbleHoldSmokeTarget"
@@ -1162,7 +1185,9 @@ runTest("Bubble hold restores movement and physics state exactly once", function
 	local deathHold = service.holdsByHumanoid[humanoid]
 	humanoid.Health = 0
 	assert(deathHold.released, "A target Humanoid death must immediately release the hold")
-	for _, event in pairs(fakeTargetPlayer.attributeSignals or {}) do event:Destroy() end
+	for _, event in pairs(fakeTargetPlayer.attributeSignals or {}) do
+		event:Destroy()
+	end
 	model:Destroy()
 	remote:Destroy()
 end)

@@ -353,6 +353,42 @@ function BotService:GetAlivePositions()
 	return positions
 end
 
+function BotService:SetController(bot, enabled)
+	if not bot or not bot.model or not bot.model.Parent
+		or not bot.root or not bot.root.Parent
+		or not bot.humanoid or not bot.humanoid.Parent
+	then
+		return false
+	end
+
+	bot.targetTile = nil
+	bot.alive = false
+	bot.isController = enabled == true
+	if enabled then
+		bot.model:SetAttribute("SkyfallRole", "Controller")
+		bot.humanoid.WalkSpeed = 0
+		bot.humanoid.JumpPower = 0
+		bot.root.AssemblyLinearVelocity = Vector3.zero
+		bot.root.AssemblyAngularVelocity = Vector3.zero
+		self:_setBotHidden(bot, true)
+	else
+		self:_setBotHidden(bot, false)
+		bot.model:SetAttribute("SkyfallRole", "Spectator")
+		bot.humanoid.WalkSpeed = 0
+		bot.humanoid.JumpPower = 0
+		bot.root.Anchored = false
+		for index, candidate in ipairs(self.bots) do
+			if candidate == bot then
+				bot.model:PivotTo(self.arena:GetLobbySpawnCFrame(index, #self.bots, true))
+				break
+			end
+		end
+		bot.root.AssemblyLinearVelocity = Vector3.zero
+		bot.root.AssemblyAngularVelocity = Vector3.zero
+	end
+	return true
+end
+
 function BotService:SetWinner(winnerBot)
 	for _, bot in ipairs(self.bots) do
 		bot.alive = false

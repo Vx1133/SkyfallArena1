@@ -97,7 +97,7 @@
 ## 9. Review and delivery
 - [x] Perform an independent code review or documented self-review if no reviewer agent is available. Evidence: self-review found and fixed a dead stale human Runner fallback issue, plus two CI blockers (an extra `end` and seven Luau style warnings); see latest recovery checkpoint.
 - [x] Resolve all critical and important findings found in the self-review. Runtime/device findings remain unverified, not assumed clear.
-- [ ] Create a Pull Request against `main`.
+- [x] Create Pull Request #18 against `main` as a draft, not merged: https://github.com/Vx1133/SkyfallArena1/pull/18
 - [x] Confirm CI results for structural validation, Selene, and Rojo build. Evidence: GitHub Actions run `43887761737` succeeded on commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
 - [ ] Do not merge or publish this update.
 
@@ -235,3 +235,10 @@ Continue from this branch and commit. Do not restart the Update #18 implementati
 - [ ] Run the cloud smoke tests against the exact uploaded private place version and inspect the success marker/logs.
 - [ ] Run Device Simulator and real-phone checks, then test with at least two clients.
 - [ ] Create the Update #18 Pull Request against `main` after final checks. Keep it unmerged and do not publish publicly.
+
+
+## Pull Request checkpoint (2026-11-16)
+- [x] Draft Pull Request #18 created against `main`: https://github.com/Vx1133/SkyfallArena1/pull/18
+- PR head when opened: `bbfd1404718529a00672751f1740105054e5832e`.
+- PR is open and unmerged. No Roblox upload or public release occurred.
+- The PR description records the successful repository CI run and leaves cloud/device/multiplayer verification explicitly pending.

@@ -956,7 +956,7 @@ runTest("Pilot Priority selects only manually opted-in humans and prevents a leg
 
 	local harness = setmetatable({
 		roundNumber = 2,
-		readyPlayers = {},
+		readyPlayers = { [lowPriority] = true, [highPriority] = true },
 		pilotPriority = priority,
 		botService = {
 			GetBots = function()

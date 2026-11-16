@@ -801,6 +801,8 @@ runTest("Timeout gives every living human Runner a win and ten Pilot Priority po
 	local first = makeFakePlayer("CoWinnerA", "Runner")
 	local second = makeFakePlayer("CoWinnerB", "Runner")
 	local eliminated = makeFakePlayer("EliminatedRunner", "Spectator")
+	local deadRunner = makeFakePlayer("DeadButStaleRunner", "Runner")
+	deadRunner.Character.Humanoid.Health = 0
 	local botController = {
 		name = "RoundController",
 		model = {Parent = Workspace},
@@ -808,7 +810,7 @@ runTest("Timeout gives every living human Runner a win and ten Pilot Priority po
 		alive = false,
 	}
 	local priority = PilotPriorityService.new(Random.new(19))
-	for _, player in ipairs({first, second, eliminated}) do
+	for _, player in ipairs({first, second, eliminated, deadRunner}) do
 		priority:Initialize(player)
 	end
 	local firstWins = {Value = 0}
@@ -816,19 +818,21 @@ runTest("Timeout gives every living human Runner a win and ten Pilot Priority po
 	local eliminatedWins = {Value = 0}
 	local harness = setmetatable({
 		elapsedSeconds = Config.ROUND_SECONDS,
-		aliveRunners = {[first] = true, [second] = true},
+		aliveRunners = {[first] = true, [second] = true, [deadRunner] = true},
 		roundRunners = {
 			[first] = {kind = "Player", value = first},
 			[second] = {kind = "Player", value = second},
 			[eliminated] = {kind = "Player", value = eliminated},
+			[deadRunner] = {kind = "Player", value = deadRunner},
 		},
-		survivalTimes = {[first] = 180, [second] = 180, [eliminated] = 100},
+		survivalTimes = {[first] = 180, [second] = 180, [eliminated] = 100, [deadRunner] = 180},
 		controller = {kind = "Bot", value = botController},
 		botService = {GetAliveBots = function() return {} end},
 		stats = {
 			[first] = {wins = firstWins},
 			[second] = {wins = secondWins},
 			[eliminated] = {wins = eliminatedWins},
+			[deadRunner] = {wins = {Value = 0}},
 		},
 		pilotPriority = priority,
 		random = Random.new(123),
@@ -842,6 +846,9 @@ runTest("Timeout gives every living human Runner a win and ten Pilot Priority po
 	assert(priority:GetScore(first) == 10 and priority:GetScore(second) == 10,
 		"Every human co-winner must receive ten Pilot Priority points")
 	assert(priority:GetScore(eliminated) == 0, "Eliminated players must not receive winner points")
+	assert(deadRunner.attributes.SkyfallRole == "Runner" and deadRunner.Character.Humanoid.Health == 0,
+		"Stale alive roster entries must not count a dead humanoid as a co-winner")
+	assert(priority:GetScore(deadRunner) == 0, "Dead stale roster entries must not receive winner priority")
 end)
 
 runTest("A single living human Runner wins before timeout even if bots remain", function()
@@ -900,6 +907,30 @@ runTest("If no Runner remains, a valid human Controller receives the win and pri
 	assert(#winners == 1 and winners[1].value == controller, "The current Controller must win when no Runner remains")
 	assert(wins.Value == 1 and priority:GetScore(controller) == 10,
 		"A human Controller winner must receive one win and ten Pilot Priority points")
+end)
+
+runTest("A winning human Controller is restored from hidden drone state", function()
+	local controller = makeFakePlayer("HiddenController", "Controller")
+	local priority = PilotPriorityService.new(Random.new(31))
+	priority:Initialize(controller)
+	local wins = {Value = 0}
+	local placedAtLobby = false
+	local harness = setmetatable({
+		controller = {kind = "Player", value = controller},
+		stats = {[controller] = {wins = wins}},
+		pilotPriority = priority,
+		_placePlayer = function(_, player, spawnCFrame)
+			placedAtLobby = player == controller and spawnCFrame ~= nil
+			return true
+		end,
+		_lobbySpawnForPlayer = function() return CFrame.new(0, 75, 0) end,
+	}, RoundService)
+	local winners = {{kind = "Player", value = controller}}
+	harness:_awardWinners(winners)
+	assert(placedAtLobby, "A winning Controller must be restored to a visible lobby spawn")
+	assert(controller.attributes.SkyfallRole == "Winner", "Controller winner must enter the Winner role")
+	assert(wins.Value == 1 and priority:GetScore(controller) == 10,
+		"Controller winner must receive one win and ten Pilot Priority points")
 end)
 
 runTest("Winner broadcast contains only safe names and role strings", function()
@@ -1116,6 +1147,21 @@ runTest("Bubble hold restores movement and physics state exactly once", function
 	fakeTargetPlayer:SetAttribute("SkyfallRole", "Controller")
 	assert(roleHold.released and root.Anchored == false and humanoid.WalkSpeed == 18,
 		"Changing the target out of Runner role must immediately release the hold")
+
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Runner")
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A new hold should start after the first role-change release")
+	local winnerHold = service.holdsByHumanoid[humanoid]
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Winner")
+	assert(winnerHold.released and root.Anchored == true,
+		"Round cleanup must not unanchor a target after it has been declared a winner")
+
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Runner")
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A further hold should start after the winner state is reset")
+	local deathHold = service.holdsByHumanoid[humanoid]
+	humanoid.Health = 0
+	assert(deathHold.released, "A target Humanoid death must immediately release the hold")
 	for _, event in pairs(fakeTargetPlayer.attributeSignals or {}) do event:Destroy() end
 	model:Destroy()
 	remote:Destroy()

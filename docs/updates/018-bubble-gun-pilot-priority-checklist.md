@@ -120,3 +120,34 @@
 - `src/client/HUD.client.lua`: add only the small DRONE percentage text, update on the score attribute, and keep it away from thumbstick/safe-area edges.
 - `tests/cloud_smoke_tests.luau` and `tools/validate_project.py`: add regression and structural checks.
 - Reviewed but planned unchanged: `StrikeService.lua`, `BotService.lua`, `Audio.client.lua`, `default.project.json`, and `ArenaService.lua`. Their current interfaces already support the requested integration. No external models, DataStore, map edits, laser edits, or publishing workflow changes.
+
+
+## Recovery checkpoint (2026-11-16)
+All work below is committed to `feat/018-bubble-blaster-pilot-priority`. The previous tool interruption did not discard these files.
+
+### Persisted files
+| File | Current blob SHA | State |
+|---|---|---|
+| `src/shared/GameConfig.lua` | `2dbba5161a3f4be69dd4649dbed222dcecbf7742` | Implemented draft, not yet runtime-verified |
+| `src/server/Bootstrap.server.lua` | `72b318835fc8b0e6360c1a06339d1d1f28e9228c` | Implemented draft, not yet runtime-verified |
+| `src/server/Services/RoundService.lua` | `aa635b8c8419c6ff19d3f46e536a1403ae5498ec` | Implemented draft, not yet runtime-verified |
+| `src/server/Services/BubbleGunService.lua` | `f385475eee57dac6d6cf0298c1b28a82fa82fd61` | Implemented draft, not yet runtime-verified |
+| `src/server/Services/PilotPriorityService.lua` | `60ce6b524e56b2b2e01c81d0682981f6454b28b6` | Implemented draft, not yet runtime-verified |
+| `src/client/BubbleGun.client.lua` | `427241b3020ab7ce921a163398cca3495eaf6210` | Implemented draft, not yet runtime-verified |
+
+### Exact resume point
+- [ ] Finish Pilot Priority lifecycle and multiple-winner integration in RoundService, then inspect it for edge cases.
+- [ ] Finish the compact Pilot Priority HUD in `src/client/HUD.client.lua`.
+- [ ] Review and repair BubbleGunService security, ownership, prompt, projectile, hold restoration, and lifecycle cleanup.
+- [ ] Expand `tests/cloud_smoke_tests.luau` for Bubble Blaster, Pilot Priority selection/rewards, and multiple human winners.
+- [ ] Update `tools/validate_project.py` to assert new modules, remotes, configuration, and protected systems.
+- [ ] Run structural validation, Selene, and Rojo build with fresh output.
+- [ ] Review full diff and create PR only after checks are green.
+
+### Known verification status at checkpoint
+- Checklist and implementation plan: committed.
+- New BubbleGunService, PilotPriorityService, BubbleGun client, config constants, Bootstrap wiring, and RoundService draft: committed.
+- Automated tests, Selene, Rojo build, phone simulator, real-phone input, and real multiplayer: not yet run for Update #18.
+- Pull Request: not created.
+- Merge and Roblox publish: not performed.
+- Do not mark any implementation checkbox complete until its tests/evidence exist.

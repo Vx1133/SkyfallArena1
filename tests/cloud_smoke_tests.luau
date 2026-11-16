@@ -799,6 +799,9 @@ runTest("Owner debug control overrides first-round bot selection and can take ov
 		debugPreviousController = nil,
 		controller = {kind = "Player", value = priorController},
 		aliveRunners = {[debugPlayer] = true},
+		roundRunners = {[debugPlayer] = {kind = "Player", value = debugPlayer}},
+		survivalTimes = {[debugPlayer] = 45},
+		roundRunnerCount = 1,
 		_broadcast = function() end,
 		_movePlayerToSpectator = function(_, player)
 			player:SetAttribute("SkyfallRole", "Spectator")

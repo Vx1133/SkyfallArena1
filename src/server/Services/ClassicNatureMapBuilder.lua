@@ -2,8 +2,8 @@
 -- Organic floating sanctuary for the Classic map. Geometry stays outside the playable grid.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
-local Factory = require(script.Parent:WaitForChild("MapDecorationFactory"))
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("WorldDesignProfile", 8))
+local Factory = require(script.Parent:WaitForChild("MapDecorationFactory", 8))
 
 local ClassicNatureMapBuilder = {}
 

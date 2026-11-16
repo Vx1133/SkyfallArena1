@@ -742,6 +742,96 @@ runTest("The longest-surviving runner is selected as the next controller", funct
 	assert(winner and winner.value == longRunner, "The runner with the highest survival time should win")
 end)
 
+runTest("Owner debug control overrides first-round bot selection and can take over an active round", function()
+	local function makePlayer(name)
+		local fakePlayer = {Name = name, Parent = Players, attributes = {}}
+		function fakePlayer:SetAttribute(attributeName, value)
+			self.attributes[attributeName] = value
+		end
+		return fakePlayer
+	end
+
+	local debugPlayer = makePlayer("DebugOwner")
+	local testBot = {
+		name = "DebugPriorityBot",
+		model = {Parent = Workspace},
+		humanoid = {Health = 100},
+	}
+	local preRoundHarness = setmetatable({
+		phase = "Waiting",
+		roundNumber = 1,
+		readyPlayers = {},
+		debugAutoReady = {},
+		debugControllerPlayer = nil,
+		botService = {
+			GetBots = function()
+				return {testBot}
+			end,
+		},
+		random = {
+			NextInteger = function(_, minimum)
+				return minimum
+			end,
+		},
+		_getReadyPlayers = function()
+			return {debugPlayer}
+		end,
+		_broadcast = function() end,
+	}, RoundService)
+
+	assert(preRoundHarness:RequestDebugController(debugPlayer, true), "An owner debug request should be accepted before the round")
+	assert(debugPlayer.attributes.SkyfallDebugDroneEnabled == true, "The debug attribute should turn on")
+	assert(preRoundHarness.readyPlayers[debugPlayer] == true, "The debug player should be queued for the next round")
+	local selected = preRoundHarness:_chooseController()
+	assert(selected and selected.kind == "Player" and selected.value == debugPlayer,
+		"The debug owner must override the normal first-round solo-bot rule")
+
+	assert(preRoundHarness:RequestDebugController(debugPlayer, false), "The owner should be able to disable debug mode")
+	assert(debugPlayer.attributes.SkyfallDebugDroneEnabled == false, "The debug attribute should turn off")
+	assert(preRoundHarness.readyPlayers[debugPlayer] == nil, "A debug-only ready request should be removed when disabled")
+
+	local priorController = makePlayer("PriorController")
+	local activeHarness = setmetatable({
+		phase = "Active",
+		readyPlayers = {},
+		debugAutoReady = {},
+		debugControllerPlayer = nil,
+		debugPreviousController = nil,
+		controller = {kind = "Player", value = priorController},
+		aliveRunners = {[debugPlayer] = true},
+		_broadcast = function() end,
+		_movePlayerToSpectator = function(_, player)
+			player:SetAttribute("SkyfallRole", "Spectator")
+		end,
+		_setArenaStreamingFocus = function() return true end,
+		_setPlayerControllerHidden = function(_, player, hidden)
+			player.hiddenForController = hidden
+		end,
+		_recordSurvival = function(self, candidate)
+			self.recordedDebugSurvival = candidate.value
+		end,
+		_isCandidateValid = function(_, candidate)
+			return candidate ~= nil and candidate.value.Parent == Players
+		end,
+	}, RoundService)
+
+	assert(activeHarness:RequestDebugController(debugPlayer, true), "An owner should be able to take over during an active round")
+	assert(activeHarness.controller.kind == "Player" and activeHarness.controller.value == debugPlayer,
+		"The owner should become the active controller immediately")
+	assert(activeHarness.aliveRunners[debugPlayer] == nil, "A debug controller must be removed from the runner roster")
+	assert(activeHarness.recordedDebugSurvival == debugPlayer, "Survival time should be recorded before the takeover")
+	assert(priorController.attributes.SkyfallRole == "Spectator", "The replaced controller should be moved out of the controller role")
+
+	assert(activeHarness:RequestDebugController(debugPlayer, false), "The owner should be able to release active debug control")
+	assert(activeHarness.controller.value == priorController, "The previous valid controller should be restored")
+	assert(priorController.attributes.SkyfallRole == "Controller", "The previous controller role should be restored")
+
+	assert(AdminFlightService.IsAuthorizedUserId(9001, Enum.CreatorType.User, 9001),
+		"The personal experience owner should pass the server authorization check")
+	assert(not AdminFlightService.IsAuthorizedUserId(9001, Enum.CreatorType.Group, 9001),
+		"A group ID match must not authorize a player debug request")
+end)
+
 runTest("Human laser requests validate the controller, coordinates, phase, and three-second cooldown", function()
 	local controller = {UserId = 8675309}
 	local canControl = false

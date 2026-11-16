@@ -36,7 +36,7 @@ reticleGui.ResetOnSpawn = false
 reticleGui.IgnoreGuiInset = true
 reticleGui.DisplayOrder = 25
 reticleGui.Enabled = false
-reticleGui.Parent = player:WaitForChild("PlayerGui")
+reticleGui.Parent = playerGui
 
 local reticle = Instance.new("Frame")
 reticle.Name = "Reticle"

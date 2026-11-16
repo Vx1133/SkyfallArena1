@@ -54,9 +54,9 @@ local arena
 
 local function makeFakePlayer(name, role)
 	local fakeHumanoid = {Health = 100}
-	local fakeCharacter = {}
+	local fakeCharacter = {Humanoid = fakeHumanoid}
 	function fakeCharacter:FindFirstChildOfClass(className)
-		return className == "Humanoid" and fakeHumanoid or nil
+		return className == "Humanoid" and self.Humanoid or nil
 	end
 	function fakeCharacter:FindFirstChild()
 		return nil

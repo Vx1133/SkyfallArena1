@@ -281,6 +281,10 @@ for forbidden in ("MarketplaceService", "InsertService", "DataStoreService"):
     require(forbidden not in bubble_source, f"Bubble Blaster must not use external assets or purchases: {forbidden}")
 require("self.lifecycleToken" in bubble_source and "activeProjectiles" in bubble_source,
         "Bubble shots must be invalidated on round cleanup")
+
+duplicate_cleanup = bubble_source.split("function BubbleGunService:_removeDuplicateTools(player, keep)", 1)[1].split("function BubbleGunService:_grant(player)", 1)[0]
+require(sum(line.strip() == "end" for line in duplicate_cleanup.splitlines()) == 6,
+        "Duplicate Tool cleanup must close each conditional, loop, and function exactly once")
 require("record.direction * Config.BUBBLE_GUN_RANGE" in bubble_source,
         "Bubble target must be re-raycast for range and line-of-sight at impact")
 require('targetPlayer:GetAttribute("SkyfallRole") == "Runner"' in bubble_source,

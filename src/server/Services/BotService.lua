@@ -462,6 +462,7 @@ end
 
 function BotService:IsRigReady(bot)
 	return bot ~= nil
+		and bot.rigBuildState == "Ready"
 		and bot.model ~= nil
 		and bot.model.Parent ~= nil
 		and bot.humanoid ~= nil

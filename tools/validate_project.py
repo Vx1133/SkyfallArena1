@@ -637,7 +637,7 @@ for feature in (
     "Lobby streaming focus is added and removed once without changing global radius",
     "Late joiners during an active round are routed to the observation lobby",
     "Round map rotation alternates Classic and Cyberpunk deterministically",
-    "Cyberpunk map switches cleanly without changing the destructible grid",
+    "Classic and Cyberpunk have disjoint layouts and share only the lobby surface finish",
     "A stale disabled debug toggle cannot override normal controller selection",
     "Round cleanup does not auto-ready a debug player after the toggle is disabled",
     "Debug drone request requires both the matching player and a true server attribute",

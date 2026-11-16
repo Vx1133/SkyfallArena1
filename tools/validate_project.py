@@ -245,8 +245,12 @@ for lua_path in (ROOT / "src").rglob("*.lua"):
         require(token not in source_text, f"Global Lighting write outside LightingProfileService: {token} in {lua_path.relative_to(ROOT)}")
 require('Instance.new("Clouds")' not in arena_source, "Unsupported global Clouds effect must remain absent")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
-require("Vector3.new(width + 26, 2, width + 26)" in arena_source, "The arena foundation must be thin")
-require("support.CanCollide = false" in arena_source, "The foundation must not catch falling players")
+require("ClassicNatureMapBuilder.Build(" in arena_source and "CyberpunkMapBuilder.Build(" in arena_source,
+        "ArenaService must delegate all map decoration to dedicated map builders")
+require("Vector3.new(width + 26, 2, width + 26)" not in arena_source,
+        "The old full-width hidden support slab must not return")
+require("part.CanCollide = false" in (ROOT / "src/server/Services/MapDecorationFactory.lua").read_text(encoding="utf-8"),
+        "Generated map decoration must remain non-collidable")
 require("AircraftMotionAnchor" in arena_source and "AircraftBodyJoint" in arena_source, "The aircraft needs one central body-motion joint")
 require("AircraftUnifiedWeld" in arena_source, "All aircraft parts must be welded to the fuselage")
 require("ControllerLensGimbal" not in arena_source, "An independently moving lens gimbal must not remain")

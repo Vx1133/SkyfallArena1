@@ -162,6 +162,8 @@ function BubbleGunService.new(arenaService, roundService, botService, shotRemote
 	self.cooldowns = {}
 	self.activeHolds = {}
 	self.holdsByHumanoid = {}
+	self.activeProjectiles = {}
+	self.lifecycleToken = 0
 	self.running = false
 	return self
 end
@@ -187,7 +189,9 @@ end
 function BubbleGunService:_buildLobbyStation()
 	local folder = self.arena.lobbyFolder
 	local center = Config.LOBBY_CENTER
-	local standCenter = center + Vector3.new(0, 2.1, -11)
+	-- Place the station beside the first lobby spawn, on the side of the view,
+	-- so the proximity prompt is reachable without crossing the PLAY button.
+	local standCenter = center + Vector3.new(Config.LOBBY_SPAWN_RADIUS - 7, 2.1, -8)
 
 	local stand = Instance.new("Model")
 	stand.Name = "BubbleBlasterTrialStand"
@@ -245,7 +249,7 @@ function BubbleGunService:_buildLobbyStation()
 		target,
 		"TargetCore",
 		Vector3.new(3.2, 3.2, 3.2),
-		CFrame.new(center + Vector3.new(0, 4.5, -28)),
+		CFrame.new(standCenter + Vector3.new(0, 4.5, -10)),
 		Color3.fromRGB(244, 246, 237),
 		Enum.Material.SmoothPlastic,
 		Enum.PartType.Ball,
@@ -356,6 +360,7 @@ function BubbleGunService:_bindPlayer(player)
 		end)
 	end)
 	player.CharacterRemoving:Connect(function(character)
+		self:_cancelProjectilesForPlayer(player)
 		local humanoid = character:FindFirstChildOfClass("Humanoid")
 		local hold = humanoid and self.holdsByHumanoid[humanoid]
 		if hold then
@@ -370,10 +375,11 @@ function BubbleGunService:_findTarget(player, hitInstance)
 		for _, targetPlayer in ipairs(Players:GetPlayers()) do
 			if targetPlayer ~= player
 				and targetPlayer.Character == hitModel
+				and targetPlayer:GetAttribute("SkyfallRole") == "Runner"
 				and self.rounds:IsAliveRunner(targetPlayer)
 			then
 				local humanoid = hitModel:FindFirstChildOfClass("Humanoid")
-				return humanoid and {
+				return humanoid and humanoid.Health > 0 and {
 					kind = "Player",
 					player = targetPlayer,
 					model = hitModel,
@@ -385,6 +391,8 @@ function BubbleGunService:_findTarget(player, hitInstance)
 		for _, bot in ipairs(self.botService:GetAliveBots()) do
 			if bot.model == hitModel
 				and bot.alive
+				and bot.humanoid
+				and bot.humanoid.Health > 0
 				and bot.model:GetAttribute("SkyfallRole") == "Runner"
 			then
 				return {
@@ -411,12 +419,12 @@ function BubbleGunService:_findTarget(player, hitInstance)
 	return nil
 end
 
-function BubbleGunService:_showTrainingHit(part)
+function BubbleGunService:_showBurst(position)
 	local bubble = createPart(
 		Workspace,
-		"BubbleTrainingHit",
+		"BubbleImpactBurst",
 		Vector3.new(0.5, 0.5, 0.5),
-		part.CFrame,
+		CFrame.new(position),
 		Color3.fromRGB(104, 231, 235),
 		Enum.Material.Glass,
 		Enum.PartType.Ball,
@@ -424,6 +432,7 @@ function BubbleGunService:_showTrainingHit(part)
 	)
 	bubble.Transparency = 0.35
 	bubble.CanQuery = false
+	bubble.CanCollide = false
 	local tween = TweenService:Create(
 		bubble,
 		TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
@@ -431,6 +440,12 @@ function BubbleGunService:_showTrainingHit(part)
 	)
 	tween:Play()
 	Debris:AddItem(bubble, 0.4)
+end
+
+function BubbleGunService:_showTrainingHit(part)
+	if part and part.Parent then
+		self:_showBurst(part.Position)
+	end
 end
 
 function BubbleGunService:_releaseHold(hold)
@@ -546,7 +561,23 @@ function BubbleGunService:_holdTarget(target, shooter)
 	return true
 end
 
-function BubbleGunService:_fireProjectile(player, origin, direction, hit, target)
+function BubbleGunService:_isValidShooter(player, tool, activeRound)
+	if not player or player.Parent ~= Players or not tool or not tool:IsA("Tool") then
+		return false
+	end
+	local character = player.Character
+	if not character or tool.Parent ~= character then
+		return false
+	end
+	if activeRound then
+		return self.rounds:IsActive()
+			and self.rounds:IsAliveRunner(player)
+			and player:GetAttribute("SkyfallRole") == "Runner"
+	end
+	return not self.rounds:IsActive() and player:GetAttribute("SkyfallRole") == "Waiting"
+end
+
+function BubbleGunService:_fireProjectile(player, origin, direction, hit, target, tool, activeRound)
 	local endPosition = hit and hit.Position or (origin + direction * Config.BUBBLE_GUN_RANGE)
 	local distance = (endPosition - origin).Magnitude
 	local duration = math.clamp(distance / 150, 0.08, 0.42)
@@ -562,6 +593,7 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 	)
 	projectile.Transparency = 0.08
 	projectile.CanQuery = false
+	projectile.CanCollide = false
 	local light = Instance.new("PointLight")
 	light.Color = projectile.Color
 	light.Brightness = 1.4
@@ -573,15 +605,80 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 		TweenInfo.new(duration, Enum.EasingStyle.Linear),
 		{Position = endPosition}
 	)
+	self.activeProjectiles[projectile] = {
+		shooter = player,
+		tool = tool,
+		activeRound = activeRound,
+		token = self.lifecycleToken,
+		tween = tween,
+		hitInstance = hit and hit.Instance or nil,
+		hitPosition = hit and hit.Position or nil,
+		target = target,
+	}
 	tween:Play()
-	Debris:AddItem(projectile, duration + 0.15)
+	Debris:AddItem(projectile, duration + 0.2)
+
 	task.delay(duration, function()
-		if target and target.kind == "Training" then
-			self:_showTrainingHit(target.part)
-		elseif target and target.kind ~= "Training" then
-			self:_holdTarget(target, player)
+		local record = self.activeProjectiles[projectile]
+		if not record then
+			return
+		end
+		self.activeProjectiles[projectile] = nil
+		if projectile.Parent then
+			projectile:Destroy()
+		end
+
+		if record.token ~= self.lifecycleToken
+			or not self:_isValidShooter(record.shooter, record.tool, record.activeRound)
+		then
+			return
+		end
+
+		if not record.target or not record.hitInstance then
+			return
+		end
+
+		-- Re-resolve the hit on the server at impact time. The target may have died,
+		-- left, changed role, or left the round while the projectile was travelling.
+		local currentTarget = self:_findTarget(record.shooter, record.hitInstance)
+		if not currentTarget
+			or currentTarget.kind ~= record.target.kind
+			or currentTarget.model ~= record.target.model
+			or currentTarget.humanoid ~= record.target.humanoid
+		then
+			if record.hitPosition then
+				self:_showBurst(record.hitPosition)
+			end
+			return
+		end
+
+		if currentTarget.kind == "Training" then
+			self:_showTrainingHit(currentTarget.part)
+		elseif not currentTarget.humanoid or currentTarget.humanoid.Health <= 0 then
+			self:_showBurst(record.hitPosition or endPosition)
+		else
+			self:_holdTarget(currentTarget, record.shooter)
 		end
 	end)
+end
+
+function BubbleGunService:_cancelProjectilesForPlayer(player)
+	local projectiles = {}
+	for projectile, record in pairs(self.activeProjectiles) do
+		if record.shooter == player then
+			table.insert(projectiles, projectile)
+		end
+	end
+	for _, projectile in ipairs(projectiles) do
+		local record = self.activeProjectiles[projectile]
+		self.activeProjectiles[projectile] = nil
+		if record and record.tween then
+			record.tween:Cancel()
+		end
+		if projectile.Parent then
+			projectile:Destroy()
+		end
+	end
 end
 
 function BubbleGunService:_handleShot(player, direction)
@@ -614,6 +711,10 @@ function BubbleGunService:_handleShot(player, direction)
 		return false
 	end
 
+	if not self:_isValidShooter(player, tool, activeRound) then
+		return false
+	end
+
 	local now = os.clock()
 	if now < (self.cooldowns[player] or 0) then
 		return false
@@ -628,13 +729,13 @@ function BubbleGunService:_handleShot(player, direction)
 	parameters.IgnoreWater = true
 	local hit = Workspace:Raycast(origin, unitDirection * Config.BUBBLE_GUN_RANGE, parameters)
 	if not hit then
-		self:_fireProjectile(player, origin, unitDirection, nil, nil)
+		self:_fireProjectile(player, origin, unitDirection, nil, nil, tool, activeRound)
 		return true
 	end
 
 	local target = self:_findTarget(player, hit.Instance)
 	if not target then
-		self:_fireProjectile(player, origin, unitDirection, hit, nil)
+		self:_fireProjectile(player, origin, unitDirection, hit, nil, tool, activeRound)
 		return true
 	end
 	if target.humanoid and self.holdsByHumanoid[target.humanoid] then
@@ -642,11 +743,26 @@ function BubbleGunService:_handleShot(player, direction)
 		return true
 	end
 
-	self:_fireProjectile(player, origin, unitDirection, hit, target)
+	self:_fireProjectile(player, origin, unitDirection, hit, target, tool, activeRound)
 	return true
 end
 
 function BubbleGunService:ClearAll()
+	self.lifecycleToken += 1
+	local pendingProjectiles = {}
+	for projectile, record in pairs(self.activeProjectiles) do
+		table.insert(pendingProjectiles, {projectile = projectile, tween = record.tween})
+	end
+	for _, pending in ipairs(pendingProjectiles) do
+		self.activeProjectiles[pending.projectile] = nil
+		if pending.tween then
+			pending.tween:Cancel()
+		end
+		if pending.projectile.Parent then
+			pending.projectile:Destroy()
+		end
+	end
+
 	local holds = {}
 	for hold in pairs(self.activeHolds) do
 		table.insert(holds, hold)
@@ -673,8 +789,9 @@ function BubbleGunService:Start()
 	Players.PlayerRemoving:Connect(function(player)
 		self.cooldowns[player] = nil
 		local holdsToRelease = {}
+		self:_cancelProjectilesForPlayer(player)
 		for hold in pairs(self.activeHolds) do
-			if hold.player == player then
+			if hold.player == player or hold.shooter == player then
 				table.insert(holdsToRelease, hold)
 			end
 		end

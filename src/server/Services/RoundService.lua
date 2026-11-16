@@ -199,6 +199,7 @@ function RoundService:_bindPlayer(player)
 	player:SetAttribute("SkyfallRole", "Waiting")
 	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallPilotOptIn", false)
+	player:SetAttribute("SkyfallAircraftControlActive", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
 	self.characterSerial[player] = 0
 	self:_setArenaStreamingFocus(player, true)
@@ -260,9 +261,16 @@ function RoundService:RequestPlay(player)
 end
 
 function RoundService:RequestPilotOptIn(player, enabled)
-	if not player or player.Parent ~= Players or self.phase ~= "Waiting" or typeof(enabled) ~= "boolean" then
+	if not player or player.Parent ~= Players or typeof(enabled) ~= "boolean" then
 		return false
 	end
+
+	local waiting = self.phase == "Waiting"
+	local readyForIntermission = self.phase == "Intermission" and self.readyPlayers[player] == true
+	if not waiting and not readyForIntermission then
+		return false
+	end
+
 	player:SetAttribute("SkyfallPilotOptIn", enabled)
 	return true
 end
@@ -451,23 +459,27 @@ function RoundService:_clearReadyPlayers()
 	for player in pairs(self.readyPlayers) do
 		if player.Parent == Players then
 			player:SetAttribute("SkyfallReady", false)
+			player:SetAttribute("SkyfallPilotOptIn", false)
+			player:SetAttribute("SkyfallAircraftControlActive", false)
 		end
 	end
 	self.readyPlayers = {}
 	self.roundHumanCount = 0
 
-	-- Preserve the owner debug request only while the server-side toggle is still enabled.
+	-- Owner debug control is a one-round manual test override, never a persistent
+	-- auto-ready state. The owner must explicitly enable it again for another round.
 	local debugPlayer = self.debugControllerPlayer
-	if debugPlayer and self:_isDebugControllerRequested(debugPlayer) then
-		self.readyPlayers[debugPlayer] = true
-		self.debugAutoReady[debugPlayer] = true
-		debugPlayer:SetAttribute("SkyfallReady", true)
-	elseif debugPlayer then
-		self:_clearStaleDebugControllerRequest(debugPlayer)
+	if debugPlayer and debugPlayer.Parent == Players then
+		debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)
 	end
+	self.debugControllerPlayer = nil
+	self.debugPreviousController = nil
+	self.debugAutoReady = {}
 end
 
 function RoundService:_setPlayerControllerHidden(player, hidden, characterOverride)
+	player:SetAttribute("SkyfallAircraftControlActive", hidden == true)
+
 	if hidden then
 		local aircraft = self.arena and self.arena.aircraftModel
 		local focusPart = aircraft and aircraft.PrimaryPart
@@ -722,7 +734,9 @@ function RoundService:_chooseNextMapId()
 end
 
 function RoundService:_chooseController(readyPlayerOverride)
-	-- The owner-only debug request is an override only while the explicit toggle remains enabled.
+	local readyPlayers = readyPlayerOverride or self:_getReadyPlayers()
+
+	-- The owner-only debug request is an explicit manual override for this round.
 	local debugPlayer = self.debugControllerPlayer
 	if debugPlayer and self:_isDebugControllerRequested(debugPlayer) and self.readyPlayers[debugPlayer] then
 		if self.pilotPriority then
@@ -733,34 +747,38 @@ function RoundService:_chooseController(readyPlayerOverride)
 		self:_clearStaleDebugControllerRequest(debugPlayer)
 	end
 
-	local readyPlayers = readyPlayerOverride or self:_getReadyPlayers()
-	local optedInPlayers = PilotOptInPolicy.Filter(readyPlayers, function(candidate)
-		return candidate:GetAttribute("SkyfallPilotOptIn") == true
-	end)
+	local controllerKind, candidates = PilotOptInPolicy.ResolveCandidates(
+		readyPlayers,
+		self.botService and self.botService:GetBots() or {},
+		function(candidate)
+			return candidate.Parent == Players
+				and self.readyPlayers[candidate] == true
+				and candidate:GetAttribute("SkyfallPilotOptIn") == true
+		end,
+		function(bot)
+			return self:_isCandidateValid({ kind = "Bot", value = bot })
+		end
+	)
 
-	-- A human may control the aircraft only after explicitly switching PILOT on.
-	if #optedInPlayers > 0 then
+	if controllerKind == "Player" then
 		local selectedPlayer = nil
 		if self.pilotPriority then
-			selectedPlayer = self.pilotPriority:ChooseController(optedInPlayers)
+			selectedPlayer = self.pilotPriority:ChooseController(candidates)
 		end
 		if not selectedPlayer then
-			selectedPlayer = optedInPlayers[self.random:NextInteger(1, #optedInPlayers)]
+			selectedPlayer = candidates[self.random:NextInteger(1, #candidates)]
 		end
 		return { kind = "Player", value = selectedPlayer }
+	elseif controllerKind == "Bot" then
+		return {
+			kind = "Bot",
+			value = candidates[self.random:NextInteger(1, #candidates)],
+		}
 	end
 
-	-- Without an explicit human opt-in, keep the controller role on a bot.
-	local botCandidates = {}
-	for _, bot in ipairs(self.botService:GetBots()) do
-		if self:_isCandidateValid({ kind = "Bot", value = bot }) then
-			table.insert(botCandidates, { kind = "Bot", value = bot })
-		end
-	end
-	if #botCandidates == 0 then
-		return nil
-	end
-	return botCandidates[self.random:NextInteger(1, #botCandidates)]
+	-- No valid bot and no explicitly opted-in human: fail closed. Never convert
+	-- the only human into the aircraft controller as a fallback.
+	return nil
 end
 
 function RoundService:_aliveRunnerCount()
@@ -1193,6 +1211,19 @@ function RoundService:_runRound()
 		return
 	end
 
+	-- Resolve the controller before entering Active or changing any human state.
+	local selectedController = self:_chooseController(playersInRound)
+	for _, player in ipairs(playersInRound) do
+		player:SetAttribute("SkyfallPilotOptIn", false)
+	end
+	if not selectedController then
+		self.phase = "Waiting"
+		self.controller = nil
+		self:_clearReadyPlayers()
+		self:_broadcast()
+		return
+	end
+
 	self.roundNumber += 1
 	self.arena:SetMap(self:_chooseNextMapId())
 	self.aliveRunners = {}
@@ -1205,17 +1236,9 @@ function RoundService:_runRound()
 	self.winnerCandidate = nil
 	self.debugPreviousController = nil
 	self.roundStartedAt = os.clock()
+	self.controller = selectedController
 	self.phase = "Active"
-
-	self.controller = self:_chooseController()
-	for _, player in ipairs(playersInRound) do
-		player:SetAttribute("SkyfallPilotOptIn", false)
-	end
-	if not self.controller then
-		self.phase = "Waiting"
-		return
-	end
-
+	
 	local controllerPlayer = self.controller.kind == "Player" and self.controller.value or nil
 	local controllerBot = self.controller.kind == "Bot" and self.controller.value or nil
 	local botList = self.botService:GetBots()

@@ -164,6 +164,65 @@ local function getRole()
 	return player:GetAttribute("SkyfallRole") or "Waiting"
 end
 
+-- A separate safe-area ScreenGui keeps the priority indicator independent from
+-- the existing full-screen controller camera and top round HUD.
+local pilotGui = Instance.new("ScreenGui")
+pilotGui.Name = "SkyfallPilotPriorityHUD"
+pilotGui.ResetOnSpawn = false
+pilotGui.IgnoreGuiInset = false
+pilotGui.ScreenInsets = Enum.ScreenInsets.CoreUISafeInsets
+pilotGui.DisplayOrder = 21
+pilotGui.Enabled = false
+pilotGui.Parent = playerGui
+
+local pilotPanel = Instance.new("Frame")
+pilotPanel.Name = "PilotPriorityPanel"
+pilotPanel.AnchorPoint = Vector2.new(0, 1)
+pilotPanel.Position = UDim2.new(0, 12, 1, -8)
+pilotPanel.Size = UDim2.fromOffset(108, 20)
+pilotPanel.BackgroundColor3 = Color3.fromRGB(13, 25, 34)
+pilotPanel.BackgroundTransparency = 0.62
+pilotPanel.BorderSizePixel = 0
+pilotPanel.Parent = pilotGui
+
+local pilotCorner = Instance.new("UICorner")
+pilotCorner.CornerRadius = UDim.new(0, 6)
+pilotCorner.Parent = pilotPanel
+
+local pilotLabel = Instance.new("TextLabel")
+pilotLabel.Name = "PilotPriorityLabel"
+pilotLabel.Position = UDim2.fromOffset(5, 0)
+pilotLabel.Size = UDim2.new(1, -10, 1, 0)
+pilotLabel.BackgroundTransparency = 1
+pilotLabel.Font = Enum.Font.GothamBold
+pilotLabel.Text = "DRONE 0%"
+pilotLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+pilotLabel.TextSize = 11
+pilotLabel.TextXAlignment = Enum.TextXAlignment.Left
+pilotLabel.TextYAlignment = Enum.TextYAlignment.Center
+pilotLabel.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+pilotLabel.TextStrokeTransparency = 0.58
+pilotLabel.Parent = pilotPanel
+
+local pilotTextConstraint = Instance.new("UITextSizeConstraint")
+pilotTextConstraint.MinTextSize = 10
+pilotTextConstraint.MaxTextSize = 12
+pilotTextConstraint.Parent = pilotLabel
+
+local function updatePilotPriority()
+	local score = tonumber(player:GetAttribute("SkyfallPilotPriority")) or 0
+	local priority = math.clamp(math.floor(score), 0, 100)
+	local newText = "DRONE " .. tostring(priority) .. "%"
+	if pilotLabel.Text ~= newText then
+		pilotLabel.Text = newText
+	end
+end
+
+local function updatePilotPriorityVisibility()
+	local role = getRole()
+	pilotGui.Enabled = role == "Waiting" or role == "Runner"
+end
+
 -- The cooldown meter is shown only to the human who currently controls the drone.
 local cooldownPanel = Instance.new("Frame")
 cooldownPanel.Name = "LaserCooldownPanel"
@@ -324,9 +383,16 @@ stateRemote.OnClientEvent:Connect(function(newState)
 	updateHud()
 end)
 
-player:GetAttributeChangedSignal("SkyfallRole"):Connect(updateHud)
+player:GetAttributeChangedSignal("SkyfallRole"):Connect(function()
+	updateHud()
+	updatePilotPriorityVisibility()
+end)
 player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
+player:GetAttributeChangedSignal("SkyfallPilotPriority"):Connect(updatePilotPriority)
 player:GetAttributeChangedSignal("SkyfallLaserReadyAt"):Connect(updateLaserStatus)
+
+updatePilotPriority()
+updatePilotPriorityVisibility()
 
 local controllerCameraActive = false
 local previousFieldOfView = nil

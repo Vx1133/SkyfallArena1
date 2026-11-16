@@ -29,6 +29,9 @@ local RoundService = requireService("RoundService")
 local BotService = requireService("BotService")
 local StrikeService = requireService("StrikeService")
 local AdminFlightService = requireService("AdminFlightService")
+local PilotPriorityService = requireService("PilotPriorityService")
+local BubbleGunService = requireService("BubbleGunService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local passed = 0
 local failed = 0
@@ -48,6 +51,42 @@ local function runTest(name, callback)
 end
 
 local arena
+
+local function makeFakePlayer(name, role)
+	local fakeHumanoid = {Health = 100}
+	local fakeCharacter = {Humanoid = fakeHumanoid}
+	function fakeCharacter:FindFirstChildOfClass(className)
+		return className == "Humanoid" and self.Humanoid or nil
+	end
+	function fakeCharacter:FindFirstChild()
+		return nil
+	end
+	local fakePlayer = {
+		Name = name,
+		DisplayName = name,
+		Parent = Players,
+		attributes = {SkyfallRole = role},
+		Character = fakeCharacter,
+	}
+	function fakePlayer:SetAttribute(attributeName, value)
+		self.attributes[attributeName] = value
+		local signal = self.attributeSignals and self.attributeSignals[attributeName]
+		if signal then
+			signal:Fire()
+		end
+	end
+	function fakePlayer:GetAttribute(attributeName)
+		return self.attributes[attributeName]
+	end
+	function fakePlayer:GetAttributeChangedSignal(attributeName)
+		self.attributeSignals = self.attributeSignals or {}
+		if not self.attributeSignals[attributeName] then
+			self.attributeSignals[attributeName] = Instance.new("BindableEvent")
+		end
+		return self.attributeSignals[attributeName].Event
+	end
+	return fakePlayer
+end
 
 runTest("Arena builds one 15x15 destructible Classic arena for a 30-player experience", function()
 	assert(Config.GRID_SIZE == 15, "Expected a 15x15 tile grid")
@@ -646,52 +685,557 @@ runTest("Creator flight authorization only grants the personal experience owner"
 	assert(not AdminFlightService.IsAuthorizedUserId(12345, Enum.CreatorType.Group, 12345), "Group-owned experiences must not implicitly authorize a group member")
 end)
 
-runTest("Controller selection accepts a first controller and prioritizes the previous survivor", function()
-	local testBot = {
-		name = "CloudTestBot",
+runTest("Pilot Priority selects humans by score and prevents a legacy controller override", function()
+	local lowPriority = makeFakePlayer("LowPriority", "Runner")
+	local highPriority = makeFakePlayer("HighPriority", "Runner")
+	local bot = {
+		name = "LegacyNextBot",
 		model = {Parent = Workspace},
-		humanoid = {Health = 100, FloorMaterial = Enum.Material.Metal},
+		humanoid = {Health = 100},
+		alive = true,
 	}
-	local testBotService = {
-		GetBots = function() return {testBot} end,
-		GetAliveBots = function() return {testBot} end,
-	}
+	local priority = PilotPriorityService.new(Random.new(101))
+	priority:Initialize(lowPriority)
+	priority:Initialize(highPriority)
+	priority.scores[lowPriority] = 12
+	priority.scores[highPriority] = 68
+
 	local harness = setmetatable({
-		botService = testBotService,
-		random = Random.new(12345),
-		nextController = nil,
 		roundNumber = 2,
 		readyPlayers = {},
-		aliveRunners = {},
+		pilotPriority = priority,
+		botService = {GetBots = function() return {bot} end},
+		random = Random.new(12345),
+		nextController = {kind = "Bot", value = bot},
 	}, RoundService)
 
-	local firstController = harness:_chooseController()
-	assert(firstController ~= nil, "First round should select an available player or bot")
-	assert(harness:_isCandidateValid(firstController), "First-round controller must be valid")
+	local selected = harness:_chooseController({lowPriority, highPriority})
+	assert(selected and selected.kind == "Player" and selected.value == highPriority,
+		"Highest-priority ready human must override the legacy nextController value")
+	assert(priority:GetScore(highPriority) == 0, "Selected human priority must reset to zero")
 
-	harness.nextController = {kind = "Bot", value = testBot}
-	local nextController = harness:_chooseController()
-	assert(nextController and nextController.kind == "Bot", "Previous survivor kind should be retained")
-	assert(nextController.value == testBot, "Previous survivor should be the next controller")
+	local soloHarness = setmetatable({
+		roundNumber = 1,
+		readyPlayers = {},
+		pilotPriority = priority,
+		botService = {GetBots = function() return {bot} end},
+		random = Random.new(12345),
+	}, RoundService)
+	local soloController = soloHarness:_chooseController({lowPriority})
+	assert(soloController and soloController.kind == "Bot" and soloController.value == bot,
+		"The first solo-human round must keep a bot as Controller")
+
+	local fallbackHarness = setmetatable({
+		roundNumber = 3,
+		readyPlayers = {},
+		pilotPriority = priority,
+		botService = {GetBots = function() return {bot} end},
+		random = Random.new(12345),
+	}, RoundService)
+	local fallback = fallbackHarness:_chooseController({})
+	assert(fallback and fallback.kind == "Bot", "A bot must be used when no ready human exists")
 end)
 
-runTest("Previous human controller must press Play before being reused", function()
-	local previousWinner = {
-		Parent = Players,
-	}
+runTest("Legacy nextController cannot select an unready player", function()
+	local previousWinner = makeFakePlayer("PreviousWinner", "Winner")
 	local harness = setmetatable({
-		phase = "Waiting",
 		roundNumber = 2,
-		nextController = {kind = "Player", value = previousWinner},
 		readyPlayers = {},
-		botService = {
-			GetBots = function() return {} end,
-		},
+		botService = {GetBots = function() return {} end},
 		random = Random.new(12345),
+		nextController = {kind = "Player", value = previousWinner},
 	}, RoundService)
 
-	assert(harness:_chooseController() == nil, "An unready previous winner must not control a new round")
-	assert(harness.nextController == nil, "The unready previous winner must be cleared")
+	assert(harness:_chooseController({}) == nil, "An unready legacy nextController must never be selected")
+end)
+
+runTest("Pilot Priority rewards use 54-second threshold, one reward per round, and cap at 100", function()
+	local early = makeFakePlayer("EarlyElimination", "Runner")
+	local late = makeFakePlayer("LateElimination", "Runner")
+	local leaver = makeFakePlayer("Leaver", "Runner")
+	local priority = PilotPriorityService.new(Random.new(7))
+	priority:Initialize(early)
+	priority:Initialize(late)
+	priority:Initialize(leaver)
+
+	assert(priority:AwardElimination(early, 1, 53) == true, "Early elimination should consume its round reward")
+	assert(priority:GetScore(early) == 0, "Elimination before 54 seconds must award zero")
+	assert(priority:AwardWinner(early, 1) == false, "A second reward in the same round must be rejected")
+
+	assert(priority:AwardElimination(late, 1, 54) == true, "Elimination at 54 seconds should be accepted")
+	assert(priority:GetScore(late) == 5, "Elimination at or after 54 seconds must award five")
+	assert(priority:AwardWinner(late, 1) == false, "Elimination and winner rewards must not stack in one round")
+	assert(priority:AwardWinner(late, 2) == true, "A new round winner reward should be accepted")
+	assert(priority:GetScore(late) == 15, "Winner reward must add ten points")
+
+	for roundNumber = 3, 12 do
+		assert(priority:AwardWinner(late, roundNumber), "A fresh round reward should be accepted")
+	end
+	assert(priority:GetScore(late) == 100, "Pilot Priority must be capped at one hundred")
+
+	leaver.Parent = nil
+	assert(priority:AwardWinner(leaver, 1) == false, "A player who left must not receive a winner reward")
+end)
+
+runTest("Pilot Priority tie-break favors the player who waited longest and avoids an immediate repeat", function()
+	local first = makeFakePlayer("FirstTie", "Runner")
+	local second = makeFakePlayer("SecondTie", "Runner")
+	local priority = PilotPriorityService.new(Random.new(11))
+	priority:Initialize(first)
+	priority:Initialize(second)
+	priority.scores[first] = 30
+	priority.scores[second] = 30
+	priority.lastControllerAt[first] = os.clock() - 100
+	priority.lastControllerAt[second] = os.clock() - 10
+
+	assert(priority:ChooseController({first, second}) == first, "The longest-waiting player must win the tie-break")
+	assert(priority:GetScore(first) == 0, "Controller selection must reset the selected player's score")
+
+	priority.scores[first] = 30
+	priority.scores[second] = 30
+	assert(priority:ChooseController({first, second}) == second,
+		"A player who controlled moments ago must not repeat while an equal-priority player waits")
+end)
+
+runTest("Timeout gives every living human Runner a win and ten Pilot Priority points", function()
+	local first = makeFakePlayer("CoWinnerA", "Runner")
+	local second = makeFakePlayer("CoWinnerB", "Runner")
+	local eliminated = makeFakePlayer("EliminatedRunner", "Spectator")
+	local deadRunner = makeFakePlayer("DeadButStaleRunner", "Runner")
+	deadRunner.Character.Humanoid.Health = 0
+	local botController = {
+		name = "RoundController",
+		model = {Parent = Workspace},
+		humanoid = {Health = 100},
+		alive = false,
+	}
+	local priority = PilotPriorityService.new(Random.new(19))
+	for _, player in ipairs({first, second, eliminated, deadRunner}) do
+		priority:Initialize(player)
+	end
+	local firstWins = {Value = 0}
+	local secondWins = {Value = 0}
+	local eliminatedWins = {Value = 0}
+	local harness = setmetatable({
+		elapsedSeconds = Config.ROUND_SECONDS,
+		aliveRunners = {[first] = true, [second] = true, [deadRunner] = true},
+		roundRunners = {
+			[first] = {kind = "Player", value = first},
+			[second] = {kind = "Player", value = second},
+			[eliminated] = {kind = "Player", value = eliminated},
+			[deadRunner] = {kind = "Player", value = deadRunner},
+		},
+		survivalTimes = {[first] = 180, [second] = 180, [eliminated] = 100, [deadRunner] = 180},
+		controller = {kind = "Bot", value = botController},
+		botService = {GetAliveBots = function() return {} end},
+		stats = {
+			[first] = {wins = firstWins},
+			[second] = {wins = secondWins},
+			[eliminated] = {wins = eliminatedWins},
+			[deadRunner] = {wins = {Value = 0}},
+		},
+		pilotPriority = priority,
+		random = Random.new(123),
+		winnerCandidates = {},
+	}, RoundService)
+
+	local winners = harness:_resolveWinners(2)
+	assert(#winners == 2, "Both living human Runners must be co-winners at timeout")
+	assert(firstWins.Value == 1 and secondWins.Value == 1, "Every co-winner must receive exactly one win")
+	assert(eliminatedWins.Value == 0, "An eliminated player must not receive a win")
+	assert(priority:GetScore(first) == 10 and priority:GetScore(second) == 10,
+		"Every human co-winner must receive ten Pilot Priority points")
+	assert(priority:GetScore(eliminated) == 0, "Eliminated players must not receive winner points")
+	assert(deadRunner.attributes.SkyfallRole == "Runner" and deadRunner.Character.Humanoid.Health == 0,
+		"Stale alive roster entries must not count a dead humanoid as a co-winner")
+	assert(priority:GetScore(deadRunner) == 0, "Dead stale roster entries must not receive winner priority")
+end)
+
+runTest("A single living human Runner wins before timeout even if bots remain", function()
+	local survivor = makeFakePlayer("LastHuman", "Runner")
+	local botA = {
+		name = "BotA",
+		model = {Parent = Workspace},
+		humanoid = {Health = 100},
+		alive = true,
+	}
+	local botB = {
+		name = "BotB",
+		model = {Parent = Workspace},
+		humanoid = {Health = 100},
+		alive = true,
+	}
+	local priority = PilotPriorityService.new(Random.new(23))
+	priority:Initialize(survivor)
+	local wins = {Value = 0}
+	local harness = setmetatable({
+		elapsedSeconds = 45,
+		aliveRunners = {[survivor] = true},
+		roundRunners = {[survivor] = {kind = "Player", value = survivor}},
+		survivalTimes = {[survivor] = 45},
+		controller = {kind = "Bot", value = {name = "Controller"}},
+		botService = {GetAliveBots = function() return {botA, botB} end},
+		stats = {[survivor] = {wins = wins}},
+		pilotPriority = priority,
+		random = Random.new(123),
+	}, RoundService)
+
+	local winners = harness:_resolveWinners(3)
+	assert(#winners == 1 and winners[1].value == survivor,
+		"The only living human Runner must win without waiting for bot elimination")
+	assert(wins.Value == 1 and priority:GetScore(survivor) == 10, "The sole human winner must receive stats and ten points")
+end)
+
+runTest("If no Runner remains, a valid human Controller receives the win and priority reward", function()
+	local controller = makeFakePlayer("HumanController", "Controller")
+	local priority = PilotPriorityService.new(Random.new(29))
+	priority:Initialize(controller)
+	local wins = {Value = 0}
+	local harness = setmetatable({
+		elapsedSeconds = 80,
+		aliveRunners = {},
+		roundRunners = {},
+		survivalTimes = {},
+		controller = {kind = "Player", value = controller},
+		botService = {GetAliveBots = function() return {} end},
+		stats = {[controller] = {wins = wins}},
+		pilotPriority = priority,
+		random = Random.new(123),
+	}, RoundService)
+
+	local winners = harness:_resolveWinners(0)
+	assert(#winners == 1 and winners[1].value == controller, "The current Controller must win when no Runner remains")
+	assert(wins.Value == 1 and priority:GetScore(controller) == 10,
+		"A human Controller winner must receive one win and ten Pilot Priority points")
+end)
+
+runTest("Dead stale human Runners cannot win through survivor fallback", function()
+	local function checkDeadRunnerFallback(elapsedSeconds)
+		local deadRunner = makeFakePlayer("StaleDeadRunner", "Runner")
+		deadRunner.Character.Humanoid.Health = 0
+		local controller = makeFakePlayer("FallbackController", "Controller")
+		local priority = PilotPriorityService.new(Random.new(37))
+		priority:Initialize(deadRunner)
+		priority:Initialize(controller)
+		local deadWins = {Value = 0}
+		local controllerWins = {Value = 0}
+		local harness = setmetatable({
+			elapsedSeconds = elapsedSeconds,
+			aliveRunners = {[deadRunner] = true},
+			roundRunners = {[deadRunner] = {kind = "Player", value = deadRunner}},
+			survivalTimes = {[deadRunner] = Config.ROUND_SECONDS},
+			controller = {kind = "Player", value = controller},
+			botService = {GetAliveBots = function()
+				return {}
+			end},
+			stats = {
+				[deadRunner] = {wins = deadWins},
+				[controller] = {wins = controllerWins},
+			},
+			pilotPriority = priority,
+			random = Random.new(41),
+			_placePlayer = function()
+				return true
+			end,
+			_lobbySpawnForPlayer = function()
+				return CFrame.new()
+			end,
+		}, RoundService)
+
+		local winners = harness:_resolveWinners(1)
+		assert(#winners == 1 and winners[1].value == controller,
+			"Only the valid Controller may win when the roster contains no living Runner")
+		assert(deadWins.Value == 0 and priority:GetScore(deadRunner) == 0,
+			"A dead stale Runner must not receive a win or priority points")
+		assert(controllerWins.Value == 1 and priority:GetScore(controller) == 10,
+			"The fallback Controller must receive one win and ten priority points")
+	end
+
+	checkDeadRunnerFallback(45)
+	checkDeadRunnerFallback(Config.ROUND_SECONDS)
+end)
+
+runTest("A winning human Controller is restored from hidden drone state", function()
+	local controller = makeFakePlayer("HiddenController", "Controller")
+	local priority = PilotPriorityService.new(Random.new(31))
+	priority:Initialize(controller)
+	local wins = {Value = 0}
+	local placedAtLobby = false
+	local harness = setmetatable({
+		controller = {kind = "Player", value = controller},
+		stats = {[controller] = {wins = wins}},
+		pilotPriority = priority,
+		_placePlayer = function(_, player, spawnCFrame)
+			placedAtLobby = player == controller and spawnCFrame ~= nil
+			return true
+		end,
+		_lobbySpawnForPlayer = function() return CFrame.new(0, 75, 0) end,
+	}, RoundService)
+	local winners = {{kind = "Player", value = controller}}
+	harness:_awardWinners(winners)
+	assert(placedAtLobby, "A winning Controller must be restored to a visible lobby spawn")
+	assert(controller.attributes.SkyfallRole == "Winner", "Controller winner must enter the Winner role")
+	assert(wins.Value == 1 and priority:GetScore(controller) == 10,
+		"Controller winner must receive one win and ten Pilot Priority points")
+end)
+
+runTest("Winner broadcast contains only safe names and role strings", function()
+	local human = makeFakePlayer("SafeWinner", "Runner")
+	local bot = {name = "SafeBot", model = {Parent = Workspace}, humanoid = {Health = 100}, alive = true}
+	local controller = {kind = "Bot", value = bot}
+	local harness = setmetatable({
+		controller = controller,
+		winnerCandidates = {
+			{kind = "Player", value = human, winningRole = "Runner"},
+			{kind = "Bot", value = bot, winningRole = "Controller"},
+		},
+	}, RoundService)
+	local details = harness:_getWinnerDetails()
+	assert(#details == 2, "All winners must be included in the broadcast")
+	assert(details[1].name == "SafeWinner" and details[1].role == "Runner", "Human winner details must be primitive strings")
+	assert(details[2].name == "SafeBot" and details[2].role == "Controller", "Controller details must preserve the role")
+	assert(details[1].value == nil and details[2].value == nil, "Remote winner payload must not contain Player or Bot instances")
+end)
+
+runTest("Bubble Blaster server asset, lobby station, and training target exist", function()
+	local template = ServerStorage:FindFirstChild("SkyfallBubbleBlasterTemplate")
+	assert(template and template:IsA("Tool"), "Bubble Blaster server Tool template is missing")
+	assert(template.RequiresHandle and template.CanBeDropped == false, "Bubble Blaster must be a real non-droppable Tool")
+	assert(template:FindFirstChild("Handle"), "Bubble Blaster Handle is missing")
+	local station = arena and arena.lobbyFolder:FindFirstChild("BubbleBlasterTrialStand")
+	assert(station, "Persistent Bubble Blaster display station is missing from the lobby")
+	local prompt = station:FindFirstChild("BubbleBlasterTryPrompt", true)
+	assert(prompt and prompt:IsA("ProximityPrompt") and prompt.ActionText == "TRY FOR FREE",
+		"The station must expose the cross-platform TRY FOR FREE prompt")
+	local target = arena.lobbyFolder:FindFirstChild("BubbleTrainingTarget")
+	assert(target and target:FindFirstChild("TargetCore"), "Stationary training target is missing")
+	assert(target.Parent == arena.lobbyFolder, "Training target must remain in the lobby folder")
+	local spawnPosition = arena:GetLobbySpawnCFrame(1, 1, false).Position
+	local standPosition = station:FindFirstChild("DisplayBase").Position
+	assert((spawnPosition - standPosition).Magnitude <= 12,
+		"TRY FOR FREE prompt station must be reachable from the first lobby spawn")
+end)
+
+runTest("Bubble Blaster grants one copy and accepts only the lobby training target while waiting", function()
+	local trainingTarget = arena.lobbyFolder:FindFirstChild("BubbleTrainingTarget")
+	local targetPart = trainingTarget and trainingTarget:FindFirstChild("TargetCore")
+	local backpack = Instance.new("Folder")
+	backpack.Name = "Backpack"
+	local fakePlayer = makeFakePlayer("TrialPlayer", "Waiting")
+	local trialCharacter = Instance.new("Model")
+	trialCharacter.Name = "TrialPlayerCharacter"
+	local trialRoot = Instance.new("Part")
+	trialRoot.Name = "HumanoidRootPart"
+	trialRoot.Anchored = true
+	trialRoot.Position = Vector3.new(0, 0, 0)
+	trialRoot.Parent = trialCharacter
+	trialCharacter.Parent = Workspace
+	fakePlayer.Character = trialCharacter
+	fakePlayer.FindFirstChildOfClass = function(_, className)
+		return className == "Backpack" and backpack or nil
+	end
+	local mockRounds = {
+		IsActive = function() return false end,
+		IsAliveRunner = function(_, candidate)
+			return candidate:GetAttribute("SkyfallRole") == "Runner"
+		end,
+	}
+	local mockBots = {
+		GetAliveBots = function()
+			return {}
+		end,
+	}
+	local remote = Instance.new("RemoteEvent")
+	local service = BubbleGunService.new(arena, mockRounds, mockBots, remote)
+	service.template = ServerStorage:FindFirstChild("SkyfallBubbleBlasterTemplate")
+	service.displayStand = arena.lobbyFolder:FindFirstChild("BubbleBlasterTrialStand")
+	service.promptPart = service.displayStand:FindFirstChild("Handle", true)
+	service.trainingTarget = trainingTarget
+	trialRoot.Position = service.promptPart.Position
+	assert(service:GrantTrial(fakePlayer), "Waiting player should receive the free trial Tool")
+	assert(service:GrantTrial(fakePlayer), "Repeated free trial interaction should remain safe")
+	local copies = 0
+	for _, child in ipairs(backpack:GetChildren()) do
+		if child:IsA("Tool") and child.Name == Config.BUBBLE_GUN_TOOL_NAME then
+			copies += 1
+		end
+	end
+	assert(copies == 1, "Repeated prompt interaction must never duplicate the Tool")
+	trialRoot.Position += Vector3.new(100, 0, 0)
+	assert(service:GrantTrial(fakePlayer) == false,
+		"Server must reject a spoofed prompt trigger outside ProximityPrompt range")
+	trialRoot.Position = service.promptPart.Position
+	local target = service:_findTarget(fakePlayer, targetPart)
+	assert(target and target.kind == "Training", "Waiting players may target only the dedicated training target")
+	service.rounds = {
+		IsActive = function()
+			return true
+		end,
+		IsAliveRunner = function()
+			return false
+		end,
+	}
+	assert(service:_findTarget(fakePlayer, targetPart) == nil,
+		"Training target must not be targetable during an active round")
+	service.rounds = mockRounds
+	fakePlayer:SetAttribute("SkyfallRole", "Controller")
+	assert(service:GrantRunner(fakePlayer) == false, "Controller must not receive the Runner loadout")
+	remote:Destroy()
+	backpack:Destroy()
+	trialCharacter:Destroy()
+end)
+
+runTest("Bubble Blaster server rejects invalid aim and enforces its cooldown", function()
+	local backpack = Instance.new("Folder")
+	backpack.Name = "Backpack"
+	local fakePlayer = makeFakePlayer("ServerShotTester", "Waiting")
+	local character = Instance.new("Model")
+	character.Name = "ServerShotCharacter"
+	character.Parent = Workspace
+	local tool = Instance.new("Tool")
+	tool.Name = Config.BUBBLE_GUN_TOOL_NAME
+	tool:SetAttribute("SkyfallBubbleTool", true)
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Position = Vector3.new(500, 500, 500)
+	handle.Parent = tool
+	tool.Parent = character
+	fakePlayer.Character = character
+
+	local remote = Instance.new("RemoteEvent")
+	local service = BubbleGunService.new(arena, {
+		IsActive = function() return false end,
+		IsAliveRunner = function() return false end,
+	}, {
+		GetAliveBots = function()
+			return {}
+		end,
+	}, remote)
+	service.displayStand = arena.lobbyFolder:FindFirstChild("BubbleBlasterTrialStand")
+	service.trainingTarget = arena.lobbyFolder:FindFirstChild("BubbleTrainingTarget")
+	service.cooldowns = {}
+
+	assert(service:_handleShot(fakePlayer, Vector3.new(math.huge, 0, 0)) == false,
+		"Non-finite direction must be rejected before raycasting")
+	assert(service:_handleShot(fakePlayer, Vector3.new(0, 1, 0)) == true,
+		"A valid equipped server-owned Tool should accept one shot")
+	assert(service:_handleShot(fakePlayer, Vector3.new(0, 1, 0)) == false,
+		"A second shot inside the eight-second cooldown must be rejected")
+	service:ClearAll()
+	character:Destroy()
+	backpack:Destroy()
+	remote:Destroy()
+end)
+
+runTest("Bubble projectile revalidates and hits the training target after travel", function()
+	local remote = Instance.new("RemoteEvent")
+	local fakePlayer = makeFakePlayer("TrainingProjectileTester", "Waiting")
+	local character = Instance.new("Model")
+	character.Name = "TrainingProjectileCharacter"
+	character.Parent = Workspace
+	fakePlayer.Character = character
+	local tool = Instance.new("Tool")
+	tool.Name = Config.BUBBLE_GUN_TOOL_NAME
+	tool:SetAttribute("SkyfallBubbleTool", true)
+	local handle = Instance.new("Part")
+	handle.Name = "Handle"
+	handle.Anchored = true
+	handle.Position = Vector3.new(800, 500, 800)
+	handle.Parent = tool
+	tool.Parent = character
+
+	local target = Instance.new("Model")
+	target.Name = "IsolatedTrainingProjectileTarget"
+	local core = Instance.new("Part")
+	core.Name = "TargetCore"
+	core.Anchored = true
+	core.Size = Vector3.new(3, 3, 3)
+	core.Position = Vector3.new(812, 500, 800)
+	core.Parent = target
+	target.Parent = Workspace
+
+	local service = BubbleGunService.new(arena, {
+		IsActive = function() return false end,
+		IsAliveRunner = function() return false end,
+	}, {
+		GetAliveBots = function()
+			return {}
+		end,
+	}, remote)
+	service.trainingTarget = target
+	service.displayStand = nil
+
+	assert(service:_handleShot(fakePlayer, Vector3.new(1, 0, 0)),
+		"An equipped waiting player must be able to fire toward the training target")
+	task.wait(0.16)
+	assert(Workspace:FindFirstChild("BubbleImpactBurst") ~= nil,
+		"Projectile arrival must re-raycast and produce the target hit burst")
+	assert(next(service.activeProjectiles) == nil, "Resolved projectile records must be removed")
+	service:ClearAll()
+	target:Destroy()
+	character:Destroy()
+	remote:Destroy()
+end)
+
+runTest("Bubble hold restores movement and physics state exactly once", function()
+	local remote = Instance.new("RemoteEvent")
+	local service = BubbleGunService.new(arena, {
+		IsActive = function() return true end,
+		IsAliveRunner = function() return true end,
+	}, {
+		GetAliveBots = function()
+			return {}
+		end,
+	}, remote)
+	local fakeTargetPlayer = makeFakePlayer("HeldRunner", "Runner")
+	local model = Instance.new("Model")
+	model.Name = "BubbleHoldSmokeTarget"
+	local root = Instance.new("Part")
+	root.Name = "HumanoidRootPart"
+	root.Anchored = false
+	root.Parent = model
+	local humanoid = Instance.new("Humanoid")
+	humanoid.WalkSpeed = 18
+	humanoid.JumpPower = 52
+	humanoid.Parent = model
+	model.Parent = Workspace
+
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A live humanoid target should be held")
+	local hold = service.holdsByHumanoid[humanoid]
+	assert(hold and root.Anchored and humanoid.WalkSpeed == 0 and humanoid.PlatformStand,
+		"Hold must stop the target's movement and anchor its root")
+	assert(service:_releaseHold(hold), "The active hold should release")
+	assert(service:_releaseHold(hold) == false, "A hold must not release twice")
+	assert(root.Anchored == hold.rootAnchored and humanoid.WalkSpeed == 18 and humanoid.JumpPower == 52,
+		"Release must restore the saved root and movement properties")
+
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A second hold should start after the first was released")
+	local roleHold = service.holdsByHumanoid[humanoid]
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Controller")
+	assert(roleHold.released and root.Anchored == false and humanoid.WalkSpeed == 18,
+		"Changing the target out of Runner role must immediately release the hold")
+
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Runner")
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A new hold should start after the first role-change release")
+	local winnerHold = service.holdsByHumanoid[humanoid]
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Winner")
+	assert(winnerHold.released and root.Anchored == true,
+		"Round cleanup must not unanchor a target after it has been declared a winner")
+
+	fakeTargetPlayer:SetAttribute("SkyfallRole", "Runner")
+	assert(service:_holdTarget({kind = "Player", player = fakeTargetPlayer, model = model, humanoid = humanoid}, nil),
+		"A further hold should start after the winner state is reset")
+	local deathHold = service.holdsByHumanoid[humanoid]
+	humanoid.Health = 0
+	assert(deathHold.released, "A target Humanoid death must immediately release the hold")
+	for _, event in pairs(fakeTargetPlayer.attributeSignals or {}) do
+		event:Destroy()
+	end
+	model:Destroy()
+	remote:Destroy()
 end)
 
 runTest("Sole survivor and grounded checks distinguish air from floor", function()
@@ -715,14 +1259,18 @@ runTest("Sole survivor and grounded checks distinguish air from floor", function
 	assert(harness:_isGrounded(survivor) == false, "A survivor in the air must not be treated as grounded")
 end)
 
-runTest("The longest-surviving runner is selected as the next controller", function()
+runTest("Longest-survivor fallback ignores eliminated bots", function()
 	local shortRunner = {
 		name = "ShortRunner",
-		model = {Parent = Workspace},
+		alive = true,
+		humanoid = {Health = 100},
+		model = {Parent = Workspace, GetAttribute = function() return "Runner" end},
 	}
 	local longRunner = {
 		name = "LongRunner",
-		model = {Parent = Workspace},
+		alive = true,
+		humanoid = {Health = 100},
+		model = {Parent = Workspace, GetAttribute = function() return "Runner" end},
 	}
 	local shortCandidate = {kind = "Bot", value = shortRunner}
 	local longCandidate = {kind = "Bot", value = longRunner}

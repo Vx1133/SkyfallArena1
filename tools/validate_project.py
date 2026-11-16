@@ -30,6 +30,8 @@ require(tools.get("selene") == "Kampfkarren/selene@0.32.0", "Selene must remain 
 required_files = [
     "src/shared/GameConfig.lua",
     "src/shared/MapRotation.lua",
+    "src/shared/WorldDesignProfile.lua",
+    "tests/lune/update_023_world_design.luau",
     "src/shared/DebugControllerPolicy.lua",
     "tests/lune/update_019_policy.luau",
     "tests/lune/update_023_control_state.luau",
@@ -59,12 +61,30 @@ for relative_path in required_files:
     require(path.is_file(), f"Required project file is missing: {relative_path}")
     require(path.stat().st_size > 0, f"Required project file is empty: {relative_path}")
 
+world_design_source = (ROOT / "src/shared/WorldDesignProfile.lua").read_text(encoding="utf-8")
+world_design_test = (ROOT / "tests/lune/update_023_world_design.luau").read_text(encoding="utf-8")
+for feature in (
+    "PlatformSize = 120",
+    "PlayerSpawnRadius = 42",
+    "BotSpawnRadius = 52",
+    "PrimaryTile = { 233, 242, 252 }",
+    "AlternateTile = { 215, 229, 246 }",
+    "Structure = { 67, 114, 181 }",
+    "Earth = { 194, 163, 111 }",
+):
+    require(feature in world_design_source, f"Centralized world design token is missing: {feature}")
+require("UPDATE_023_WORLD_DESIGN_TESTS_OK" in world_design_test, "World design regression test is missing")
+
 config_source = (ROOT / "src/shared/GameConfig.lua").read_text(encoding="utf-8")
+require('local WorldDesignProfile = require(script.Parent:WaitForChild("WorldDesignProfile"))' in config_source,
+        "Lobby size and spawn radii must use central world design tokens")
 for setting in (
     "Config.MIN_PLAYERS = 1",
     "Config.BOT_COUNT = 10",
     "Config.TILE_GAP = 0",
-    "Config.LOBBY_SIZE = 144",
+    "Config.LOBBY_SIZE = WorldDesignProfile.Lobby.PlatformSize",
+    "Config.LOBBY_SPAWN_RADIUS = WorldDesignProfile.Lobby.PlayerSpawnRadius",
+    "Config.LOBBY_BOT_SPAWN_RADIUS = WorldDesignProfile.Lobby.BotSpawnRadius",
     "Config.LOBBY_CENTER = Vector3.new(-250, 70, 0)",
     "Config.ADMIN_FLIGHT_SPEED = 52",
     "Config.HUD_MAX_WIDTH = 224",
@@ -648,6 +668,9 @@ for feature in ("function FloorAppearanceService.Capture(", "source.MaterialVari
     require(feature in floor_appearance_source, f"Lobby floor appearance transfer is missing: {feature}")
 
 element_integration_source = (ROOT / "src/server/Services/ElementIntegrationService.lua").read_text(encoding="utf-8")
+require("FloorAppearanceService.Capture(lobbyFloor)" in element_integration_source, "Element transitions must capture the lobby material profile")
+require("mapBaseColor" in element_integration_source, "Element transition blend must use the active map palette")
+require("floorTopSurface" in element_integration_source and "floorBottomSurface" in element_integration_source, "Element transitions must copy lobby top and bottom surfaces")
 for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallElementType", "Fire", "Water", "Earth", "Air", "TweenService:Create", "CanCollide = false", "CanQuery = false"):
     require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
 
@@ -723,5 +746,11 @@ for feature in (
 ):
     require(feature in lighting_profile_source, f"Shared daylight profile is missing: {feature}")
 require("function FloorAppearanceService.ApplySurface(" in floor_appearance_source, "Surface-only lobby material profile application is missing")
+require("target.TopSurface = profile.TopSurface" in floor_appearance_source, "Material synchronization must copy lobby top-surface style")
+require("target.BottomSurface = profile.BottomSurface" in floor_appearance_source, "Material synchronization must copy lobby bottom-surface style")
+require("theme.tileColor = profile.Color" not in arena_source, "Lobby green must not overwrite the Cyberpunk map palette")
+require("paletteColor(CYBERPUNK_PALETTE.PrimaryTile)" in arena_source, "Cyberpunk primary ice-white tile palette is missing")
+require("paletteColor(CYBERPUNK_PALETTE.AlternateTile)" in arena_source, "Cyberpunk alternate blue-white tile palette is missing")
+
 
 print("Skyfall Arena structural and gameplay validation passed.")

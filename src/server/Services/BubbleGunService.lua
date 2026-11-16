@@ -293,15 +293,15 @@ function BubbleGunService:_removeDuplicateTools(player, keep)
 	if character then
 		table.insert(containers, character)
 	end
+
 	for _, container in ipairs(containers) do
-			for _, child in ipairs(container:GetChildren()) do
-				if child:IsA("Tool")
-					and child.Name == Config.BUBBLE_GUN_TOOL_NAME
-					and child:GetAttribute("SkyfallBubbleTool") == true
-					and child ~= keep
-				then
-					child:Destroy()
-				end
+		for _, child in ipairs(container:GetChildren()) do
+			if child:IsA("Tool")
+				and child.Name == Config.BUBBLE_GUN_TOOL_NAME
+				and child:GetAttribute("SkyfallBubbleTool") == true
+				and child ~= keep
+			then
+				child:Destroy()
 			end
 		end
 	end

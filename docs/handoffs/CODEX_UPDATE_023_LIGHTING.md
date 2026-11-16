@@ -106,3 +106,14 @@ No Codex session is connected to this workspace, so this brief is committed for 
 - Capture screenshots of the lobby and Cyberpunk map on high and low graphics quality. Static tests cannot establish final visual appearance.
 
 Do not claim an in-Studio visual inspection unless Studio was actually launched and the new map was viewed.
+
+
+## Full map redesign handoff
+
+The detailed implementation brief for redesigning BOTH maps into distinct visual/structural identities, applying the lobby finish to every BasePart in both maps, and replacing obsolete tests is now maintained separately:
+
+- `docs/handoffs/CODEX_UPDATE_023_MAPS_STUDIO_GRADE.md`
+
+The newer handoff supersedes the earlier map-specific exceptions in this document. In particular, no Neon-material BasePart is exempt from the shared lobby finish. Use Beam/Attachment/PointLight/SurfaceLight effects for emissive lines so every actual BasePart can retain the lobby material profile.
+
+This is a Codex implementation assignment, not evidence that the redesigned maps have already been built or visually reviewed.

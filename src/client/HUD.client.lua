@@ -184,11 +184,12 @@ local aircraftModePending = false
 local aircraftModeRequestSerial = 0
 
 local function updateAircraftModeButton()
-	local waiting = state.phase == "Waiting"
-	local intermissionReady = state.phase == "Intermission" and player:GetAttribute("SkyfallReady") == true
+	local ready = player:GetAttribute("SkyfallReady") == true
+	local eligiblePhase = state.phase == "Waiting" or state.phase == "Intermission"
+	local eligible = ready and eligiblePhase
 	local optedIn = player:GetAttribute("SkyfallPilotOptIn") == true
-	aircraftModeButton.Visible = waiting or intermissionReady
-	aircraftModeButton.Active = (waiting or intermissionReady) and not aircraftModePending
+	aircraftModeButton.Visible = eligible
+	aircraftModeButton.Active = eligible and not aircraftModePending
 	aircraftModeButton.AutoButtonColor = not aircraftModePending
 	aircraftModeButton.BackgroundColor3 = optedIn
 		and Color3.fromRGB(23, 121, 157)
@@ -196,9 +197,9 @@ local function updateAircraftModeButton()
 end
 
 aircraftModeButton.Activated:Connect(function()
-	local waiting = state.phase == "Waiting"
-	local intermissionReady = state.phase == "Intermission" and player:GetAttribute("SkyfallReady") == true
-	if (not waiting and not intermissionReady) or aircraftModePending then
+	local ready = player:GetAttribute("SkyfallReady") == true
+	local eligiblePhase = state.phase == "Waiting" or state.phase == "Intermission"
+	if not ready or not eligiblePhase or aircraftModePending then
 		return
 	end
 

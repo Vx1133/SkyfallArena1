@@ -490,17 +490,18 @@ require('remotes:WaitForChild("PlayRequest")' in hud_source, "Lobby Play remote 
 require('playButton.Name = "PlayButton"' in hud_source, "Lobby Play button is missing")
 require("playRemote:FireServer()" in hud_source, "Lobby Play button does not request a round")
 require("panel.BackgroundTransparency = 0.46" in hud_source, "Mobile HUD must remain translucent")
-for feature in (
-    'pilotGui.Name = "SkyfallPilotPriorityHUD"',
-    'Enum.ScreenInsets.CoreUISafeInsets',
-    '"DRONE " .. tostring(priority) .. "%"',
-    'GetAttributeChangedSignal("SkyfallPilotPriority")',
-    'role == "Waiting" or role == "Runner"',
-    "pilotGui.Enabled = role == ",
-    'pilotLabel.Text = newText',
+for forbidden in (
+    'PILOT: OFF',
+    'PILOT: ON',
+    'DRONE ',
+    'PilotOptInButton',
+    'SkyfallPilotPriorityHUD',
+    'PilotPriorityLabel',
+    'SkyfallPilotPriority',
+    'updatePilotButton',
+    'updatePilotPriority',
 ):
-    require(feature in hud_source, f"Pilot Priority safe-area HUD is missing: {feature}")
-require("TextSize = 11" in hud_source, "Pilot Priority label should remain compact for phones")
+    require(forbidden not in hud_source, f"Removed pilot/drone HUD element is still present: {forbidden}")
 
 audio_source = (ROOT / "src/client/Audio.client.lua").read_text(encoding="utf-8")
 for feature in (
@@ -624,8 +625,6 @@ require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Play
 require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
 require('PilotOptInPolicy.Filter(readyPlayers' in round_source, "Controller selection must filter explicit pilot opt-ins")
 require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
-require('pilotButton.Name = "PilotOptInButton"' in hud_source, "The mobile pilot opt-in button is missing")
-require('playRemote:FireServer("PilotOptIn", desiredState)' in hud_source, "The pilot opt-in button must send an explicit server request")
 require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
 require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
 

@@ -258,6 +258,8 @@ for feature in (
 ):
     require(feature in pilot_source, f"Pilot Priority service is missing: {feature}")
 require("DataStoreService" not in pilot_source, "Pilot Priority must remain session-only")
+require("function PilotPriorityService:Remove(" in pilot_source,
+        "Pilot Priority session state must be cleared when a player leaves")
 
 bubble_source = (ROOT / "src/server/Services/BubbleGunService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -285,6 +287,15 @@ require('targetPlayer:GetAttribute("SkyfallRole") == "Runner"' in bubble_source,
         "Human bubble targets must still be Runner role")
 require("bot.humanoid.Health > 0" in bubble_source, "Bot targets must have a living Humanoid")
 require("TakeDamage" not in bubble_source, "Bubble Blaster must not deal direct damage")
+require("self.promptPart = displayHandle" in bubble_source,
+        "Trial prompt must have a server-side distance reference")
+require('(root.Position - self.promptPart.Position).Magnitude > maxDistance' in bubble_source,
+        "Trial prompt spoofing must be rejected by server-side distance checks")
+require('target.player:GetAttributeChangedSignal("SkyfallRole")' in bubble_source,
+        "A target changing out of Runner role must release its bubble hold")
+require('local isWinner = targetRole == "Winner"' in bubble_source,
+        "Bubble cleanup must preserve winner anchoring")
+
 
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -326,6 +337,10 @@ for feature in (
 require("self.nextController" not in round_source, "Legacy nextController must not bypass Pilot Priority")
 require('winners = self:_getWinnerDetails()' in round_source, "Round broadcasts must send safe winner name/role data only")
 require('winner = table.concat(winnerNames, ", ")' in round_source, "All winner names must be represented in results")
+require('local isAlive = isRunner and character ~= nil and humanoid ~= nil and humanoid.Health > 0' in round_source,
+        "Only present, living human Runners may be co-winners")
+require('self:_placePlayer(player, self:_lobbySpawnForPlayer(player))' in round_source,
+        "A human Controller who wins must be restored from the hidden drone position")
 require('self.elapsedSeconds >= Config.ROUND_SECONDS' in round_source, "The configured round timeout must remain active")
 require('playerCount = self.phase == "Active" and remainingPlayers or allHumanCount + botCount' in round_source, "Active HUD count must use living arena runners only")
 require("characterOverride or player.Character" in round_source, "Character placement must use the exact respawning character")
@@ -532,6 +547,7 @@ for feature in (
     "A single living human Runner wins before timeout even if bots remain",
     "If no Runner remains, a valid human Controller receives the win and priority reward",
     "Winner broadcast contains only safe names and role strings",
+    "A winning human Controller is restored from hidden drone state",
     "Bubble Blaster server asset, lobby station, and training target exist",
     "Bubble Blaster grants one copy and accepts only the lobby training target while waiting",
     "Bubble Blaster server rejects invalid aim and enforces its cooldown",

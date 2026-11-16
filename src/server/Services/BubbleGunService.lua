@@ -673,11 +673,8 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 			return
 		end
 
-		if not record.target then
-			return
-		end
-
-		-- Recast the original server-approved ray at impact time. This catches targets
+		-- Recast the original server-approved ray for every projectile so world
+		-- impacts also produce a burst and no client-supplied hit can be trusted.
 		-- that moved out of range/line-of-sight, died, left, or changed roles in flight.
 		local parameters = RaycastParams.new()
 		parameters.FilterType = Enum.RaycastFilterType.Exclude
@@ -689,6 +686,12 @@ function BubbleGunService:_fireProjectile(player, origin, direction, hit, target
 			parameters
 		)
 		local currentTarget = impactHit and self:_findTarget(record.shooter, impactHit.Instance) or nil
+		if not record.target then
+			if impactHit then
+				self:_showBurst(impactHit.Position)
+			end
+			return
+		end
 		if not currentTarget
 			or currentTarget.kind ~= record.target.kind
 			or currentTarget.model ~= record.target.model

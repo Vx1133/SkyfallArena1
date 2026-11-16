@@ -36,16 +36,13 @@ function FloorAppearanceService.Capture(source: BasePart?): AppearanceProfile?
 	}
 end
 
-function FloorAppearanceService.Apply(target: BasePart, profile: AppearanceProfile): boolean
+function FloorAppearanceService.ApplySurface(target: BasePart, profile: AppearanceProfile): boolean
 	if not target or not target:IsA("BasePart") then
 		return false
 	end
 
-	target.Color = profile.Color
 	target.Material = profile.Material
 	target.Reflectance = math.clamp(profile.Reflectance, 0, 1)
-	target.TopSurface = profile.TopSurface
-	target.BottomSurface = profile.BottomSurface
 
 	local success, message = pcall(function()
 		target.MaterialVariant = profile.MaterialVariant
@@ -55,6 +52,18 @@ function FloorAppearanceService.Apply(target: BasePart, profile: AppearanceProfi
 	end
 
 	return success
+end
+
+function FloorAppearanceService.Apply(target: BasePart, profile: AppearanceProfile): boolean
+	if not target or not target:IsA("BasePart") then
+		return false
+	end
+
+	FloorAppearanceService.ApplySurface(target, profile)
+	target.Color = profile.Color
+	target.TopSurface = profile.TopSurface
+	target.BottomSurface = profile.BottomSurface
+	return true
 end
 
 return FloorAppearanceService

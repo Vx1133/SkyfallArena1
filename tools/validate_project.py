@@ -29,6 +29,9 @@ require(tools.get("selene") == "Kampfkarren/selene@0.32.0", "Selene must remain 
 
 required_files = [
     "src/shared/GameConfig.lua",
+    "src/shared/MapRotation.lua",
+    "src/shared/DebugControllerPolicy.lua",
+    "tests/lune/update_019_policy.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
     "src/server/Services/BotService.lua",
@@ -62,7 +65,7 @@ for setting in (
     "Config.HUD_HEIGHT = 30",
     "Config.GRID_SIZE = 15",
     "Config.MAX_PLAYER_CAPACITY = 30",
-    "Config.MAP_COUNT = 1",
+    "Config.MAP_COUNT = 2",
     "Config.ROUND_SECONDS = 180",
     "Config.PILOT_PRIORITY_ELIMINATION_THRESHOLD_SECONDS = Config.ROUND_SECONDS * 0.3",
     'Config.BUBBLE_GUN_TOOL_NAME = "Bubble Blaster"',
@@ -85,7 +88,7 @@ require("TILE_REPAIR_SECONDS" not in config_source, "Broken floor tiles must not
 require("OVERTIME_" not in config_source, "The three-minute round must not use overtime modifiers")
 
 arena_source = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
-for map_name in ("SKYFALL CLASSIC ARENA",):
+for map_name in ("SKYFALL CLASSIC ARENA", "SKYFALL CYBERPUNK WHITE & BLUE ARENA"):
     require(map_name in arena_source, f"Map design is missing: {map_name}")
 for feature in (
     "function ArenaService:_buildLobby(",
@@ -127,7 +130,6 @@ for forbidden in (
     "addBench(",
     "ClassicArenaTree_",
     "SquareStud_",
-    "Enum.Material.Neon",
     "addNeonBar",
     "NexusRingSegment",
     "ReactorRing",
@@ -143,32 +145,43 @@ for forbidden in (
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
 for forbidden_lighting in (
     'Instance.new("Sky")',
-    'Instance.new("Atmosphere")',
-    'Instance.new("BloomEffect")',
-    'Instance.new("ColorCorrectionEffect")',
     'Instance.new("SunRaysEffect")',
     'Instance.new("Clouds")',
 ):
     require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
 require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
 require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
-require("tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs" in arena_source, "Broken tile surface reset is missing")
+require("local function setTileSurface(tile, theme, hidden)" in arena_source, "Theme-aware tile surface reset is missing")
 require("part.CastShadow = false" in arena_source, "Static map part shadows should be disabled")
 require("warningLight.Brightness" not in arena_source, "Per-target dynamic warning lights should be removed")
 for neutral_setting in (
-    "Lighting.Brightness = 2",
-    "Lighting.ClockTime = 14",
-    "Lighting.Ambient = Color3.fromRGB(0, 0, 0)",
-    "Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)",
-    "Lighting.ExposureCompensation = 0",
-    "Lighting.EnvironmentDiffuseScale = 1",
-    "Lighting.EnvironmentSpecularScale = 1",
+    "Lighting.Brightness = theme.brightness or 2",
+    "Lighting.ClockTime = theme.clockTime or 14",
+    "Lighting.Ambient = theme.ambient or Color3.fromRGB(0, 0, 0)",
+    "Lighting.OutdoorAmbient = theme.outdoorAmbient or Color3.fromRGB(0, 0, 0)",
+    "Lighting.ExposureCompensation = theme.exposureCompensation or 0",
+    "Lighting.EnvironmentDiffuseScale = theme.environmentDiffuseScale or 1",
+    "Lighting.EnvironmentSpecularScale = theme.environmentSpecularScale or 1",
 ):
     require(neutral_setting in arena_source, f"Neutral lighting setting is missing: {neutral_setting}")
 require('tile.Color = Color3.fromRGB(255, 55, 75)' in arena_source, "Targeted tiles must be marked red")
 require("local lensNormal = Vector3.new(0, -1, 0)" in arena_source, "Drone lens normal must point vertically down")
-require("\t\t\t\t0.34," in arena_source, "Drone reticle must be placed on the outward underside of the lens")
-require("\t\t\t\t-0.34," not in arena_source, "Drone reticle must not be hidden inside the sphere")
+require("localOffset = Vector3.new(0.34, math.cos(angle) * radius, math.sin(angle) * radius)" in arena_source,
+        "Drone reticle must be placed on the outward underside of the lens")
+require("localOffset = Vector3.new(-0.34," not in arena_source,
+        "Drone reticle must not be hidden inside the sphere")
+cyberpunk_decoration = arena_source.split("function ArenaService:_buildCyberpunkDecoration(theme)", 1)[1].split(
+    "function ArenaService:_buildMapDecoration(theme)", 1
+)[0]
+classic_decoration = arena_source.split("function ArenaService:_buildClassicDecoration(theme)", 1)[1].split(
+    "local function createVisualPart", 1
+)[0]
+require("Enum.Material.Neon" not in classic_decoration, "Classic decoration must remain free of Neon surfaces")
+require(cyberpunk_decoration.count("Enum.Material.Neon") == 3, "Cyberpunk accents must use only the perimeter strips and pylon accents")
+for effect in ('Instance.new("Atmosphere")', 'Instance.new("BloomEffect")', 'Instance.new("ColorCorrectionEffect")'):
+    require(effect in arena_source, f"Cyberpunk Lighting effect is missing: {effect}")
+for cleanup_name in ("SkyfallAtmosphere", "SkyfallBloom", "SkyfallColorCorrection", "SkyfallSunRays"):
+    require(cleanup_name in arena_source, f"Map lighting cleanup is missing: {cleanup_name}")
 require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
 require("Vector3.new(width + 26, 2, width + 26)" in arena_source, "The arena foundation must be thin")
 require("support.CanCollide = false" in arena_source, "The foundation must not catch falling players")
@@ -516,12 +529,21 @@ for feature in (
     'flightRemote:FireServer("Enable")',
     'flightRemote:FireServer("Disable")',
     'flightRemote:FireServer("Move", direction, camera.CFrame.LookVector)',
-    'flightRemote:FireServer("DebugController", debugRequested)',
+    'flightRemote:FireServer("DebugController", desiredState)',
     '"DebugDroneToggle"',
     'player:GetAttribute("SkyfallIsAdmin") == true',
     'state.phase == "Waiting"',
 ):
     require(feature in admin_client_source, f"Admin mobile flight control is missing: {feature}")
+
+
+map_rotation_source = (ROOT / "src/shared/MapRotation.lua").read_text(encoding="utf-8")
+require("function MapRotation.GetMapId(roundNumber: number, mapCount: number): number" in map_rotation_source, "Pure map rotation policy is missing")
+debug_policy_source = (ROOT / "src/shared/DebugControllerPolicy.lua").read_text(encoding="utf-8")
+require("enabledAttribute == true" in debug_policy_source, "Debug controller must require an explicit true opt-in")
+round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
+require("function RoundService:_isDebugControllerRequested(player)" in round_source, "RoundService debug opt-in predicate is missing")
+require("self:_isDebugControllerRequested(debugPlayer)" in round_source, "RoundService selection must validate explicit debug opt-in")
 
 workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
 require("pull_request:" in workflow, "Pull request validation trigger is missing")
@@ -538,7 +560,7 @@ require("ROBLOX_LUAU_TEST_API_KEY" in upload_workflow, "Cloud smoke tests must u
 
 cloud_tests = (ROOT / "tests/cloud_smoke_tests.luau").read_text(encoding="utf-8")
 for feature in (
-    "Arena builds one 15x15 destructible Classic arena",
+    "Arena builds the 15x15 Classic starting arena in a two-map 30-player experience",
     "The Classic arena uses neutral lighting and connected stud geometry",
     "Players remain in the lobby until they request Play",
     "Creator flight authorization only grants the personal experience owner",
@@ -548,7 +570,12 @@ for feature in (
     "Round-end cleanup instantly restores every destructible tile",
     "Lobby streaming focus is added and removed once without changing global radius",
     "Late joiners during an active round are routed to the observation lobby",
-    "The next-round map remains the one fixed Classic arena",
+    "Round map rotation alternates Classic and Cyberpunk deterministically",
+    "Cyberpunk map switches cleanly without changing the destructible grid",
+    "A stale disabled debug toggle cannot override normal controller selection",
+    "Round cleanup does not auto-ready a debug player after the toggle is disabled",
+    "Debug drone request requires both the matching player and a true server attribute",
+    "A departing debug controller restores its previous live controller",
     "The active HUD count only includes living arena runners",
     "A fallen bot is removed before the round broadcasts its survivor count",
     "Pilot Priority selects humans by score and prevents a legacy controller override",

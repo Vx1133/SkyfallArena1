@@ -1,7 +1,10 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local Config = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("GameConfig"))
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
+local Config = require(sharedFolder:WaitForChild("GameConfig"))
+local MapRotation = require(sharedFolder:WaitForChild("MapRotation"))
+local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy"))
 
 local RoundService = {}
 RoundService.__index = RoundService
@@ -39,7 +42,7 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote, pil
 
 	if self.botService then
 		self.botService.onBotDied = function(diedBot)
-			self:_recordSurvival({kind = "Bot", value = diedBot})
+			self:_recordSurvival({ kind = "Bot", value = diedBot })
 			self:_broadcast()
 		end
 	end
@@ -57,8 +60,11 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote, pil
 	end)
 
 	Players.PlayerRemoving:Connect(function(player)
+		if self.debugControllerPlayer == player then
+			self:_restoreAfterDebugControllerLeaves(player)
+		end
 		self:_setArenaStreamingFocus(player, false)
-		self:_recordSurvival({kind = "Player", value = player}, false)
+		self:_recordSurvival({ kind = "Player", value = player }, false)
 		self.aliveRunners[player] = nil
 		if self.pilotPriority then
 			self.pilotPriority:Remove(player)
@@ -69,11 +75,8 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote, pil
 		self.survivalTimes[player] = nil
 		self.characterSerial[player] = nil
 		self.debugAutoReady[player] = nil
-		if self.debugControllerPlayer == player then
-			self.debugControllerPlayer = nil
-			self.debugPreviousController = nil
-		end
-		if self.debugPreviousController
+		if
+			self.debugPreviousController
 			and self.debugPreviousController.kind == "Player"
 			and self.debugPreviousController.value == player
 		then
@@ -81,10 +84,7 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote, pil
 		end
 		player.ReplicationFocus = nil
 
-		if self.controller
-			and self.controller.kind == "Player"
-			and self.controller.value == player
-		then
+		if self.controller and self.controller.kind == "Player" and self.controller.value == player then
 			self.controller = nil
 		end
 
@@ -251,6 +251,27 @@ function RoundService:RequestPlay(player)
 	return true
 end
 
+function RoundService:_isDebugControllerRequested(player)
+	local enabledAttribute = (player and player:GetAttribute("SkyfallDebugDroneEnabled")) :: boolean?
+	return DebugControllerPolicy.IsEnabled(self.debugControllerPlayer, player, enabledAttribute)
+end
+
+function RoundService:_clearStaleDebugControllerRequest(player)
+	if not player or self.debugControllerPlayer ~= player or self:_isDebugControllerRequested(player) then
+		return false
+	end
+
+	self.debugControllerPlayer = nil
+	if self.debugAutoReady[player] then
+		self.debugAutoReady[player] = nil
+		self.readyPlayers[player] = nil
+		if player.Parent == Players then
+			player:SetAttribute("SkyfallReady", false)
+		end
+	end
+	return true
+end
+
 function RoundService:_queueDebugPlayer(player)
 	if not self.readyPlayers[player] then
 		self.readyPlayers[player] = true
@@ -270,11 +291,8 @@ function RoundService:_activateDebugController(player)
 	if self.phase ~= "Active" or not player or player.Parent ~= Players then
 		return false
 	end
-	if self.controller
-		and self.controller.kind == "Player"
-		and self.controller.value == player
-	then
-		self.debugPreviousController = {kind = "Player", value = player}
+	if self.controller and self.controller.kind == "Player" and self.controller.value == player then
+		self.debugPreviousController = { kind = "Player", value = player }
 		return true
 	end
 
@@ -287,7 +305,7 @@ function RoundService:_activateDebugController(player)
 	end
 
 	if self.aliveRunners[player] then
-		self:_recordSurvival({kind = "Player", value = player}, false)
+		self:_recordSurvival({ kind = "Player", value = player }, false)
 		self.aliveRunners[player] = nil
 		self.roundRunners[player] = nil
 		self.survivalTimes[player] = nil
@@ -303,16 +321,13 @@ function RoundService:_activateDebugController(player)
 	if self.onControllerStarted then
 		self.onControllerStarted(player)
 	end
-	self.controller = {kind = "Player", value = player}
+	self.controller = { kind = "Player", value = player }
 	self:_broadcast()
 	return true
 end
 
 function RoundService:_restoreDebugController(player)
-	if not self.controller
-		or self.controller.kind ~= "Player"
-		or self.controller.value ~= player
-	then
+	if not self.controller or self.controller.kind ~= "Player" or self.controller.value ~= player then
 		return false
 	end
 
@@ -328,7 +343,7 @@ function RoundService:_restoreDebugController(player)
 	end
 
 	self:_movePlayerToSpectator(player)
-	if self:_isCandidateValid(previous) then
+	if previous and self:_isCandidateValid(previous) then
 		if previous.kind == "Player" then
 			self:_setArenaStreamingFocus(previous.value, false)
 			previous.value:SetAttribute("SkyfallRole", "Controller")
@@ -341,6 +356,40 @@ function RoundService:_restoreDebugController(player)
 		self.controller = nil
 	end
 	self:_broadcast()
+	return true
+end
+
+function RoundService:_restoreAfterDebugControllerLeaves(player)
+	if not player or self.debugControllerPlayer ~= player then
+		return false
+	end
+
+	local wasActiveController = self.controller and self.controller.kind == "Player" and self.controller.value == player
+	local previous = self.debugPreviousController
+
+	self.debugControllerPlayer = nil
+	self.debugPreviousController = nil
+	self.debugAutoReady[player] = nil
+	self.readyPlayers[player] = nil
+
+	if not wasActiveController then
+		return true
+	end
+
+	local previousIsDepartingPlayer = previous and previous.kind == "Player" and previous.value == player
+	if previous and not previousIsDepartingPlayer and self:_isCandidateValid(previous) then
+		if previous.kind == "Player" then
+			self:_setArenaStreamingFocus(previous.value, false)
+			previous.value:SetAttribute("SkyfallRole", "Controller")
+			self:_setPlayerControllerHidden(previous.value, true, nil)
+		elseif previous.kind == "Bot" and self.botService then
+			self.botService:SetController(previous.value, true)
+		end
+		self.controller = previous
+	else
+		self.controller = nil
+	end
+
 	return true
 end
 
@@ -364,7 +413,8 @@ function RoundService:RequestDebugController(player, enabled)
 	player:SetAttribute("SkyfallDebugDroneEnabled", false)
 	if self.debugControllerPlayer == player then
 		self.debugControllerPlayer = nil
-		if self.phase == "Active"
+		if
+			self.phase == "Active"
 			and self.controller
 			and self.controller.kind == "Player"
 			and self.controller.value == player
@@ -390,12 +440,14 @@ function RoundService:_clearReadyPlayers()
 	self.readyPlayers = {}
 	self.roundHumanCount = 0
 
-	-- Preserve an enabled owner debug request for the next round.
+	-- Preserve the owner debug request only while the server-side toggle is still enabled.
 	local debugPlayer = self.debugControllerPlayer
-	if debugPlayer and debugPlayer.Parent == Players then
+	if debugPlayer and self:_isDebugControllerRequested(debugPlayer) then
 		self.readyPlayers[debugPlayer] = true
 		self.debugAutoReady[debugPlayer] = true
 		debugPlayer:SetAttribute("SkyfallReady", true)
+	elseif debugPlayer then
+		self:_clearStaleDebugControllerRequest(debugPlayer)
 	end
 end
 
@@ -497,7 +549,8 @@ function RoundService:_placePlayer(player, spawnCFrame, characterOverride)
 
 	-- Let the server finish placing the new model before handing simulation back to its owner.
 	task.delay(0.2, function()
-		if player.Parent == Players
+		if
+			player.Parent == Players
 			and player.Character == character
 			and character.Parent
 			and root.Parent
@@ -526,7 +579,8 @@ function RoundService:_onCharacterAdded(player, character)
 	-- CharacterAdded can fire before LoadCharacterAsync parents the model to Workspace.
 	-- Wait for that final engine step before trying to pivot the character.
 	local parentDeadline = os.clock() + 10
-	while not character.Parent
+	while
+		not character.Parent
 		and player.Parent == Players
 		and player.Character == character
 		and self.characterSerial[player] == serial
@@ -539,33 +593,42 @@ function RoundService:_onCharacterAdded(player, character)
 		return
 	end
 
-	if player.Parent ~= Players
-		or player.Character ~= character
-		or self.characterSerial[player] ~= serial
-	then
+	if player.Parent ~= Players or player.Character ~= character or self.characterSerial[player] ~= serial then
 		return
 	end
 
+	local restoredStaleDebugController = false
+	if
+		self.phase == "Active"
+		and self.controller
+		and self.controller.kind == "Player"
+		and self.controller.value == player
+		and self.debugControllerPlayer == player
+		and not self:_isDebugControllerRequested(player)
+	then
+		self:_clearStaleDebugControllerRequest(player)
+		restoredStaleDebugController = self:_restoreDebugController(player)
+	end
+
 	if self.phase == "Active" then
-		if self.controller
-			and self.controller.kind == "Player"
-			and self.controller.value == player
-		then
+		if self.controller and self.controller.kind == "Player" and self.controller.value == player then
 			self:_setArenaStreamingFocus(player, false)
 			player:SetAttribute("SkyfallRole", "Controller")
 			self:_setPlayerControllerHidden(player, true, character)
-		elseif self.aliveRunners[player] then
-			self:_setArenaStreamingFocus(player, false)
-			player:SetAttribute("SkyfallRole", "Runner")
-			self:_placePlayer(
-				player,
-				self.arena:GetRunnerSpawnCFrame(1, math.max(self:_aliveRunnerCount(), 1)),
-				character
-			)
-		else
-			self:_setArenaStreamingFocus(player, true)
-			player:SetAttribute("SkyfallRole", "Spectator")
-			self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
+		elseif not restoredStaleDebugController then
+			if self.aliveRunners[player] then
+				self:_setArenaStreamingFocus(player, false)
+				player:SetAttribute("SkyfallRole", "Runner")
+				self:_placePlayer(
+					player,
+					self.arena:GetRunnerSpawnCFrame(1, math.max(self:_aliveRunnerCount(), 1)),
+					character
+				)
+			else
+				self:_setArenaStreamingFocus(player, true)
+				player:SetAttribute("SkyfallRole", "Spectator")
+				self:_placePlayer(player, self:_lobbySpawnForPlayer(player), character)
+			end
 		end
 	else
 		self:_setArenaStreamingFocus(player, true)
@@ -593,7 +656,8 @@ function RoundService:_scheduleRespawnRecovery(player, deadCharacter)
 
 		local currentCharacter = player.Character
 		local currentHumanoid = currentCharacter and currentCharacter:FindFirstChildOfClass("Humanoid")
-		if not currentCharacter
+		if
+			not currentCharacter
 			or currentCharacter == deadCharacter
 			or not currentHumanoid
 			or currentHumanoid.Health <= 0
@@ -631,28 +695,26 @@ function RoundService:_isCandidateValid(candidate)
 
 	if candidate.kind == "Bot" then
 		local bot = candidate.value
-		return bot
-			and bot.model
-			and bot.model.Parent
-			and bot.humanoid
-			and bot.humanoid.Health > 0
+		return bot and bot.model and bot.model.Parent and bot.humanoid and bot.humanoid.Health > 0
 	end
 
 	return false
 end
 
 function RoundService:_chooseNextMapId()
-	return 1
+	return MapRotation.GetMapId(self.roundNumber, Config.MAP_COUNT)
 end
 
 function RoundService:_chooseController(readyPlayerOverride)
-	-- The owner-only debug request remains an explicit development override.
+	-- The owner-only debug request is an override only while the explicit toggle remains enabled.
 	local debugPlayer = self.debugControllerPlayer
-	if debugPlayer and debugPlayer.Parent == Players and self.readyPlayers[debugPlayer] then
+	if debugPlayer and self:_isDebugControllerRequested(debugPlayer) and self.readyPlayers[debugPlayer] then
 		if self.pilotPriority then
 			self.pilotPriority:RecordController(debugPlayer)
 		end
-		return {kind = "Player", value = debugPlayer}
+		return { kind = "Player", value = debugPlayer }
+	elseif debugPlayer then
+		self:_clearStaleDebugControllerRequest(debugPlayer)
 	end
 
 	local readyPlayers = readyPlayerOverride or self:_getReadyPlayers()
@@ -660,8 +722,8 @@ function RoundService:_chooseController(readyPlayerOverride)
 	if self.roundNumber == 1 and #readyPlayers == 1 then
 		local botCandidates = {}
 		for _, bot in ipairs(self.botService:GetBots()) do
-			if self:_isCandidateValid({kind = "Bot", value = bot}) then
-				table.insert(botCandidates, {kind = "Bot", value = bot})
+			if self:_isCandidateValid({ kind = "Bot", value = bot }) then
+				table.insert(botCandidates, { kind = "Bot", value = bot })
 			end
 		end
 		if #botCandidates > 0 then
@@ -672,17 +734,17 @@ function RoundService:_chooseController(readyPlayerOverride)
 	if self.pilotPriority then
 		local selectedPlayer = self.pilotPriority:ChooseController(readyPlayers)
 		if selectedPlayer then
-			return {kind = "Player", value = selectedPlayer}
+			return { kind = "Player", value = selectedPlayer }
 		end
 	elseif #readyPlayers > 0 then
-		return {kind = "Player", value = readyPlayers[self.random:NextInteger(1, #readyPlayers)]}
+		return { kind = "Player", value = readyPlayers[self.random:NextInteger(1, #readyPlayers)] }
 	end
 
 	-- Bots are a fallback only when no ready human can pilot.
 	local botCandidates = {}
 	for _, bot in ipairs(self.botService:GetBots()) do
-		if self:_isCandidateValid({kind = "Bot", value = bot}) then
-			table.insert(botCandidates, {kind = "Bot", value = bot})
+		if self:_isCandidateValid({ kind = "Bot", value = bot }) then
+			table.insert(botCandidates, { kind = "Bot", value = bot })
 		end
 	end
 	if #botCandidates == 0 then
@@ -744,10 +806,7 @@ function RoundService:IsActive()
 end
 
 function RoundService:IsAliveRunner(player)
-	return self.phase == "Active"
-		and player ~= nil
-		and player.Parent == Players
-		and self.aliveRunners[player] == true
+	return self.phase == "Active" and player ~= nil and player.Parent == Players and self.aliveRunners[player] == true
 end
 
 function RoundService:IsWaiting()
@@ -758,8 +817,7 @@ function RoundService:_broadcast()
 	local botCount = self.botService and self.botService:GetBotCount() or 0
 	local allHumanCount = #Players:GetPlayers()
 	local remainingPlayers = self:_aliveRunnerCount()
-	local remainingSeconds = self.phase == "Active"
-		and math.max(0, Config.ROUND_SECONDS - self.elapsedSeconds)
+	local remainingSeconds = self.phase == "Active" and math.max(0, Config.ROUND_SECONDS - self.elapsedSeconds)
 		or self.countdownSeconds
 
 	self.stateRemote:FireAllClients({
@@ -795,9 +853,7 @@ function RoundService:HandleDeath(player, deadCharacter)
 		return
 	end
 
-	local wasController = self.controller
-		and self.controller.kind == "Player"
-		and self.controller.value == player
+	local wasController = self.controller and self.controller.kind == "Player" and self.controller.value == player
 	local wasRunner = self.aliveRunners[player]
 	if not wasController and not wasRunner then
 		return
@@ -806,7 +862,7 @@ function RoundService:HandleDeath(player, deadCharacter)
 	if wasController then
 		self.controller = nil
 	else
-		self:_recordSurvival({kind = "Player", value = player})
+		self:_recordSurvival({ kind = "Player", value = player })
 		self.aliveRunners[player] = nil
 	end
 
@@ -822,7 +878,7 @@ function RoundService:Eliminate(player)
 		return
 	end
 
-	self:_recordSurvival({kind = "Player", value = player})
+	self:_recordSurvival({ kind = "Player", value = player })
 	self.aliveRunners[player] = nil
 	self:_setArenaStreamingFocus(player, true)
 	player:SetAttribute("SkyfallRole", "Spectator")
@@ -925,9 +981,7 @@ function RoundService:_isGrounded(candidate)
 		humanoid = candidate.value.humanoid
 	end
 
-	return humanoid
-		and humanoid.Health > 0
-		and humanoid.FloorMaterial ~= Enum.Material.Air
+	return humanoid and humanoid.Health > 0 and humanoid.FloorMaterial ~= Enum.Material.Air
 end
 
 function RoundService:_getLongestSurvivor()
@@ -955,7 +1009,7 @@ function RoundService:_getLongestSurvivor()
 			local survivalTime = self.survivalTimes[value] or 0
 			if survivalTime > bestTime then
 				bestTime = survivalTime
-				bestCandidates = {candidate}
+				bestCandidates = { candidate }
 			elseif survivalTime == bestTime then
 				table.insert(bestCandidates, candidate)
 			end
@@ -971,7 +1025,7 @@ end
 function RoundService:_getTimeoutWinners()
 	local humanWinners = {}
 	for _, player in ipairs(self:_getLivingHumanRunners()) do
-		table.insert(humanWinners, {kind = "Player", value = player})
+		table.insert(humanWinners, { kind = "Player", value = player })
 	end
 	if #humanWinners > 0 then
 		return humanWinners
@@ -979,7 +1033,7 @@ function RoundService:_getTimeoutWinners()
 
 	-- If no human Runner remains, only a currently living bot may be the fallback.
 	local longestSurvivor = self:_getLongestSurvivor()
-	return longestSurvivor and {longestSurvivor} or {}
+	return longestSurvivor and { longestSurvivor } or {}
 end
 
 function RoundService:_getWinnerDetails()
@@ -1006,7 +1060,7 @@ function RoundService:_resolveWinners(aliveCount)
 	else
 		local livingHumans = self:_getLivingHumanRunners()
 		if #livingHumans == 1 then
-			table.insert(winners, {kind = "Player", value = livingHumans[1]})
+			table.insert(winners, { kind = "Player", value = livingHumans[1] })
 		elseif aliveCount == 1 then
 			local soleSurvivor = self:_getSoleSurvivor()
 			if soleSurvivor then
@@ -1032,8 +1086,7 @@ function RoundService:_resolveWinners(aliveCount)
 		local isController = self.controller
 			and self.controller.kind == candidate.kind
 			and self.controller.value == candidate.value
-		candidate.winningRole = isController and "Controller"
-			or (candidate.kind == "Bot" and "Bot Runner" or "Runner")
+		candidate.winningRole = isController and "Controller" or (candidate.kind == "Bot" and "Bot Runner" or "Runner")
 		table.insert(winnerNames, self:_candidateName(candidate))
 	end
 
@@ -1051,20 +1104,15 @@ function RoundService:_recordSurvival(candidate, awardPriority)
 		return
 	end
 	local elapsed = math.max(0, math.floor(os.clock() - self.roundStartedAt))
-	self.survivalTimes[candidate.value] = math.max(
-		self.survivalTimes[candidate.value] or 0,
-		math.min(elapsed, Config.ROUND_SECONDS)
-	)
+	self.survivalTimes[candidate.value] =
+		math.max(self.survivalTimes[candidate.value] or 0, math.min(elapsed, Config.ROUND_SECONDS))
 	if candidate.kind == "Player" and awardPriority ~= false and self.pilotPriority then
 		self.pilotPriority:AwardElimination(candidate.value, self.roundNumber, elapsed)
 	end
 end
 
 function RoundService:_updateSurvivalRecords()
-	local elapsed = math.min(
-		math.max(0, math.floor(os.clock() - self.roundStartedAt)),
-		Config.ROUND_SECONDS
-	)
+	local elapsed = math.min(math.max(0, math.floor(os.clock() - self.roundStartedAt)), Config.ROUND_SECONDS)
 	for player in pairs(self.aliveRunners) do
 		if player.Parent == Players then
 			self.survivalTimes[player] = math.max(self.survivalTimes[player] or 0, elapsed)
@@ -1117,10 +1165,7 @@ function RoundService:_placeAllPlayersInLobby()
 	for index, player in ipairs(playerList) do
 		self:_setArenaStreamingFocus(player, true)
 		player:SetAttribute("SkyfallRole", "Waiting")
-		self:_placePlayer(
-			player,
-			self.arena:GetLobbySpawnCFrame(index, #playerList, false)
-		)
+		self:_placePlayer(player, self.arena:GetLobbySpawnCFrame(index, #playerList, false))
 	end
 
 	if self.botService then
@@ -1180,17 +1225,14 @@ function RoundService:_runRound()
 			self:_setArenaStreamingFocus(player, false)
 			spawnIndex += 1
 			self.aliveRunners[player] = true
-			self.roundRunners[player] = {kind = "Player", value = player}
+			self.roundRunners[player] = { kind = "Player", value = player }
 			self.survivalTimes[player] = 0
 			player:SetAttribute("SkyfallRole", "Runner")
 			player:SetAttribute("SkyfallSurvivalTime", 0)
 			if self.onRunnerStarted then
 				self.onRunnerStarted(player)
 			end
-			self:_placePlayer(
-				player,
-				self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(runnerCount, 1))
-			)
+			self:_placePlayer(player, self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(runnerCount, 1)))
 		end
 	end
 
@@ -1198,19 +1240,13 @@ function RoundService:_runRound()
 	for index, bot in ipairs(botList) do
 		if bot ~= controllerBot then
 			spawnIndex += 1
-			botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(
-				spawnIndex,
-				math.max(runnerCount, 1)
-			)
-			self.roundRunners[bot] = {kind = "Bot", value = bot}
+			botSpawnCFrames[index] = self.arena:GetRunnerSpawnCFrame(spawnIndex, math.max(runnerCount, 1))
+			self.roundRunners[bot] = { kind = "Bot", value = bot }
 			self.survivalTimes[bot] = 0
 		end
 	end
 
-	self.botService:StartRound(
-		botSpawnCFrames,
-		controllerBot
-	)
+	self.botService:StartRound(botSpawnCFrames, controllerBot)
 
 	self:_broadcast()
 
@@ -1221,10 +1257,7 @@ function RoundService:_runRound()
 			break
 		end
 
-		self.elapsedSeconds = math.min(
-			math.floor(os.clock() - self.roundStartedAt),
-			Config.ROUND_SECONDS
-		)
+		self.elapsedSeconds = math.min(math.floor(os.clock() - self.roundStartedAt), Config.ROUND_SECONDS)
 		self:_updateSurvivalRecords()
 		self:_eliminateFallenRunners()
 
@@ -1241,7 +1274,7 @@ function RoundService:_runRound()
 		elseif aliveCount == 0 or not self.controller then
 			break
 		elseif #livingHumans == 1 then
-			local soleHuman = {kind = "Player", value = livingHumans[1]}
+			local soleHuman = { kind = "Player", value = livingHumans[1] }
 			if self:_isGrounded(soleHuman) then
 				break
 			end
@@ -1265,10 +1298,7 @@ function RoundService:_runRound()
 	end
 	self.phase = canceled and "Waiting" or "Results"
 	self:_resetArenaAfterRound()
-	self.elapsedSeconds = math.min(
-		math.floor(os.clock() - self.roundStartedAt),
-		Config.ROUND_SECONDS
-	)
+	self.elapsedSeconds = math.min(math.floor(os.clock() - self.roundStartedAt), Config.ROUND_SECONDS)
 
 	if not canceled then
 		for seconds = Config.RESULTS_SECONDS, 1, -1 do

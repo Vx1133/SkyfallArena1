@@ -107,7 +107,7 @@
 |---|---|
 | Repository baseline | Existing files read from `main`; current service interfaces inspected |
 | Checklist created | `9d7244e0bbefd289f4304221a72211b46860f51f`, plan update `566ead38d40be670eed813294a08ab782e0dfdf9` |
-| Repository CI | Python validator, Selene (0 errors, 0 warnings), and Rojo build passed on PR head `c175e1f529138b1832d78f356fbcfa84e425836e`; live Roblox cloud smoke tests remain pending. |
+| Repository CI | Python validator, Selene (0 errors, 0 warnings, 0 parse errors), and Rojo build passed. PR validation run `43888479089` passed on `c175e1f529138b1832d78f356fbcfa84e425836e`; documentation-resume run `43889784753` passed on `caf7f3f0c99ccb7016e8ebb8a795ec5cfa53718f`. Live Roblox cloud smoke tests remain pending. |
 | Device / multiplayer runtime | Device Simulator, real-phone input/Safe Area, and two-client tests remain pending. |
 | Review | Self-review completed and fixes committed; no GitHub reviewer feedback is recorded yet. |
 
@@ -256,3 +256,11 @@ Continue from this branch and commit. Do not restart the Update #18 implementati
 - No Roblox upload, cloud execution, merge, or public release has occurred.
 - Still pending: private-place upload approval, Roblox Cloud smoke-test execution, Device Simulator and real-phone layout/touch verification, and at least two-client multiplayer verification.
 - Preserve the existing PR and branch. Do not mark implementation-specific checkboxes complete solely because CI passed; CI does not execute the in-game smoke tests.
+
+
+## Latest verification note (2026-11-16)
+
+- Documentation cleanup commit: `caf7f3f0c99ccb7016e8ebb8a795ec5cfa53718f`.
+- CI on that commit completed successfully: [GitHub Actions 43889784753](https://github.com/Vx1133/SkyfallArena1/actions/runs/43889784753).
+- A fresh `SkyfallArena-place` artifact was produced: artifact ID `14237105140`.
+- PR #18 remains open, draft, mergeable, and unmerged.

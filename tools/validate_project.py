@@ -34,6 +34,9 @@ required_files = [
     "tests/lune/update_019_policy.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
+    "src/server/Services/CyberpunkPillarService.lua",
+    "src/server/Services/FloorAppearanceService.lua",
+    "src/server/Services/ElementIntegrationService.lua",
     "src/server/Services/BotService.lua",
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
@@ -42,6 +45,8 @@ required_files = [
     "src/client/Audio.client.lua",
     "tests/cloud_smoke_tests.luau",
     "docs/CLOUD_PUBLISHING.md",
+    "docs/updates/022-elements-floor-pilot-opt-in.md",
+    "docs/handoffs/CODEX_UPDATE_022.md",
     "src/server/Services/AdminFlightService.lua",
     "src/server/Services/BubbleGunService.lua",
     "src/server/Services/PilotPriorityService.lua",
@@ -144,11 +149,17 @@ for forbidden in (
 ):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
 for forbidden_lighting in (
-    'Instance.new("Sky")',
-    'Instance.new("SunRaysEffect")',
     'Instance.new("Clouds")',
 ):
-    require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
+    require(forbidden_lighting not in arena_source, f"Unsupported global lighting effect must be removed: {forbidden_lighting}")
+for daylight_feature in (
+    'Instance.new("Sky")',
+    'Instance.new("SunRaysEffect")',
+    'daySky.StarCount = 0',
+    'daySky.MoonAngularSize = 0',
+    'Lighting.ClockTime = theme.clockTime or 14',
+):
+    require(daylight_feature in arena_source, f"Daylight sky profile is missing: {daylight_feature}")
 require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
 require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
 require("local function setTileSurface(tile, theme, hidden)" in arena_source, "Theme-aware tile surface reset is missing")
@@ -336,7 +347,6 @@ for feature in (
     "player.ReplicationFocus = focusPart",
     "player.ReplicationFocus = nil",
     "local readyPlayers = readyPlayerOverride or self:_getReadyPlayers()",
-    "self.roundNumber == 1 and #readyPlayers == 1",
     "function RoundService:IsWaiting()",
     "self.botService.onBotDied = function(diedBot)",
     "function RoundService:_getLivingHumanRunners(",
@@ -599,5 +609,54 @@ for feature in (
     "SKYFALL_CLOUD_TESTS_OK",
 ):
     require(feature in cloud_tests, f"Cloud smoke test is missing: {feature}")
+
+floor_appearance_source = (ROOT / "src/server/Services/FloorAppearanceService.lua").read_text(encoding="utf-8")
+for feature in ("function FloorAppearanceService.Capture(", "source.MaterialVariant", "source.Color", "source.Reflectance", "function FloorAppearanceService.Apply(", "profile.TopSurface", "profile.BottomSurface"):
+    require(feature in floor_appearance_source, f"Lobby floor appearance transfer is missing: {feature}")
+
+element_integration_source = (ROOT / "src/server/Services/ElementIntegrationService.lua").read_text(encoding="utf-8")
+for feature in ("CollectionService:GetTagged(\"SkyfallElement\")", "SkyfallElementType", "Fire", "Water", "Earth", "Air", "TweenService:Create", "CanCollide = false", "CanQuery = false"):
+    require(feature in element_integration_source, f"Four-element visual integration is missing: {feature}")
+
+pilot_policy_source = (ROOT / "src/shared/PilotOptInPolicy.lua").read_text(encoding="utf-8")
+require("function PilotOptInPolicy.Filter(" in pilot_policy_source, "Explicit human pilot opt-in policy is missing")
+require('player:SetAttribute("SkyfallPilotOptIn", false)' in round_source, "Players must default to no pilot opt-in")
+require('function RoundService:RequestPilotOptIn(' in round_source, "Server pilot opt-in handler is missing")
+require('PilotOptInPolicy.Filter(readyPlayers' in round_source, "Controller selection must filter explicit pilot opt-ins")
+require('candidate:GetAttribute("SkyfallPilotOptIn") == true' in round_source, "Only opted-in human players may be selected as controller")
+require('pilotButton.Name = "PilotOptInButton"' in hud_source, "The mobile pilot opt-in button is missing")
+require('playRemote:FireServer("PilotOptIn", desiredState)' in hud_source, "The pilot opt-in button must send an explicit server request")
+require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encoding="utf-8"), "Lune must be pinned in Rokit")
+require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
+
+cyberpunk_pillar_source = (ROOT / "src/server/Services/CyberpunkPillarService.lua").read_text(encoding="utf-8")
+for feature in (
+    "function CyberpunkPillarService.Build(",
+    "PylonFoundation_",
+    "PylonFootBridgeX_",
+    "PylonFootBridgeZ_",
+    "PylonPerimeterJoint_",
+    "PylonCrownBase_",
+    "PylonCrownCap_",
+    "PylonLightSpine_",
+    "FloorAppearanceService.ApplySurface(part, profile)",
+    "for sideX = -1, 1, 2 do",
+    "for sideZ = -1, 1, 2 do",
+):
+    require(feature in cyberpunk_pillar_source, f"Integrated four-pillar system is missing: {feature}")
+
+require("CyberpunkPillarService.Build(folder, theme, center, half, theme.floorAppearanceProfile)" in arena_source, "Arena must build the four integrated corner pillars")
+for feature in (
+    'clockTime = 14.2',
+    'fogColor = Color3.fromRGB(190, 220, 242)',
+    'daySky.Name = "SkyfallDaySky"',
+    "daySky.StarCount = 0",
+    "daySky.MoonAngularSize = 0",
+    "atmosphere.Density = 0.12",
+    "atmosphere.Haze = 0.7",
+    "FloorAppearanceService.ApplySurface(part, theme.floorAppearanceProfile)",
+):
+    require(feature in arena_source, f"Daylight and all-face lobby material sync are missing: {feature}")
+require("function FloorAppearanceService.ApplySurface(" in floor_appearance_source, "Surface-only lobby material profile application is missing")
 
 print("Skyfall Arena structural and gameplay validation passed.")

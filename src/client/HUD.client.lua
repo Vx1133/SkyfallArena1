@@ -153,6 +153,49 @@ playButton.Activated:Connect(function()
 	end
 end)
 
+local pilotButton = Instance.new("TextButton")
+pilotButton.Name = "PilotOptInButton"
+pilotButton.AnchorPoint = Vector2.new(0.5, 0)
+pilotButton.Position = UDim2.new(0.5, 0, 0, 97)
+pilotButton.Size = UDim2.fromOffset(154, 34)
+pilotButton.BackgroundColor3 = Color3.fromRGB(66, 78, 94)
+pilotButton.BackgroundTransparency = 0.16
+pilotButton.BorderSizePixel = 0
+pilotButton.Font = Enum.Font.GothamBold
+pilotButton.Text = "PILOT: OFF"
+pilotButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+pilotButton.TextSize = 12
+pilotButton.AutoButtonColor = true
+pilotButton.Visible = true
+pilotButton.Parent = screenGui
+
+local pilotOptInCorner = Instance.new("UICorner")
+pilotOptInCorner.CornerRadius = UDim.new(0, 9)
+pilotOptInCorner.Parent = pilotButton
+
+local pilotOptInStroke = Instance.new("UIStroke")
+pilotOptInStroke.Color = Color3.fromRGB(220, 235, 250)
+pilotOptInStroke.Transparency = 0.62
+pilotOptInStroke.Thickness = 1
+pilotOptInStroke.Parent = pilotButton
+
+local function updatePilotButton()
+	local waiting = state.phase == "Waiting"
+	local optedIn = player:GetAttribute("SkyfallPilotOptIn") == true
+	pilotButton.Visible = waiting
+	pilotButton.Text = optedIn and "PILOT: ON" or "PILOT: OFF"
+	pilotButton.BackgroundColor3 = optedIn and Color3.fromRGB(30, 126, 155) or Color3.fromRGB(66, 78, 94)
+end
+
+pilotButton.Activated:Connect(function()
+	if state.phase ~= "Waiting" then
+		return
+	end
+	local desiredState = player:GetAttribute("SkyfallPilotOptIn") ~= true
+	pilotButton.Text = "PILOT..."
+	playRemote:FireServer("PilotOptIn", desiredState)
+end)
+
 local function formatTime(totalSeconds)
 	local seconds = math.max(0, math.floor(totalSeconds or 0))
 	local minutes = math.floor(seconds / 60)
@@ -315,6 +358,7 @@ local function updateHud()
 	local active = state.phase == "Active"
 	panel.Visible = active
 	updatePlayButton()
+	updatePilotButton()
 	updateLaserStatus()
 	if not active then
 		return
@@ -388,11 +432,14 @@ player:GetAttributeChangedSignal("SkyfallRole"):Connect(function()
 	updatePilotPriorityVisibility()
 end)
 player:GetAttributeChangedSignal("SkyfallReady"):Connect(updateHud)
+player:GetAttributeChangedSignal("SkyfallPilotOptIn"):Connect(updatePilotButton)
 player:GetAttributeChangedSignal("SkyfallPilotPriority"):Connect(updatePilotPriority)
 player:GetAttributeChangedSignal("SkyfallLaserReadyAt"):Connect(updateLaserStatus)
 
 updatePilotPriority()
 updatePilotPriorityVisibility()
+updatePlayButton()
+updatePilotButton()
 
 local controllerCameraActive = false
 local previousFieldOfView = nil

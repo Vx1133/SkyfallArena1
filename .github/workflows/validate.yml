@@ -36,6 +36,12 @@ jobs:
         run: |
           rojo --version
           selene --version
+          lune --version
+
+      - name: Run pure Luau policy tests
+        run: |
+          lune run tests/lune/update_019_policy.luau
+          lune run tests/lune/update_022_policy.luau
 
       - name: Validate repository structure
         run: python tools/validate_project.py

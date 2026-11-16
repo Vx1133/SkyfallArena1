@@ -5,6 +5,7 @@ local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
 local Config = require(sharedFolder:WaitForChild("GameConfig"))
 local MapRotation = require(sharedFolder:WaitForChild("MapRotation"))
 local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy"))
+local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy"))
 
 local RoundService = {}
 RoundService.__index = RoundService
@@ -47,7 +48,13 @@ function RoundService.new(arenaService, stateRemote, botService, playRemote, pil
 		end
 	end
 	if self.playRemote then
-		self.playRemote.OnServerEvent:Connect(function(player)
+		self.playRemote.OnServerEvent:Connect(function(player, action, enabled)
+			if action == "PilotOptIn" then
+				if typeof(enabled) == "boolean" then
+					self:RequestPilotOptIn(player, enabled)
+				end
+				return
+			end
 			self:RequestPlay(player)
 		end)
 	end
@@ -191,6 +198,7 @@ function RoundService:_bindPlayer(player)
 	end
 	player:SetAttribute("SkyfallRole", "Waiting")
 	player:SetAttribute("SkyfallReady", false)
+	player:SetAttribute("SkyfallPilotOptIn", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
 	self.characterSerial[player] = 0
 	self:_setArenaStreamingFocus(player, true)
@@ -248,6 +256,14 @@ function RoundService:RequestPlay(player)
 	self.readyPlayers[player] = true
 	player:SetAttribute("SkyfallReady", true)
 	self:_broadcast()
+	return true
+end
+
+function RoundService:RequestPilotOptIn(player, enabled)
+	if not player or player.Parent ~= Players or self.phase ~= "Waiting" or typeof(enabled) ~= "boolean" then
+		return false
+	end
+	player:SetAttribute("SkyfallPilotOptIn", enabled)
 	return true
 end
 
@@ -718,29 +734,23 @@ function RoundService:_chooseController(readyPlayerOverride)
 	end
 
 	local readyPlayers = readyPlayerOverride or self:_getReadyPlayers()
-	-- The first solo round deliberately lets the only human experience the Runner role.
-	if self.roundNumber == 1 and #readyPlayers == 1 then
-		local botCandidates = {}
-		for _, bot in ipairs(self.botService:GetBots()) do
-			if self:_isCandidateValid({ kind = "Bot", value = bot }) then
-				table.insert(botCandidates, { kind = "Bot", value = bot })
-			end
+	local optedInPlayers = PilotOptInPolicy.Filter(readyPlayers, function(candidate)
+		return candidate:GetAttribute("SkyfallPilotOptIn") == true
+	end)
+
+	-- A human may control the aircraft only after explicitly switching PILOT on.
+	if #optedInPlayers > 0 then
+		local selectedPlayer = nil
+		if self.pilotPriority then
+			selectedPlayer = self.pilotPriority:ChooseController(optedInPlayers)
 		end
-		if #botCandidates > 0 then
-			return botCandidates[self.random:NextInteger(1, #botCandidates)]
+		if not selectedPlayer then
+			selectedPlayer = optedInPlayers[self.random:NextInteger(1, #optedInPlayers)]
 		end
+		return { kind = "Player", value = selectedPlayer }
 	end
 
-	if self.pilotPriority then
-		local selectedPlayer = self.pilotPriority:ChooseController(readyPlayers)
-		if selectedPlayer then
-			return { kind = "Player", value = selectedPlayer }
-		end
-	elseif #readyPlayers > 0 then
-		return { kind = "Player", value = readyPlayers[self.random:NextInteger(1, #readyPlayers)] }
-	end
-
-	-- Bots are a fallback only when no ready human can pilot.
+	-- Without an explicit human opt-in, keep the controller role on a bot.
 	local botCandidates = {}
 	for _, bot in ipairs(self.botService:GetBots()) do
 		if self:_isCandidateValid({ kind = "Bot", value = bot }) then
@@ -1198,6 +1208,9 @@ function RoundService:_runRound()
 	self.phase = "Active"
 
 	self.controller = self:_chooseController()
+	for _, player in ipairs(playersInRound) do
+		player:SetAttribute("SkyfallPilotOptIn", false)
+	end
 	if not self.controller then
 		self.phase = "Waiting"
 		return

@@ -269,6 +269,8 @@ for feature in (
     "function BubbleGunService:_holdTarget(",
     "function BubbleGunService:_releaseHold(",
     "function BubbleGunService:_handleShot(",
+    "function BubbleGunService:_isValidShooter(",
+    "function BubbleGunService:_cancelProjectilesForPlayer(",
     "Config.BUBBLE_GUN_RANGE",
     "Config.BUBBLE_GUN_COOLDOWN_SECONDS",
 ):
@@ -277,6 +279,12 @@ for forbidden in ("MarketplaceService", "InsertService", "DataStoreService"):
     require(forbidden not in bubble_source, f"Bubble Blaster must not use external assets or purchases: {forbidden}")
 require("self.lifecycleToken" in bubble_source and "activeProjectiles" in bubble_source,
         "Bubble shots must be invalidated on round cleanup")
+require("record.direction * Config.BUBBLE_GUN_RANGE" in bubble_source,
+        "Bubble target must be re-raycast for range and line-of-sight at impact")
+require('targetPlayer:GetAttribute("SkyfallRole") == "Runner"' in bubble_source,
+        "Human bubble targets must still be Runner role")
+require("bot.humanoid.Health > 0" in bubble_source, "Bot targets must have a living Humanoid")
+require("TakeDamage" not in bubble_source, "Bubble Blaster must not deal direct damage")
 
 round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
 for feature in (
@@ -437,8 +445,9 @@ for feature in (
     'Enum.ScreenInsets.CoreUISafeInsets',
     '"DRONE " .. tostring(priority) .. "%"',
     'GetAttributeChangedSignal("SkyfallPilotPriority")',
-    'getRole() == "Waiting" or getRole() == "Runner"',
-    'getRole() ~= "Controller"',
+    'role == "Waiting" or role == "Runner"',
+    "pilotGui.Enabled = role == ",
+    'pilotLabel.Text = newText',
 ):
     require(feature in hud_source, f"Pilot Priority safe-area HUD is missing: {feature}")
 require("TextSize = 11" in hud_source, "Pilot Priority label should remain compact for phones")
@@ -525,6 +534,7 @@ for feature in (
     "Winner broadcast contains only safe names and role strings",
     "Bubble Blaster server asset, lobby station, and training target exist",
     "Bubble Blaster grants one copy and accepts only the lobby training target while waiting",
+    "Bubble Blaster server rejects invalid aim and enforces its cooldown",
     "Bubble hold restores movement and physics state exactly once",
     "three-second cooldown",
     "Four-cardinal lens aim tests",

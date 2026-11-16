@@ -1,11 +1,11 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
-local sharedFolder = ReplicatedStorage:WaitForChild("Shared")
-local Config = require(sharedFolder:WaitForChild("GameConfig"))
-local MapRotation = require(sharedFolder:WaitForChild("MapRotation"))
-local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy"))
-local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy"))
+local sharedFolder = ReplicatedStorage:WaitForChild("Shared", 8)
+local Config = require(sharedFolder:WaitForChild("GameConfig", 8))
+local MapRotation = require(sharedFolder:WaitForChild("MapRotation", 8))
+local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy", 8))
+local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy", 8))
 
 local RoundService = {}
 RoundService.__index = RoundService

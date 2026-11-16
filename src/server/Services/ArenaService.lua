@@ -14,7 +14,9 @@ local MAPS = {
 		id = 1,
 		name = "SKYFALL CLASSIC ARENA",
 		tileColor = Color3.fromRGB(79, 170, 66),
+		tileAlternateColor = Color3.fromRGB(79, 170, 66),
 		tileMaterial = Enum.Material.Plastic,
+		useClassicStuds = true,
 		studColor = Color3.fromRGB(112, 204, 83),
 		warningColor = Color3.fromRGB(255, 48, 58),
 		brokenColor = Color3.fromRGB(66, 76, 82),
@@ -23,7 +25,41 @@ local MAPS = {
 		accent = Color3.fromRGB(255, 207, 56),
 		secondary = Color3.fromRGB(64, 166, 220),
 		ambient = Color3.fromRGB(0, 0, 0),
+		outdoorAmbient = Color3.fromRGB(0, 0, 0),
 		fogColor = Color3.fromRGB(192, 192, 192),
+		brightness = 2,
+		clockTime = 14,
+		exposureCompensation = 0,
+		environmentDiffuseScale = 1,
+		environmentSpecularScale = 1,
+		fogStart = 0,
+		fogEnd = 100000,
+	},
+	{
+		id = 2,
+		name = "SKYFALL CYBERPUNK WHITE & BLUE ARENA",
+		tileColor = Color3.fromRGB(255, 255, 255),
+		tileAlternateColor = Color3.fromRGB(244, 247, 251),
+		tileMaterial = Enum.Material.SmoothPlastic,
+		useClassicStuds = false,
+		studColor = Color3.fromRGB(244, 247, 251),
+		warningColor = Color3.fromRGB(255, 64, 92),
+		brokenColor = Color3.fromRGB(10, 17, 40),
+		structure = Color3.fromRGB(0, 119, 255),
+		roof = Color3.fromRGB(244, 247, 251),
+		accent = Color3.fromRGB(0, 240, 255),
+		secondary = Color3.fromRGB(10, 17, 40),
+		ambient = Color3.fromRGB(24, 36, 64),
+		outdoorAmbient = Color3.fromRGB(18, 28, 54),
+		fogColor = Color3.fromRGB(10, 17, 40),
+		brightness = 2.2,
+		clockTime = 20.5,
+		exposureCompensation = -0.05,
+		environmentDiffuseScale = 0.75,
+		environmentSpecularScale = 1,
+		fogStart = 170,
+		fogEnd = 760,
+		useCyberpunkLighting = true,
 	},
 }
 
@@ -58,16 +94,27 @@ local function applyClassicStudSurface(basePart)
 	basePart.BottomSurface = Enum.SurfaceType.Inlet
 end
 
-local function setTileStudState(tile, hidden)
-	tile.TopSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Studs
-	tile.BottomSurface = hidden and Enum.SurfaceType.Smooth or Enum.SurfaceType.Inlet
+local function setTileSurface(tile, theme, hidden)
+	local useStuds = theme.useClassicStuds == true and not hidden
+	tile.TopSurface = useStuds and Enum.SurfaceType.Studs or Enum.SurfaceType.Smooth
+	tile.BottomSurface = useStuds and Enum.SurfaceType.Inlet or Enum.SurfaceType.Smooth
+end
+
+local function getTileBaseColor(tile, theme)
+	local alternateColor = theme.tileAlternateColor
+	if alternateColor then
+		local gridX = tile:GetAttribute("GridX") or 0
+		local gridZ = tile:GetAttribute("GridZ") or 0
+		if (gridX + gridZ) % 2 == 1 then
+			return alternateColor
+		end
+	end
+	return theme.tileColor
 end
 
 local function tileKey(gridX, gridZ)
 	return tostring(gridX) .. ":" .. tostring(gridZ)
 end
-
-
 
 function ArenaService.new()
 	local self = setmetatable({}, ArenaService)
@@ -283,15 +330,8 @@ function ArenaService:_buildAircraft()
 	self.laserOrigin = laserOrigin
 
 	local function lensDisc(name, thickness, diameter, position, color, material)
-		local disc = createPart(
-			model,
-			name,
-			Vector3.new(thickness, diameter, diameter),
-			position,
-			color,
-			material,
-			false
-		)
+		local disc =
+			createPart(model, name, Vector3.new(thickness, diameter, diameter), position, color, material, false)
 		disc.Shape = Enum.PartType.Cylinder
 		disc.CFrame = lensFrameAt(position)
 		disc.CastShadow = false
@@ -300,14 +340,8 @@ function ArenaService:_buildAircraft()
 		return disc
 	end
 
-	local outerCollar = lensDisc(
-		"ControllerLensOuterCollar",
-		0.72,
-		7.5,
-		lensCenter,
-		Color3.fromRGB(223, 174, 74),
-		Enum.Material.Metal
-	)
+	local outerCollar =
+		lensDisc("ControllerLensOuterCollar", 0.72, 7.5, lensCenter, Color3.fromRGB(223, 174, 74), Enum.Material.Metal)
 	outerCollar.Reflectance = 0.12
 
 	lensDisc(
@@ -353,15 +387,7 @@ function ArenaService:_buildAircraft()
 
 	local function lensDetail(name, size, localOffset, color)
 		local position = lensPosition + lensFrameAt(lensPosition):VectorToWorldSpace(localOffset)
-		local detail = createPart(
-			model,
-			name,
-			size,
-			position,
-			color,
-			Enum.Material.SmoothPlastic,
-			false
-		)
+		local detail = createPart(model, name, size, position, color, Enum.Material.SmoothPlastic, false)
 		detail.CFrame = lensFrameAt(lensPosition) * CFrame.new(localOffset)
 		detail.CanQuery = false
 		detail.CanTouch = false
@@ -376,11 +402,7 @@ function ArenaService:_buildAircraft()
 		local segmentLength = (2 * math.pi * radius / segmentCount) * 0.86
 		for index = 1, segmentCount do
 			local angle = (index - 1) * (2 * math.pi / segmentCount)
-			local localOffset = Vector3.new(
-				0.34,
-				math.cos(angle) * radius,
-				math.sin(angle) * radius
-			)
+			local localOffset = Vector3.new(0.34, math.cos(angle) * radius, math.sin(angle) * radius)
 			local segment = lensDetail(
 				name .. "_" .. tostring(index),
 				Vector3.new(0.07, 0.09, segmentLength),
@@ -394,18 +416,8 @@ function ArenaService:_buildAircraft()
 	addLensReticleRing("LensReticleRing_Outer", 1.82, 12)
 	addLensReticleRing("LensReticleRing_Inner", 1.12, 12)
 
-	lensDetail(
-		"LensReticleHorizontal",
-		Vector3.new(0.09, 2.7, 0.1),
-		Vector3.new(0.34, 0, 0),
-		reticleColor
-	)
-	lensDetail(
-		"LensReticleVertical",
-		Vector3.new(0.09, 0.1, 2.7),
-		Vector3.new(0.34, 0, 0),
-		reticleColor
-	)
+	lensDetail("LensReticleHorizontal", Vector3.new(0.09, 2.7, 0.1), Vector3.new(0.34, 0, 0), reticleColor)
+	lensDetail("LensReticleVertical", Vector3.new(0.09, 0.1, 2.7), Vector3.new(0.34, 0, 0), reticleColor)
 	lensDetail(
 		"LensReticleCenter",
 		Vector3.new(0.12, 0.34, 0.34),
@@ -448,10 +460,7 @@ function ArenaService:_buildAircraft()
 
 	-- Every visible part is rigidly joined to the fuselage, including the lens assembly.
 	for _, descendant in ipairs(model:GetDescendants()) do
-		if descendant:IsA("BasePart")
-			and descendant ~= orb
-			and descendant ~= aircraftAnchor
-		then
+		if descendant:IsA("BasePart") and descendant ~= orb and descendant ~= aircraftAnchor then
 			descendant.Anchored = false
 			descendant.Massless = true
 			local weld = Instance.new("WeldConstraint")
@@ -468,7 +477,7 @@ function ArenaService:_buildAircraft()
 	self.aircraftHoverTween = TweenService:Create(
 		aircraftAnchor,
 		TweenInfo.new(3.2, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true),
-		{Position = hoverGoal}
+		{ Position = hoverGoal }
 	)
 	self.aircraftHoverTween:Play()
 end
@@ -514,7 +523,7 @@ function ArenaService:AimAircraftAt(tile)
 	self.aircraftAimTween = TweenService:Create(
 		motor,
 		TweenInfo.new(tile and 0.42 or 0.38, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
-		{C0 = targetC0}
+		{ C0 = targetC0 }
 	)
 	self.aircraftAimTween:Play()
 	return aimToken
@@ -528,30 +537,83 @@ function ArenaService:ReturnAircraftLensHome(token)
 	return true
 end
 
-function ArenaService:_setLighting(_theme)
-	-- Return to neutral Roblox daytime lighting without custom sky or post-processing.
-	Lighting.Brightness = 2
-	Lighting.ClockTime = 14
-	Lighting.Ambient = Color3.fromRGB(0, 0, 0)
-	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
-	Lighting.ExposureCompensation = 0
-	Lighting.EnvironmentDiffuseScale = 1
-	Lighting.EnvironmentSpecularScale = 1
+function ArenaService:_setLighting(theme)
+	Lighting.Brightness = theme.brightness or 2
+	Lighting.ClockTime = theme.clockTime or 14
+	Lighting.Ambient = theme.ambient or Color3.fromRGB(0, 0, 0)
+	Lighting.OutdoorAmbient = theme.outdoorAmbient or Color3.fromRGB(0, 0, 0)
+	Lighting.ExposureCompensation = theme.exposureCompensation or 0
+	Lighting.EnvironmentDiffuseScale = theme.environmentDiffuseScale or 1
+	Lighting.EnvironmentSpecularScale = theme.environmentSpecularScale or 1
 	Lighting.GlobalShadows = true
-	Lighting.FogColor = Color3.fromRGB(192, 192, 192)
-	Lighting.FogStart = 0
-	Lighting.FogEnd = 100000
+	Lighting.FogColor = theme.fogColor or Color3.fromRGB(192, 192, 192)
+	Lighting.FogStart = theme.fogStart or 0
+	Lighting.FogEnd = theme.fogEnd or 100000
 
-	for _, name in ipairs({
+	local effectNames = {
 		"SkyfallSunriseSky",
 		"SkyfallAtmosphere",
 		"SkyfallColorCorrection",
 		"SkyfallBloom",
 		"SkyfallSunRays",
-	}) do
-		local effect = Lighting:FindFirstChild(name)
-		if effect then
-			effect:Destroy()
+	}
+
+	if theme.useCyberpunkLighting then
+		for _, name in ipairs({ "SkyfallSunriseSky", "SkyfallSunRays" }) do
+			local effect = Lighting:FindFirstChild(name)
+			if effect then
+				effect:Destroy()
+			end
+		end
+
+		local atmosphere = Lighting:FindFirstChild("SkyfallAtmosphere")
+		if not atmosphere or not atmosphere:IsA("Atmosphere") then
+			if atmosphere then
+				atmosphere:Destroy()
+			end
+			atmosphere = Instance.new("Atmosphere")
+			atmosphere.Name = "SkyfallAtmosphere"
+			atmosphere.Parent = Lighting
+		end
+		atmosphere.Color = Color3.fromRGB(177, 220, 255)
+		atmosphere.Decay = Color3.fromRGB(16, 28, 58)
+		atmosphere.Density = 0.18
+		atmosphere.Offset = 0.08
+		atmosphere.Glare = 0.18
+		atmosphere.Haze = 1.1
+
+		local bloom = Lighting:FindFirstChild("SkyfallBloom")
+		if not bloom or not bloom:IsA("BloomEffect") then
+			if bloom then
+				bloom:Destroy()
+			end
+			bloom = Instance.new("BloomEffect")
+			bloom.Name = "SkyfallBloom"
+			bloom.Parent = Lighting
+		end
+		bloom.Intensity = 0.62
+		bloom.Size = 24
+		bloom.Threshold = 1.12
+
+		local colorCorrection = Lighting:FindFirstChild("SkyfallColorCorrection")
+		if not colorCorrection or not colorCorrection:IsA("ColorCorrectionEffect") then
+			if colorCorrection then
+				colorCorrection:Destroy()
+			end
+			colorCorrection = Instance.new("ColorCorrectionEffect")
+			colorCorrection.Name = "SkyfallColorCorrection"
+			colorCorrection.Parent = Lighting
+		end
+		colorCorrection.Brightness = 0.015
+		colorCorrection.Contrast = 0.1
+		colorCorrection.Saturation = 0.04
+		colorCorrection.TintColor = Color3.fromRGB(211, 235, 255)
+	else
+		for _, name in ipairs(effectNames) do
+			local effect = Lighting:FindFirstChild(name)
+			if effect then
+				effect:Destroy()
+			end
 		end
 	end
 
@@ -561,7 +623,7 @@ function ArenaService:_setLighting(_theme)
 	end
 end
 
-function ArenaService:_buildMapDecoration(theme)
+function ArenaService:_buildClassicDecoration(theme)
 	local folder = self.mapFolder
 	local center = Config.ARENA_CENTER
 	local half = Config.ARENA_HALF_WIDTH
@@ -595,7 +657,7 @@ function ArenaService:_buildMapDecoration(theme)
 
 	-- Edge beams overlap at all corners and meet the outer tile edges.
 	local frameY = center.Y + 0.65
-	for _, side in ipairs({-1, 1}) do
+	for _, side in ipairs({ -1, 1 }) do
 		local northSouth = createPart(
 			folder,
 			"ClassicPerimeterNorthSouth_" .. tostring(side),
@@ -628,11 +690,7 @@ function ArenaService:_buildMapDecoration(theme)
 				folder,
 				"ClassicPerimeterCornerPost_" .. tostring(sideX) .. "_" .. tostring(sideZ),
 				Vector3.new(4, 9, 4),
-				center + Vector3.new(
-					sideX * (half + 1),
-					4.5,
-					sideZ * (half + 1)
-				),
+				center + Vector3.new(sideX * (half + 1), 4.5, sideZ * (half + 1)),
 				Color3.fromRGB(60, 112, 61),
 				Enum.Material.Plastic,
 				false
@@ -643,9 +701,161 @@ function ArenaService:_buildMapDecoration(theme)
 	end
 end
 
+local function createVisualPart(parent, name, size, position, color, material)
+	local part = createPart(parent, name, size, position, color, material, false)
+	part.CanCollide = false
+	part.CanTouch = false
+	part.CanQuery = false
+	part.CastShadow = false
+	return part
+end
+
+function ArenaService:_buildCyberpunkDecoration(theme)
+	local folder = self.mapFolder
+	local center = Config.ARENA_CENTER
+	local half = Config.ARENA_HALF_WIDTH
+	local width = Config.ARENA_WIDTH
+	local navy = Color3.fromRGB(10, 17, 40)
+	local silver = Color3.fromRGB(201, 212, 226)
+
+	createVisualPart(
+		folder,
+		"CyberpunkArenaSupport",
+		Vector3.new(width + 34, 2, width + 34),
+		center + Vector3.new(0, -60, 0),
+		navy,
+		Enum.Material.Metal
+	)
+	createVisualPart(
+		folder,
+		"CyberpunkArenaUnderDeck",
+		Vector3.new(width + 9, 1.3, width + 9),
+		center + Vector3.new(0, -1.15, 0),
+		navy,
+		Enum.Material.Metal
+	)
+
+	local trimY = center.Y + 0.72
+	local neonY = center.Y + 1.16
+	for _, side in ipairs({ -1, 1 }) do
+		createVisualPart(
+			folder,
+			"CyberpunkArenaOuterTrim_NorthSouth_" .. tostring(side),
+			Vector3.new(width + 10, 1.45, 2.6),
+			Vector3.new(center.X, trimY, center.Z + side * (half + 2)),
+			silver,
+			Enum.Material.Metal
+		)
+		createVisualPart(
+			folder,
+			"CyberpunkArenaOuterTrim_EastWest_" .. tostring(side),
+			Vector3.new(2.6, 1.45, width + 10),
+			Vector3.new(center.X + side * (half + 2), trimY, center.Z),
+			silver,
+			Enum.Material.Metal
+		)
+		createVisualPart(
+			folder,
+			"CyberpunkArenaNeonNorthSouth_" .. tostring(side),
+			Vector3.new(width + 11, 0.16, 0.24),
+			Vector3.new(center.X, neonY, center.Z + side * (half + 3.35)),
+			theme.accent,
+			Enum.Material.Neon
+		)
+		createVisualPart(
+			folder,
+			"CyberpunkArenaNeonEastWest_" .. tostring(side),
+			Vector3.new(0.24, 0.16, width + 11),
+			Vector3.new(center.X + side * (half + 3.35), neonY, center.Z),
+			theme.accent,
+			Enum.Material.Neon
+		)
+	end
+
+	-- Four clean perimeter ribs create depth without entering the playable tile grid.
+	local ribY = center.Y + 8
+	for _, side in ipairs({ -1, 1 }) do
+		createVisualPart(
+			folder,
+			"CyberpunkArenaCrossBrace_NorthSouth_" .. tostring(side),
+			Vector3.new(width + 8, 1.4, 1.8),
+			Vector3.new(center.X, ribY, center.Z + side * (half + 5.4)),
+			theme.structure,
+			Enum.Material.Metal
+		)
+		createVisualPart(
+			folder,
+			"CyberpunkArenaCrossBrace_EastWest_" .. tostring(side),
+			Vector3.new(1.8, 1.4, width + 8),
+			Vector3.new(center.X + side * (half + 5.4), ribY, center.Z),
+			theme.structure,
+			Enum.Material.Metal
+		)
+	end
+
+	-- Corner pylons use a small number of large, static pieces rather than dense trim meshes.
+	for sideX = -1, 1, 2 do
+		for sideZ = -1, 1, 2 do
+			local pylonKey = tostring(sideX) .. "_" .. tostring(sideZ)
+			local pylonOffset = Vector3.new(sideX * (half + 7), 0, sideZ * (half + 7))
+			local pylonPosition = center + pylonOffset + Vector3.new(0, 18, 0)
+			local pylonBasePosition = center + pylonOffset + Vector3.new(0, 1, 0)
+			createVisualPart(
+				folder,
+				"CyberpunkArenaPylonBase_" .. pylonKey,
+				Vector3.new(10, 2, 10),
+				pylonBasePosition,
+				silver,
+				Enum.Material.Metal
+			)
+			local pylon = createVisualPart(
+				folder,
+				"CyberpunkArenaCornerPylon_" .. pylonKey,
+				Vector3.new(6, 32, 6),
+				pylonPosition,
+				theme.structure,
+				Enum.Material.Metal
+			)
+			createVisualPart(
+				folder,
+				"CyberpunkArenaPylonAccent_" .. pylonKey,
+				Vector3.new(0.28, 22, 0.34),
+				pylonPosition + Vector3.new(-sideX * 3.14, 0, -sideZ * 3.14),
+				theme.accent,
+				Enum.Material.Neon
+			)
+			createVisualPart(
+				folder,
+				"CyberpunkArenaPylonCap_" .. pylonKey,
+				Vector3.new(9, 1.8, 9),
+				pylonPosition + Vector3.new(0, 16.8, 0),
+				theme.roof,
+				Enum.Material.Metal
+			)
+
+			local pointLight = Instance.new("PointLight")
+			pointLight.Name = "CyberpunkPylonLight_" .. pylonKey
+			pointLight.Color = theme.accent
+			pointLight.Brightness = 1.1
+			pointLight.Range = 16
+			pointLight.Shadows = false
+			pointLight.Parent = pylon
+		end
+	end
+end
+
+function ArenaService:_buildMapDecoration(theme)
+	if theme.id == 2 then
+		self:_buildCyberpunkDecoration(theme)
+	else
+		self:_buildClassicDecoration(theme)
+	end
+end
+
 function ArenaService:Build()
 	for _, descendant in ipairs(self.root:GetDescendants()) do
-		if descendant.Name == "BlueLaserImpact"
+		if
+			descendant.Name == "BlueLaserImpact"
 			or descendant.Name == "ImpactShockwave"
 			or descendant.Name == "BlueLaserHalo"
 			or descendant.Name == "BlueLaserOuter"
@@ -701,8 +911,9 @@ function ArenaService:Build()
 	self:SetMap(1)
 end
 
-function ArenaService:SetMap(_mapId)
-	local selected = MAPS[1]
+function ArenaService:SetMap(mapId)
+	local selected = MAPS[mapId] or MAPS[1]
+	local mapChanged = self.currentMapId ~= selected.id
 	self.currentMapId = selected.id
 	self.theme = selected
 
@@ -711,7 +922,7 @@ function ArenaService:SetMap(_mapId)
 		tile:SetAttribute("StrikeToken", token)
 		tile:SetAttribute("IsBroken", false)
 		tile:SetAttribute("IsWarning", false)
-		tile.Color = selected.tileColor
+		tile.Color = getTileBaseColor(tile, selected)
 		tile.Material = selected.tileMaterial
 		tile.CanCollide = true
 		tile.Transparency = 0
@@ -719,10 +930,11 @@ function ArenaService:SetMap(_mapId)
 		if warningLight then
 			warningLight:Destroy()
 		end
-		setTileStudState(tile, false)
+		setTileSurface(tile, selected, false)
 	end
 
-	if not self.mapDecorBuilt then
+	if mapChanged or not self.mapDecorBuilt then
+		self.mapFolder:ClearAllChildren()
 		self:_buildMapDecoration(selected)
 		self.mapDecorBuilt = true
 	end
@@ -746,7 +958,8 @@ end
 function ArenaService:GetSafeTiles()
 	local safeTiles = {}
 	for _, tile in pairs(self.tiles) do
-		if tile.Parent == self.tilesFolder
+		if
+			tile.Parent == self.tilesFolder
 			and tile.CanCollide
 			and not tile:GetAttribute("IsBroken")
 			and not tile:GetAttribute("IsWarning")
@@ -776,9 +989,7 @@ function ArenaService:MarkTile(tile)
 end
 
 function ArenaService:IsStrikeCurrent(tile, token)
-	return tile
-		and tile.Parent == self.tilesFolder
-		and tile:GetAttribute("StrikeToken") == token
+	return tile and tile.Parent == self.tilesFolder and tile:GetAttribute("StrikeToken") == token
 end
 
 function ArenaService:ClearWarning(tile, token)
@@ -790,7 +1001,7 @@ function ArenaService:ClearWarning(tile, token)
 	if warningLight then
 		warningLight:Destroy()
 	end
-	tile.Color = self.theme.tileColor
+	tile.Color = getTileBaseColor(tile, self.theme)
 	tile.Material = self.theme.tileMaterial
 end
 
@@ -813,7 +1024,7 @@ function ArenaService:BreakTile(tile, token)
 	tile.Material = Enum.Material.Slate
 	tile.CanCollide = false
 	tile.Transparency = 0.84
-	setTileStudState(tile, true)
+	setTileSurface(tile, self.theme, true)
 end
 
 function ArenaService:ResetTiles()
@@ -832,7 +1043,8 @@ function ArenaService:ResetTiles()
 
 	for _, tile in pairs(self.tiles) do
 		for _, child in ipairs(tile:GetChildren()) do
-			if child.Name == "LaserImpactAttachment"
+			if
+				child.Name == "LaserImpactAttachment"
 				or child.Name == "LaserImpactSound"
 				or child.Name == "TargetWarningLight"
 			then
@@ -844,11 +1056,11 @@ function ArenaService:ResetTiles()
 		tile:SetAttribute("StrikeToken", token)
 		tile:SetAttribute("IsWarning", false)
 		tile:SetAttribute("IsBroken", false)
-		tile.Color = self.theme.tileColor
+		tile.Color = getTileBaseColor(tile, self.theme)
 		tile.Material = self.theme.tileMaterial
 		tile.CanCollide = true
 		tile.Transparency = 0
-		setTileStudState(tile, false)
+		setTileSurface(tile, self.theme, false)
 	end
 end
 
@@ -857,27 +1069,15 @@ function ArenaService:GetLobbySpawnCFrame(index, total, isBot)
 	local spawnTotal = math.max(1, total or 1)
 	local angle = ((spawnIndex - 1) / spawnTotal) * math.pi * 2
 	local radius = isBot and Config.LOBBY_BOT_SPAWN_RADIUS or Config.LOBBY_SPAWN_RADIUS
-	local position = Config.LOBBY_CENTER + Vector3.new(
-		math.cos(angle) * radius,
-		5,
-		math.sin(angle) * radius
-	)
-	local horizontalViewTarget = Vector3.new(
-		Config.ARENA_CENTER.X,
-		position.Y,
-		Config.ARENA_CENTER.Z
-	)
+	local position = Config.LOBBY_CENTER + Vector3.new(math.cos(angle) * radius, 5, math.sin(angle) * radius)
+	local horizontalViewTarget = Vector3.new(Config.ARENA_CENTER.X, position.Y, Config.ARENA_CENTER.Z)
 	return CFrame.lookAt(position, horizontalViewTarget)
 end
 
 function ArenaService:GetRunnerSpawnCFrame(index, total)
 	local angle = ((index - 1) / math.max(total, 1)) * math.pi * 2
 	local radius = Config.RUNNER_SPAWN_RADIUS
-	local position = Config.ARENA_CENTER + Vector3.new(
-		math.cos(angle) * radius,
-		6,
-		math.sin(angle) * radius
-	)
+	local position = Config.ARENA_CENTER + Vector3.new(math.cos(angle) * radius, 6, math.sin(angle) * radius)
 	return CFrame.new(position)
 end
 

@@ -34,6 +34,9 @@ required_files = [
     "tests/lune/update_019_policy.luau",
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
+    "src/server/Services/CyberpunkPillarService.lua",
+    "src/server/Services/FloorAppearanceService.lua",
+    "src/server/Services/ElementIntegrationService.lua",
     "src/server/Services/BotService.lua",
     "src/server/Services/RoundService.lua",
     "src/server/Services/StrikeService.lua",
@@ -42,6 +45,8 @@ required_files = [
     "src/client/Audio.client.lua",
     "tests/cloud_smoke_tests.luau",
     "docs/CLOUD_PUBLISHING.md",
+    "docs/updates/022-elements-floor-pilot-opt-in.md",
+    "docs/handoffs/CODEX_UPDATE_022.md",
     "src/server/Services/AdminFlightService.lua",
     "src/server/Services/BubbleGunService.lua",
     "src/server/Services/PilotPriorityService.lua",
@@ -144,11 +149,17 @@ for forbidden in (
 ):
     require(forbidden not in arena_source, f"Forbidden map feature remains: {forbidden}")
 for forbidden_lighting in (
-    'Instance.new("Sky")',
-    'Instance.new("SunRaysEffect")',
     'Instance.new("Clouds")',
 ):
-    require(forbidden_lighting not in arena_source, f"Custom lighting effect must be removed: {forbidden_lighting}")
+    require(forbidden_lighting not in arena_source, f"Unsupported global lighting effect must be removed: {forbidden_lighting}")
+for daylight_feature in (
+    'Instance.new("Sky")',
+    'Instance.new("SunRaysEffect")',
+    'daySky.StarCount = 0',
+    'daySky.MoonAngularSize = 0',
+    'Lighting.ClockTime = theme.clockTime or 14',
+):
+    require(daylight_feature in arena_source, f"Daylight sky profile is missing: {daylight_feature}")
 require("basePart.TopSurface = Enum.SurfaceType.Studs" in arena_source, "Native Classic stud surfaces are missing")
 require("local horizontalViewTarget = Vector3.new(" in arena_source and "return CFrame.lookAt(position, horizontalViewTarget)" in arena_source, "Lobby spawns must face the arena without pitching avatars")
 require("local function setTileSurface(tile, theme, hidden)" in arena_source, "Theme-aware tile surface reset is missing")

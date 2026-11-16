@@ -78,3 +78,28 @@ The configured roster remains 10 bots. BotService creates the bots before RoundS
 
 - The aircraft icon is shown only after a player presses PLAY and joins the next round. A player can enable or cancel the icon during Waiting/Intermission, but not after Active begins.
 - New PLAY requests clear any stale opt-in; end-of-round cleanup clears opt-in/control for every human, including lobby users who did not join the round.
+
+
+## Waiting lobby resize, full surface synchronization, and Cyberpunk palette
+
+### Waiting lobby geometry
+- WaitingPlatform changes from 144 × 144 to 120 × 120 studs.
+- Human waiting spawns use a 42-stud ring, and the ten AI bots use a separate 52-stud ring. The bot ring remains 8 studs inside the platform edge.
+- The Bubble Blaster station remains positioned relative to the human spawn ring; its trigger remains within interaction distance of the first lobby spawn.
+
+### Exact lobby material/surface synchronization
+- `FloorAppearanceService.ApplySurface` now copies Material, MaterialVariant, Reflectance, TopSurface, and BottomSurface.
+- Cyberpunk floor tiles, support/deck, perimeter trims, braces, corner pillars, and existing element-transition layers use the captured lobby surface profile.
+- Deliberate Neon channels/spines remain emissive to preserve the map's light accents. Their material is a visual effect, not a structural finish.
+- The new map retains its own color palette. The lobby's baseplate Color is no longer copied into map tiles or element-transition base blends.
+
+### Green replacement
+- Centralized the lobby dimensions and Cyberpunk palette in `src/shared/WorldDesignProfile.lua`.
+- Cyberpunk tile colors move to cool ice-white and blue-white.
+- Structural blues are moderated, navy remains the depth tone, and cyan remains a restrained emissive accent.
+- The Earth element changes from green to muted champagne stone, tying it to the existing golden aircraft without clashing with the blue/white architecture.
+
+### QA additions
+- New Lune test checks lobby dimensions/spawn-ring margins and palette channel relationships.
+- Cloud smoke tests audit every non-Neon BasePart under the Cyberpunk generated map against the lobby Material, MaterialVariant, Reflectance, TopSurface, and BottomSurface.
+- Lobby spawn tests check all 30 player positions and all 10 bot positions remain within the compact platform.

@@ -86,7 +86,8 @@
 - [ ] Add controller selection tests for priority, tie-break, random final tie, score reset, no immediate repeat, solo first round, and bot fallback.
 - [ ] Add multiple-winner tests for 0, 1, and multiple human survivors at timeout, including stats and reward correctness.
 - [ ] Add HUD structural checks for visibility, text, update behavior, and safe-area anchoring.
-- [ ] Run cloud smoke tests (private Roblox upload and live execution still pending).\n- [x] Run project structural validation. Evidence: GitHub Actions run `43887761737`, commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`, step `Validate repository structure` passed.
+- [ ] Run cloud smoke tests (private Roblox upload and live execution still pending).
+- [x] Run project structural validation. Evidence: GitHub Actions run `43887761737`, commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`, step `Validate repository structure` passed.
 - [x] Run Selene on `src` and `tests`. Evidence: GitHub Actions run `43887761737`, Selene completed with 0 errors, 0 warnings, and 0 parse errors.
 - [x] Run `rojo build default.project.json`. Evidence: GitHub Actions run `43887761737`, Rojo build completed successfully and produced the `SkyfallArena-place` artifact.
 - [x] Review diff for protected drone, lens, laser, map, round duration, and publish workflow changes. Evidence: base-to-branch comparison lists only the 10 intended Update #18 files; protected modules, project mapping, and upload workflow are unchanged.
@@ -99,16 +100,16 @@
 - [x] Resolve all critical and important findings found in the self-review. Runtime/device findings remain unverified, not assumed clear.
 - [x] Create Pull Request #18 against `main` as a draft, not merged: https://github.com/Vx1133/SkyfallArena1/pull/18
 - [x] Confirm CI results for structural validation, Selene, and Rojo build. Evidence: GitHub Actions run `43887761737` succeeded on commit `7e32919de1b3406bd33b273e3fed292922e4cd2d`.
-- [ ] Do not merge or publish this update.
+- [x] Keep this update unmerged and unpublished while Roblox cloud/device/multiplayer verification remains pending. Evidence: PR #18 is open as a draft and `merged = false`; no upload workflow was run.
 
 ## Evidence log
 | Item | Evidence / command / result |
 |---|---|
 | Repository baseline | Existing files read from `main`; current service interfaces inspected |
 | Checklist created | `9d7244e0bbefd289f4304221a72211b46860f51f`, plan update `566ead38d40be670eed813294a08ab782e0dfdf9` |
-| Tests | Pending |
-| Device / multiplayer runtime | Pending |
-| Review | Pending |
+| Repository CI | Python validator, Selene (0 errors, 0 warnings), and Rojo build passed on PR head `c175e1f529138b1832d78f356fbcfa84e425836e`; live Roblox cloud smoke tests remain pending. |
+| Device / multiplayer runtime | Device Simulator, real-phone input/Safe Area, and two-client tests remain pending. |
+| Review | Self-review completed and fixes committed; no GitHub reviewer feedback is recorded yet. |
 
 ## Implementation plan (approved scope from the supplied specification)
 - `src/shared/GameConfig.lua`: add only bubble and Pilot Priority constants, preserving `ROUND_SECONDS = 180` and all laser/drone values.
@@ -242,3 +243,16 @@ Continue from this branch and commit. Do not restart the Update #18 implementati
 - PR head when opened: `bbfd1404718529a00672751f1740105054e5832e`.
 - PR is open and unmerged. No Roblox upload or public release occurred.
 - The PR description records the successful repository CI run and leaves cloud/device/multiplayer verification explicitly pending.
+
+
+## Current resume checkpoint (2026-11-16, repeated request)
+
+- Existing work was reused. No new feature branch or duplicate PR was created.
+- PR #18: https://github.com/Vx1133/SkyfallArena1/pull/18
+- PR head before this documentation-only update: `c175e1f529138b1832d78f356fbcfa84e425836e`; base `main`.
+- PR state confirmed: open, draft, unmerged, mergeable. No review submissions or PR comments were present at the latest check.
+- Current PR validation at that source head: GitHub Actions run [43888479089](https://github.com/Vx1133/SkyfallArena1/actions/runs/43888479089) succeeded. Structural validation, Selene (0 errors / 0 warnings / 0 parse errors), and Rojo build passed.
+- The branch comparison contained 10 intended files and was 49 commits ahead / 0 behind `main`.
+- No Roblox upload, cloud execution, merge, or public release has occurred.
+- Still pending: private-place upload approval, Roblox Cloud smoke-test execution, Device Simulator and real-phone layout/touch verification, and at least two-client multiplayer verification.
+- Preserve the existing PR and branch. Do not mark implementation-specific checkboxes complete solely because CI passed; CI does not execute the in-game smoke tests.

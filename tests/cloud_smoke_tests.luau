@@ -1874,14 +1874,15 @@ runTest("Aircraft opt-in is available only after PLAY and is reset for every hum
 		"Aircraft opt-in cannot change after a round becomes active"
 	)
 
-	local nonReadyPlayer = makeFakePlayer("NonReadyStaleOptIn", "Waiting")
-	nonReadyPlayer:SetAttribute("SkyfallPilotOptIn", true)
-	nonReadyPlayer:SetAttribute("SkyfallAircraftControlActive", true)
+	waitingHarness.readyPlayers[waitingPlayer] = true
+	waitingPlayer:SetAttribute("SkyfallReady", true)
 	waitingPlayer:SetAttribute("SkyfallPilotOptIn", true)
+	waitingPlayer:SetAttribute("SkyfallAircraftControlActive", true)
 	waitingHarness.phase = "Waiting"
 	waitingHarness:_clearReadyPlayers()
-	assert(nonReadyPlayer:GetAttribute("SkyfallPilotOptIn") == false, "Stale lobby opt-in must clear for non-ready humans too")
-	assert(nonReadyPlayer:GetAttribute("SkyfallAircraftControlActive") == false, "No waiting player may retain aircraft control")
+	assert(waitingPlayer:GetAttribute("SkyfallReady") == false, "Round cleanup must clear the ready state")
+	assert(waitingPlayer:GetAttribute("SkyfallPilotOptIn") == false, "Round cleanup must clear stale manual opt-in")
+	assert(waitingPlayer:GetAttribute("SkyfallAircraftControlActive") == false, "Round cleanup must clear aircraft state")
 end)
 
 runTest("A stale disabled debug toggle cannot override normal controller selection", function()

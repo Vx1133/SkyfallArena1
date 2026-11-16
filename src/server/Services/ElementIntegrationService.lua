@@ -3,6 +3,10 @@
 local CollectionService = game:GetService("CollectionService")
 local TweenService = game:GetService("TweenService")
 local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared"):WaitForChild("WorldDesignProfile"))
+local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService"))
 
 local ElementIntegrationService = {}
 local warnedMissingTargets = false
@@ -21,7 +25,14 @@ type Candidate = {
 local ELEMENTS: {[string]: ElementDefinition} = {
 	fire = { key = "Fire", color = Color3.fromRGB(237, 103, 66) },
 	water = { key = "Water", color = Color3.fromRGB(62, 164, 224) },
-	earth = { key = "Earth", color = Color3.fromRGB(112, 166, 105) },
+	earth = {
+		key = "Earth",
+		color = Color3.fromRGB(
+			WorldDesignProfile.Cyberpunk.Earth[1],
+			WorldDesignProfile.Cyberpunk.Earth[2],
+			WorldDesignProfile.Cyberpunk.Earth[3]
+		),
+	},
 	air = { key = "Air", color = Color3.fromRGB(184, 219, 235) },
 }
 
@@ -181,7 +192,9 @@ local function createTransitionLayer(
 	material: EnumItem,
 	materialVariant: string,
 	reflectance: number,
-	transparency: number
+	transparency: number,
+	topSurface: EnumItem,
+	bottomSurface: EnumItem
 ): Part
 	local layer = Instance.new("Part")
 	layer.Name = name
@@ -192,8 +205,8 @@ local function createTransitionLayer(
 	layer.Material = material
 	layer.Reflectance = math.clamp(reflectance, 0, 1)
 	layer.Transparency = transparency
-	layer.TopSurface = Enum.SurfaceType.Smooth
-	layer.BottomSurface = Enum.SurfaceType.Smooth
+	layer.TopSurface = topSurface
+	layer.BottomSurface = bottomSurface
 	layer.CanCollide = false
 	layer.CanTouch = false
 	layer.CanQuery = false
@@ -213,7 +226,11 @@ local function createTransitionLayer(
 	return layer
 end
 
-function ElementIntegrationService.Build(targetFolder: Folder, lobbyFloor: BasePart?): number
+function ElementIntegrationService.Build(
+	targetFolder: Folder,
+	lobbyFloor: BasePart?,
+	mapBaseColor: Color3?
+): number
 	local transitionFolder = targetFolder:FindFirstChild("ElementTransitions")
 	if transitionFolder then
 		transitionFolder:Destroy()
@@ -223,10 +240,13 @@ function ElementIntegrationService.Build(targetFolder: Folder, lobbyFloor: BaseP
 	transitionFolder:SetAttribute("SkyfallGenerated", true)
 	transitionFolder.Parent = targetFolder
 
-	local floorColor = lobbyFloor and lobbyFloor.Color or Color3.fromRGB(49, 139, 56)
-	local floorMaterial = lobbyFloor and lobbyFloor.Material or Enum.Material.Plastic
-	local floorVariant = lobbyFloor and lobbyFloor.MaterialVariant or ""
-	local floorReflectance = lobbyFloor and lobbyFloor.Reflectance or 0
+	local appearance = FloorAppearanceService.Capture(lobbyFloor)
+	local floorColor = mapBaseColor or (lobbyFloor and lobbyFloor.Color) or Color3.fromRGB(49, 139, 56)
+	local floorMaterial = appearance and appearance.Material or Enum.Material.Plastic
+	local floorVariant = appearance and appearance.MaterialVariant or ""
+	local floorReflectance = appearance and appearance.Reflectance or 0
+	local floorTopSurface = appearance and appearance.TopSurface or Enum.SurfaceType.Smooth
+	local floorBottomSurface = appearance and appearance.BottomSurface or Enum.SurfaceType.Smooth
 	local candidates = findElementRoots(transitionFolder)
 	local builtCount = 0
 
@@ -258,7 +278,9 @@ function ElementIntegrationService.Build(targetFolder: Folder, lobbyFloor: BaseP
 					floorMaterial,
 					floorVariant,
 					floorReflectance,
-					layerData.transparency
+					layerData.transparency,
+					floorTopSurface,
+					floorBottomSurface
 				)
 				if index == #layers then
 					innerLayer = part

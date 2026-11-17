@@ -1,0 +1,37 @@
+name: SkyCodex Bridge (isolated staging)
+
+on:
+  push:
+    branches:
+      - skycodex-bridge-isolated
+    paths:
+      - ".skycodex-bridge/request.json"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: skycodex-bridge-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  execute-request:
+    # Disabled in this public staging repository. Enable only in the dedicated private bridge repo.
+    if: ${{ vars.SKYCODEX_BRIDGE_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      INSTABOX_API_KEY: ${{ secrets.INSTABOX_API_KEY }}
+      INSTABOX_MACHINE_ID: ${{ secrets.INSTABOX_MACHINE_ID }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GITHUB_REPOSITORY: ${{ github.repository }}
+      GITHUB_REF_NAME: ${{ github.ref_name }}
+    steps:
+      - name: Check required secrets
+        shell: bash
+        run: |
+          test -n "$INSTABOX_API_KEY" || { echo "Missing INSTABOX_API_KEY Actions secret"; exit 1; }
+          test -n "$INSTABOX_MACHINE_ID" || { echo "Missing INSTABOX_MACHINE_ID Actions secret"; exit 1; }
+
+      - name: Run constrained InstaBox request
+        run: node .skycodex-bridge/run-task.mjs

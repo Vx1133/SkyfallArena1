@@ -159,6 +159,7 @@ async function main() {
     result = await executeArgv(apiKey, machineId, [
       "bash", "-lc",
       "printf 'CODEX='; (codex --version 2>/dev/null || echo unavailable); " +
+      "printf 'CODEX_AUTH='; (codex login status >/dev/null 2>&1 && echo authenticated || echo not_authenticated); " +
       "printf 'INSTABOX='; (instabox --version 2>/dev/null || echo unavailable); " +
       "printf 'XDOTool='; (command -v xdotool >/dev/null 2>&1 && echo available || echo unavailable); " +
       "printf 'DESKTOP='; printf '%s\\n' \"\${XDG_CURRENT_DESKTOP:-unknown}\""

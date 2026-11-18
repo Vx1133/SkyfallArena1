@@ -1,0 +1,30 @@
+{
+  "name": "Windows 11 for Roblox Studio",
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "version": "latest",
+      "moby": true,
+      "dockerDashComposeVersion": "latest",
+      "enableNonRootDocker": true
+    }
+  },
+  "remoteEnv": {
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
+  },
+  "forwardPorts": [8006],
+  "portsAttributes": {
+    "8006": {
+      "label": "Windows 11 Desktop",
+      "onAutoForward": "openBrowser",
+      "visibility": "private",
+      "protocol": "http"
+    }
+  },
+  "postStartCommand": "bash .devcontainer/start-windows.sh"
+}

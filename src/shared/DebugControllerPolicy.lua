@@ -13,4 +13,8 @@ function DebugControllerPolicy.IsEnabled(
 		and enabledAttribute == true
 end
 
+function DebugControllerPolicy.CanUseTestOverride(isStudio: boolean): boolean
+	return isStudio == true
+end
+
 return DebugControllerPolicy

@@ -92,7 +92,7 @@ end
 runTest("Arena builds the 15x15 Sky Garden in a one-map 30-player experience", function()
 	assert(Config.GRID_SIZE == 15, "Expected a 15x15 tile grid")
 	assert(Config.MAX_PLAYER_CAPACITY == 30, "Expected capacity for 30 human players")
-	assert(Config.MAP_COUNT == 1, "The experience must contain two playable maps")
+	assert(Config.MAP_COUNT == 1, "The experience must contain exactly one playable map")
 	assert(Config.MAP_NAMES[1] == "SKYFALL SKY GARDEN ARENA", "Map 1 must remain the Classic arena")
 	assert(Config.MAP_NAMES[2] == nil, "A second playable map must not be configured")
 	assert(Config.BOT_COUNT == 10, "Exactly ten AI bots must be configured")
@@ -158,13 +158,13 @@ runTest("Arena builds the 15x15 Sky Garden in a one-map 30-player experience", f
 	end
 	local natureFolder = arena.mapFolder:FindFirstChild("SkyfallNatureSanctuary")
 	assert(natureFolder, "The organic Classic nature sanctuary must be built")
-	assert(natureFolder:GetAttribute("SkyfallMapIdentity") == "Classic", "Classic nature geometry must declare its map identity")
+	assert(natureFolder:GetAttribute("SkyfallMapIdentity") == "SkyGarden", "Sky Garden geometry must declare its map identity")
 	assert(natureFolder:FindFirstChild("SkyGardenRootArch_01", true), "The natural root arch is missing")
-	assert(natureFolder:FindFirstChild("SkyGardenTreeTrunk_01", true), "The first mature tree trunk is missing")
+	assert(natureFolder:FindFirstChild("SkyGardenTreeTrunk_01", true), "The first Sky Garden tree trunk is missing")
 	assert(natureFolder:FindFirstChild("SkyGardenCanopy_01_1", true), "Layered tree canopies are missing")
 	assert(natureFolder:FindFirstChild("SkyGardenFloatingIslet_01", true), "The floating natural islets are missing")
 	assert(natureFolder:FindFirstChild("SkyGardenVine_01", true), "Hanging vines are missing")
-	assert(natureFolder:GetAttribute("SkyfallGeometryPartCount") <= 55, "Classic nature geometry exceeded its measured mobile part budget")
+	assert(natureFolder:GetAttribute("SkyfallGeometryPartCount") <= 55, "Sky Garden geometry exceeded its measured mobile part budget")
 	assert(arena.currentMapId == 1, "The only configured map must remain active")
 	assert(
 		arena.aircraftModel and arena.aircraftModel:FindFirstChild("AircraftFuselage"),
@@ -458,8 +458,8 @@ runTest("The Sky Garden arena uses the lobby finish and connected stud geometry"
 	assert(Lighting:FindFirstChild("SkyfallSunriseSky") == nil, "No custom Sky instance should be retained")
 	local natureFolder = arena.mapFolder:FindFirstChild("SkyfallNatureSanctuary")
 	assert(natureFolder, "Classic nature sanctuary folder is missing")
-	assert(natureFolder:GetAttribute("SkyfallGeometrySignature") == "organic-irregular-floating-nature-sanctuary",
-		"Classic must retain its organic geometry signature")
+	assert(natureFolder:GetAttribute("SkyfallGeometrySignature") == "sky-garden-organic-floating-sanctuary-v1",
+		"Sky Garden must retain its organic geometry signature")
 	assert(natureFolder:FindFirstChild("SkyGardenFloatingIslet_02", true), "Second floating islet is missing")
 	assert(natureFolder:FindFirstChild("SkyGardenRootArch_04", true), "Curved root-arch segments are missing")
 	assert(arena.currentMapId == 1, "The only configured map must remain active")

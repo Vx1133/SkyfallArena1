@@ -3,7 +3,6 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local sharedFolder = ReplicatedStorage:WaitForChild("Shared", 8)
 local Config = require(sharedFolder:WaitForChild("GameConfig", 8))
-local MapRotation = require(sharedFolder:WaitForChild("MapRotation", 8))
 local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy", 8))
 local PilotOptInPolicy = require(sharedFolder:WaitForChild("PilotOptInPolicy", 8))
 local StartupReadinessPolicy = require(sharedFolder:WaitForChild("StartupReadinessPolicy", 8))
@@ -476,8 +475,6 @@ function RoundService:_clearReadyPlayers()
 	for _, player in ipairs(Players:GetPlayers()) do
 		playersToReset[player] = true
 	end
-	-- Also include queued entries while keeping this method testable with mock
-	-- Player objects in the cloud smoke harness.
 	for player in pairs(self.readyPlayers) do
 		if player.Parent == Players then
 			playersToReset[player] = true
@@ -488,20 +485,14 @@ function RoundService:_clearReadyPlayers()
 		if self.readyPlayers[player] then
 			player:SetAttribute("SkyfallReady", false)
 		end
-		-- Clear stale aircraft selection/control on every human, including users
-		-- who were in the lobby but did not join this round.
 		player:SetAttribute("SkyfallPilotOptIn", false)
 		player:SetAttribute("SkyfallAircraftControlActive", false)
+		-- Reset the debug flag for every player, even if the owner reference is stale.
+		player:SetAttribute("SkyfallDebugDroneEnabled", false)
 	end
+
 	self.readyPlayers = {}
 	self.roundHumanCount = 0
-
-	-- Owner debug control is a one-round manual test override, never a persistent
-	-- auto-ready state. The owner must explicitly enable it again for another round.
-	local debugPlayer = self.debugControllerPlayer
-	if debugPlayer and debugPlayer.Parent == Players then
-		debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)
-	end
 	self.debugControllerPlayer = nil
 	self.debugPreviousController = nil
 	self.debugAutoReady = {}
@@ -768,8 +759,8 @@ function RoundService:_isCandidateValid(candidate)
 	return false
 end
 
-function RoundService:_chooseNextMapId()
-	return MapRotation.GetMapId(self.roundNumber, Config.MAP_COUNT)
+function RoundService:_chooseNextMapId(): number
+	return Config.ACTIVE_MAP_ID
 end
 
 function RoundService:_chooseController(readyPlayerOverride)

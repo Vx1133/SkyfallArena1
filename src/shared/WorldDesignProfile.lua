@@ -1,6 +1,6 @@
 --!strict
 -- Centralized, engine-agnostic world design tokens.
--- Map palettes are intentionally distinct; the lobby contributes only the surface finish.
+-- Sky Garden owns the palette; WaitingPlatform supplies the shared surface finish.
 
 local Profile = {
 	Lobby = {
@@ -9,7 +9,7 @@ local Profile = {
 		BotSpawnRadius = 52,
 	},
 
-	Classic = {
+	SkyGarden = {
 		PrimaryTile = { 79, 170, 66 },
 		AlternateTile = { 91, 178, 72 },
 		Bark = { 103, 72, 48 },
@@ -22,15 +22,7 @@ local Profile = {
 		Vine = { 69, 121, 54 },
 	},
 
-	Cyberpunk = {
-		PrimaryTile = { 233, 242, 252 },
-		AlternateTile = { 215, 229, 246 },
-		Structure = { 67, 114, 181 },
-		Roof = { 242, 247, 253 },
-		Accent = { 28, 194, 227 },
-		Secondary = { 14, 30, 54 },
-		Silver = { 207, 221, 238 },
-		Navy = { 12, 24, 45 },
+	Elements = {
 		Earth = { 194, 163, 111 },
 	},
 }

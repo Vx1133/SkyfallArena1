@@ -52,6 +52,15 @@ jobs:
           lune run tests/lune/update_025_startup_guard.luau
           lune run tests/lune/update_026_arena_bootstrap_guard.luau
 
+      - name: Install Python visual audit dependencies
+        run: python -m pip install --disable-pip-version-check --no-input -r requirements-visual-audit.txt
+
+      - name: Test visual asset audit
+        run: python -m unittest discover -s tests/python -v
+
+      - name: Audit repository visual assets
+        run: python tools/visual_asset_audit.py --root assets --allow-empty --json-output build/visual_asset_audit.json
+
       - name: Validate repository structure
         run: python tools/validate_project.py
 
@@ -67,6 +76,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: SkyfallArena-place
-          path: build/SkyfallArena.rbxlx
+          path: |
+            build/SkyfallArena.rbxlx
+            build/visual_asset_audit.json
           if-no-files-found: error
           retention-days: 14

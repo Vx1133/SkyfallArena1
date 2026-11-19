@@ -635,6 +635,9 @@ require("function DebugControllerPolicy.CanUseTestOverride(isStudio: boolean): b
         "Debug controller must enforce its Studio-only test override")
 require("DebugControllerPolicy.CanUseTestOverride(RunService:IsStudio())" in (ROOT / "src/server/Services/AdminFlightService.lua").read_text(encoding="utf-8"),
         "Server must reject live-game Debug Drone requests")
+bind_player_source = round_source.split("function RoundService:_bindPlayer(player)", 1)[1].split("function RoundService:_readyPlayerCount()", 1)[0]
+require('player:SetAttribute("SkyfallDebugDroneEnabled", false)' in bind_player_source,
+        "New player sessions must default Debug Drone control to off")
 admin_client_gate = (ROOT / "src/client/AdminFlight.client.lua").read_text(encoding="utf-8")
 require("debugButton.Visible = admin and RunService:IsStudio()" in admin_client_gate,
         "Debug Drone button must be hidden outside Studio")

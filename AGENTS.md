@@ -65,6 +65,22 @@ Run the checks supported by the current environment and report which ones actual
 
 If Roblox Studio or the Rojo Studio plugin is unavailable, state that live synchronization and in-Studio behavior were not tested. A successful Rojo build does not prove that a live Roblox server/client session works.
 
+
+## Visual Asset Inspection
+
+- For any GLB or glTF asset produced for the game, run `python tools/visual_qa.py <asset-path> --output-dir build/visual-qa`.
+- Inspect the generated PNG contact sheet itself with an image-capable viewer before accepting the asset. A JSON report alone is not visual verification.
+- Treat this tool as geometry and base-color inspection only. It does not validate PBR appearance, Roblox SurfaceAppearance, collision, physics, game scripts, UI, or mobile performance.
+- For lighting, material, and scene-level checks, use a rendered Blender/3D Jutsu review image when available, then perform an in-Roblox playtest for runtime behavior.
+- Do not claim that a map is visually or functionally verified when only its source code or a mesh-statistics report has been inspected.
+
+## Additional Toolchain
+
+- Use Luau LSP with a current Rojo sourcemap and Roblox type definitions when available.
+- Use StyLua on changed Luau files; do not reformat the full source tree as an unrelated change.
+- Wally is installed for package management, but only add a package when a concrete requirement justifies the dependency.
+- Keep Roblox Open Cloud API keys in GitHub Actions secrets with the narrowest required scopes. Never store secrets in source, logs, prompts, or build artifacts.
+
 ## Change Management
 
 - Inspect the existing implementation before editing. Preserve unrelated behavior and public interfaces.

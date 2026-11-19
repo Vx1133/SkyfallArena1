@@ -10,7 +10,7 @@ Build and maintain a reliable, mobile-conscious Roblox experience. Preserve exis
 - Use `task.wait`, `task.spawn`, and `task.defer`; do not introduce deprecated `wait`, `spawn`, or `delay` calls.
 - Separate server services, client controllers, shared modules, and configuration. Keep modules focused and avoid circular dependencies.
 - Treat the server as authoritative. The client may request an action, but the server validates identity, permissions, state, range, cooldowns, ownership, and all numeric/string payload bounds before applying it.
-- Never trust client-supplied damage, rewards, currency, inventory, alive-player counts, round outcomes, or DataStore values.
+- Never trust client-supplied rewards, currency, inventory, alive-player counts, round outcomes, or DataStore values.
 - Validate every RemoteEvent and RemoteFunction input. Rate-limit requests and reject malformed, stale, oversized, or out-of-state requests.
 - Keep DataStore operations on the server. Use `pcall`, bounded retries with backoff, and explicit handling for throttling and failed writes. Do not overwrite valid saved data with defaults after a failed read.
 - Disconnect events and clean up Instances, tasks, and tweens when their owning round, character, UI, or controller ends. Reuse an existing Trove/Janitor implementation if the repository has one; do not add a second cleanup framework unnecessarily.
@@ -38,6 +38,15 @@ Build and maintain a reliable, mobile-conscious Roblox experience. Preserve exis
 - Support low-end mobile devices with restrained post-processing, limited particles, efficient shadows, and scalable visual quality. Test readability at phone-sized resolutions.
 - Do not use a visual effect merely because it is available. Every effect must have a clear visual purpose and a tested performance cost.
 
+## Role 4: Visual Asset QA
+
+- Run `python -m pip install -r requirements-visual-audit.txt` before using the visual asset audit script in a fresh Python environment.
+- Run `python -m unittest discover -s tests/python -v` and `python tools/visual_asset_audit.py --root assets --allow-empty --json-output build/visual_asset_audit.json`.
+- Treat this script as technical validation only. It does not judge composition, polish, gameplay readability, or aesthetic quality.
+- For a 3D scene, inspect the scene structure, render from its delivery camera, retrieve the PNG artifact, and inspect the actual image. Do not count an interactive preview widget or a successful Blender operation as visual proof available to the assistant.
+- If the PNG cannot be retrieved or attached because of a network/DNS limitation, mark visual review as blocked. Never claim a visual pass without viewing the image itself.
+- Keep the 3D source scene separate from the Roblox production map until scale, object count, collision, materials, mobile cost, and import behavior are reviewed.
+
 ## Roblox Project Structure
 
 Follow the repository's established structure. If no structure exists, use a clear separation similar to:
@@ -61,7 +70,8 @@ Run the checks supported by the current environment and report which ones actual
 3. `selene <Luau files>`
 4. `rojo build default.project.json --output build/place.rbxlx`
 5. Run relevant pure-Luau utility tests with Lune. Lune is not a substitute for Roblox Studio runtime testing.
-6. Use Darklua only with an explicit output path. Never minify or overwrite the original source tree in place.
+6. Run the Python visual asset audit and its unit tests where Python dependencies are available.
+7. Use Darklua only with an explicit output path. Never minify or overwrite the original source tree in place.
 
 If Roblox Studio or the Rojo Studio plugin is unavailable, state that live synchronization and in-Studio behavior were not tested. A successful Rojo build does not prove that a live Roblox server/client session works.
 

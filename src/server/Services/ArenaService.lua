@@ -7,8 +7,7 @@ local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):W
 local LaserVFX = require(script.Parent:WaitForChild("LaserVFX", 8))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService", 8))
 local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService", 8))
-local ClassicNatureMapBuilder = require(script.Parent:WaitForChild("ClassicNatureMapBuilder", 8))
-local CyberpunkMapBuilder = require(script.Parent:WaitForChild("CyberpunkMapBuilder", 8))
+local SkyGardenMapBuilder = require(script.Parent:WaitForChild("SkyGardenMapBuilder", 8))
 local LightingProfileService = require(script.Parent:WaitForChild("LightingProfileService", 8))
 local ArenaStartupPolicy = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("ArenaStartupPolicy", 8))
 
@@ -19,14 +18,12 @@ local function paletteColor(rgb: { number }): Color3
 	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
 end
 
-local CYBERPUNK_PALETTE = WorldDesignProfile.Cyberpunk
-
 local MAPS = {
 	{
 		id = 1,
-		name = "SKYFALL CLASSIC ARENA",
-		tileColor = paletteColor(WorldDesignProfile.Classic.PrimaryTile),
-		tileAlternateColor = paletteColor(WorldDesignProfile.Classic.AlternateTile),
+		name = "SKYFALL SKY GARDEN ARENA",
+		tileColor = paletteColor(WorldDesignProfile.SkyGarden.PrimaryTile),
+		tileAlternateColor = paletteColor(WorldDesignProfile.SkyGarden.AlternateTile),
 		tileMaterial = Enum.Material.Plastic,
 		useClassicStuds = true,
 		studColor = Color3.fromRGB(112, 204, 83),
@@ -36,21 +33,6 @@ local MAPS = {
 		roof = Color3.fromRGB(230, 61, 61),
 		accent = Color3.fromRGB(255, 207, 56),
 		secondary = Color3.fromRGB(64, 166, 220),
-	},
-	{
-		id = 2,
-		name = "SKYFALL CYBERPUNK WHITE & BLUE ARENA",
-		tileColor = paletteColor(CYBERPUNK_PALETTE.PrimaryTile),
-		tileAlternateColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
-		tileMaterial = Enum.Material.SmoothPlastic,
-		useClassicStuds = false,
-		studColor = paletteColor(CYBERPUNK_PALETTE.AlternateTile),
-		warningColor = Color3.fromRGB(255, 64, 92),
-		brokenColor = paletteColor(CYBERPUNK_PALETTE.Navy),
-		structure = paletteColor(CYBERPUNK_PALETTE.Structure),
-		roof = paletteColor(CYBERPUNK_PALETTE.Roof),
-		accent = paletteColor(CYBERPUNK_PALETTE.Accent),
-		secondary = paletteColor(CYBERPUNK_PALETTE.Secondary),
 	},
 }
 
@@ -113,7 +95,7 @@ end
 
 local function getTileBaseColor(tile, theme)
 	-- Material is inherited from the lobby profile, but the map owns its palette.
-	-- Never copy the lobby's green baseplate Color into the Cyberpunk tiles.
+	-- WaitingPlatform supplies the surface finish, not the Sky Garden color palette.
 	local alternateColor = theme.tileAlternateColor
 	if alternateColor then
 		local gridX = tile:GetAttribute("GridX") or 0
@@ -596,22 +578,12 @@ function ArenaService:_buildMapDecoration(theme)
 		error("Skyfall cannot build map decoration without the captured lobby surface profile")
 	end
 
-	local partCount
-	if theme.id == 1 then
-		partCount = ClassicNatureMapBuilder.Build(
-			self.mapFolder,
-			Config.ARENA_CENTER,
-			Config.ARENA_HALF_WIDTH,
-			theme.floorAppearanceProfile
-		)
-	else
-		partCount = CyberpunkMapBuilder.Build(
-			self.mapFolder,
-			Config.ARENA_CENTER,
-			Config.ARENA_HALF_WIDTH,
-			theme.floorAppearanceProfile
-		)
-	end
+	local partCount = SkyGardenMapBuilder.Build(
+		self.mapFolder,
+		Config.ARENA_CENTER,
+		Config.ARENA_HALF_WIDTH,
+		theme.floorAppearanceProfile
+	)
 
 	self.mapFolder:SetAttribute("SkyfallActiveMapId", theme.id)
 	self.mapFolder:SetAttribute("SkyfallGeometryPartCount", partCount)

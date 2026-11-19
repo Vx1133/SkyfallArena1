@@ -10,7 +10,7 @@ Build and maintain a reliable, mobile-conscious Roblox experience. Preserve exis
 - Use `task.wait`, `task.spawn`, and `task.defer`; do not introduce deprecated `wait`, `spawn`, or `delay` calls.
 - Separate server services, client controllers, shared modules, and configuration. Keep modules focused and avoid circular dependencies.
 - Treat the server as authoritative. The client may request an action, but the server validates identity, permissions, state, range, cooldowns, ownership, and all numeric/string payload bounds before applying it.
-- Never trust client-supplied rewards, currency, inventory, alive-player counts, round outcomes, or DataStore values.
+- Never trust client-supplied damage, rewards, currency, inventory, alive-player counts, round outcomes, or DataStore values.
 - Validate every RemoteEvent and RemoteFunction input. Rate-limit requests and reject malformed, stale, oversized, or out-of-state requests.
 - Keep DataStore operations on the server. Use `pcall`, bounded retries with backoff, and explicit handling for throttling and failed writes. Do not overwrite valid saved data with defaults after a failed read.
 - Disconnect events and clean up Instances, tasks, and tweens when their owning round, character, UI, or controller ends. Reuse an existing Trove/Janitor implementation if the repository has one; do not add a second cleanup framework unnecessarily.

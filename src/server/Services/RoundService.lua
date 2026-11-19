@@ -200,6 +200,7 @@ function RoundService:_bindPlayer(player)
 	player:SetAttribute("SkyfallCharacterReady", false)
 	player:SetAttribute("SkyfallReady", false)
 	player:SetAttribute("SkyfallPilotOptIn", false)
+	player:SetAttribute("SkyfallDebugDroneEnabled", false)
 	player:SetAttribute("SkyfallAircraftControlActive", false)
 	player:SetAttribute("SkyfallSurvivalTime", 0)
 	self.characterSerial[player] = 0

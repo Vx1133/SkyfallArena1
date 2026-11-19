@@ -61,6 +61,7 @@ jobs:
           lune run tests/lune/update_023_control_state.luau
           lune run tests/lune/update_024_startup_guard.luau
           lune run tests/lune/update_025_startup_guard.luau
+          lune run tests/lune/update_026_arena_build_fail_safe.luau
           lune run tests/lune/update_026_arena_bootstrap_guard.luau
 
       - name: Validate repository structure
@@ -72,7 +73,7 @@ jobs:
       - name: Generate Rojo sourcemap
         run: |
           mkdir -p build
-          rojo sourcemap default.project.json --include-non-scripts --output build/sourcemap.json
+          rojo sourcemap --include-non-scripts default.project.json --output build/sourcemap.json
 
       - name: Download current Roblox type definitions
         run: |
@@ -84,7 +85,9 @@ jobs:
       - name: Luau LSP type analysis baseline
         continue-on-error: true
         run: |
-          mapfile -t luau_files < <(find src tests -type f \\( -name '*.lua' -o -name '*.luau' \\) -print | sort)
+          find src tests -type f -name '*.lua' -print > build/luau-files.txt
+          find src tests -type f -name '*.luau' -print >> build/luau-files.txt
+          mapfile -t luau_files < build/luau-files.txt
           luau-lsp analyze --platform roblox \
             --definitions "@roblox=build/globalTypes.d.luau" \
             --sourcemap build/sourcemap.json \

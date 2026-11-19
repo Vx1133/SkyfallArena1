@@ -1,52 +1,54 @@
 # Skyfall Arena
 
-Skyfall Arena is a Roblox survival game built around a fixed 15 by 15 destructible arena, a gold laser drone, and ten AI-controlled NPC participants.
+Skyfall Arena is a mobile-conscious Roblox survival game built around one fixed destructible Sky Garden arena, a golden laser drone, and ten AI-controlled NPC participants.
 
-## Current design
+## Current game design
 
-- The existing Roblox experience and Start Place are retained. Updates target Universe ID `7975091208` and Start Place ID `104752078056182`. The experience remains Private.
-- The playable map is one deterministic, fixed Classic Roblox arena. It does not randomly choose or vary map layouts.
-- The green Plastic playfield has zero designed tile gaps. Native Roblox `Studs` top surfaces and `Inlet` undersides create the retro look without separate decorative stud Parts.
-- The waiting lobby is one connected green Classic Stud baseplate. Trees, water, seating, floating welcome board, and the old colored entrance posts are removed.
-- A continuous four-sided perimeter frame meets the playfield edges. Its corner supports overlap the edge beams, replacing disconnected blue posts and red gate pieces.
-- The golden drone, downward-facing red lens, blue laser, 225 breakable tiles, ten bots, and lobby-first Play flow are preserved.
-- Broken tiles hide their native stud surfaces and become non-collidable. Their studs return only when a new round resets the floor.
-- The drone controller uses a true vertical overhead camera. Its height is calculated from viewport aspect ratio and arena size, with clearance above the drone and a local-only hide for the drone body so it cannot block the view.
-- The active-round HUD shows only the round timer and participant count. It sits at the top safe area and is hidden outside the Active phase. The lobby Play control remains separate.
-- Low-volume background music, a round-start cue, a Play-button cue, and a positional laser impact sound are included.
-- Joining does not start a round. A player must press PLAY in the lobby before the intermission begins.
-- Each round lasts at most 180 seconds. The next round resets the broken tiles.
+- The existing Roblox experience and Start Place are retained: Universe ID 7975091208, Start Place ID 104752078056182. The experience remains Private.
+- There is exactly one playable map: SKYFALL SKY GARDEN ARENA. Rounds do not rotate to another layout.
+- The map keeps a 15 by 15 floor, 225 destructible tiles, zero designed tile gaps, and a natural floating-garden silhouette around the playable grid.
+- The lobby WaitingPlatform is the authoritative source for visible map surface finishes. Every generated map BasePart and each playable tile receive the lobby Material, MaterialVariant, Reflectance, TopSurface, BottomSurface, and supported Texture/Decal children. Map colors remain independently art-directed.
+- The lobby and Sky Garden use the same Roblox Plastic and native Studs/Inlet visual language. The green map palette is kept separate from the exact lobby baseplate color.
+- The golden drone, downward-facing red lens, blue laser, ten bots, and lobby-first PLAY flow are preserved.
+- Broken tiles become non-collidable and remain broken until the next round. Reset restores the full grid and its Sky Garden palette.
+- The controller camera is a true vertical overhead view. Its height adapts to viewport aspect ratio and arena size, and the drone body is hidden locally so it cannot block the view.
+- The active HUD shows the round timer and participant count. PLAY remains separate and is required before joining a round.
+- A human becomes the aircraft Controller only after explicitly opting in with the aircraft icon. Without that choice, a ready bot controls the aircraft and the human remains a Runner.
+- The owner Debug Drone override is development-only. Its button is visible in Roblox Studio, the server rejects it in live Roblox sessions, and end-of-round cleanup clears its flag for every connected player.
 
-## Mobile performance measures
+## Map design and mobile performance
 
-- Workspace instance streaming is enabled with a 64-stud high-priority radius, a bounded 192-stud target radius, Improved model streaming, and Opportunistic stream-out.
-- While a human controls the drone, replication focus follows the drone instead of the hidden character, keeping the overhead arena streamed in.
-- Static map Parts and NPC body Parts do not cast shadows. The red target warning uses the tile color rather than creating a dynamic PointLight for every target.
-- Native Studs/Inlet surfaces replace thousands of extra stud Parts and the 144 separate lobby floor panels.
-- Bot nearest-tile lookup is constant-time. Each bot snapshots warning coordinates once per target decision instead of rescanning the full grid for every candidate tile.
-- The ten bots and full 225-tile arena remain because they are core gameplay elements.
+The Sky Garden uses three mature tree groups, layered canopies, exposed roots, hanging vines, floating islets, and one curved natural root arch. Decorations are generated from project-owned Luau code and remain anchored, non-collidable, non-touchable, and non-queryable.
 
-These measures reduce avoidable rendering, instance, and repeated search work. They cannot guarantee that every phone will remain cool. Real temperature and frame rate still depend on hardware, graphics settings, network conditions, and live gameplay.
+The builder has a measured 55-BasePart decoration budget. It uses one localized PointLight, restrained shadows, and Beam-based vines. It does not import third-party map packages or executable model scripts.
+
+Workspace streaming uses a 64-stud high-priority radius and a bounded 192-stud target radius. Static map and NPC parts do not cast shadows. Bot tile lookup uses cached warning coordinates and constant-time grid lookup.
+
+These measures reduce avoidable rendering and repeated search work. They cannot guarantee frame rate or device temperature on every phone. Hardware, graphics settings, network conditions, and live player counts still affect performance.
 
 ## Asset and permission safety
 
-The arena, lobby, drone, laser, HUD, and audio are controlled by project-owned Luau code. No unreviewed Creator Store model package or executable third-party model script is inserted. Sound assets use Roblox audio IDs; their access permissions and audible quality must still be confirmed in the private live experience.
+Arena, lobby, drone, laser, map decoration, HUD, and audio systems are built from project-owned Luau code. No unreviewed Creator Store model package or executable third-party model is inserted. Roblox audio permissions and actual playback quality still require a live test.
 
-Bot rigs continue to use Roblox's built-in HumanoidDescription system. The server remains authoritative for bot creation, player readiness, laser targeting, and creator flight.
+Bot rigs use Roblox's built-in HumanoidDescription system. The server remains authoritative for bot creation, player readiness, role assignment, laser targeting, and controller selection.
 
-## Development and release workflow
+## Development and verification
 
-- Luau source files in this repository are the source of truth.
-- Rojo maps the source into a Roblox place file.
-- Feature branches and pull requests isolate each update. Pull requests run project validation, Selene lint, and a Rojo build.
-- This update does not publish automatically. After review and merge, the separate manual upload workflow may update only the existing Start Place. It does not create a new Roblox experience or make the game public.
+- Luau source in this repository is the source of truth.
+- Rojo packages the source into the existing Start Place.
+- Rokit pins Rojo, Selene, and Lune. No additional library is needed for the current architecture.
+- GitHub Actions runs pure-Luau policy tests, structural validation, Selene lint, and a Rojo place build.
+- Roblox headless cloud smoke tests require the separate ROBLOX_LUAU_TEST_API_KEY. Without it, they are skipped and must not be reported as passed.
+- Static CI cannot replace a Roblox Studio visual review or real-phone playtest.
 
-## Validation limits
+## Required live playtest
 
-CI checks source structure, Luau lint, and whether Rojo can build the place file. Cloud smoke tests cover map layout, native Classic surfaces, removal of lobby clutter, connected perimeter geometry, streaming settings, ten NPC rigs, Play flow, and round timing.
-
-These checks cannot replace a private in-game test. Camera framing on real phones, actual streaming behavior, audio permissions and audibility, touch input, physics, ten-NPC navigation load, and device temperature still need a live Roblox playtest.
+1. Start a fresh Roblox server after uploading a reviewed private-test build.
+2. Join and press PLAY without touching the aircraft icon. The human should remain a Runner while a ready bot controls the drone.
+3. Complete a round and join the next one without enabling the aircraft icon. The human must not be forced into the drone.
+4. Test opt-in and cancellation explicitly, then test the Studio-only Debug Drone separately in Roblox Studio.
+5. Inspect the Sky Garden from top-down and oblique angles, compare tile and decoration finishes to WaitingPlatform, and check low-end mobile graphics.
 
 ## Publishing
 
-The manual workflow `Upload Skyfall Arena private test` targets Universe ID `7975091208` and Start Place ID `104752078056182`. Keep the experience private. Publishing and cloud test credentials remain in GitHub Actions secrets.
+The manual workflow Upload Skyfall Arena private test targets only the existing Universe and Start Place. It does not create another experience or change the audience setting. Keep the experience private. Publishing and cloud-test credentials remain in GitHub Actions secrets.

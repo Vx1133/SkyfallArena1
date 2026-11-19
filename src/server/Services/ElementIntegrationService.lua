@@ -28,9 +28,9 @@ local ELEMENTS: {[string]: ElementDefinition} = {
 	earth = {
 		key = "Earth",
 		color = Color3.fromRGB(
-			WorldDesignProfile.Cyberpunk.Earth[1],
-			WorldDesignProfile.Cyberpunk.Earth[2],
-			WorldDesignProfile.Cyberpunk.Earth[3]
+			WorldDesignProfile.Elements.Earth[1],
+			WorldDesignProfile.Elements.Earth[2],
+			WorldDesignProfile.Elements.Earth[3]
 		),
 	},
 	air = { key = "Air", color = Color3.fromRGB(184, 219, 235) },

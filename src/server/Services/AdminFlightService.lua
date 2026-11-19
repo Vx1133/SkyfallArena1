@@ -1,7 +1,9 @@
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 
-local Config = require(game:GetService("ReplicatedStorage"):WaitForChild("Shared", 8):WaitForChild("GameConfig", 8))
+local sharedFolder = game:GetService("ReplicatedStorage"):WaitForChild("Shared", 8)
+local Config = require(sharedFolder:WaitForChild("GameConfig", 8))
+local DebugControllerPolicy = require(sharedFolder:WaitForChild("DebugControllerPolicy", 8))
 
 local AdminFlightService = {}
 AdminFlightService.__index = AdminFlightService
@@ -223,7 +225,10 @@ function AdminFlightService:Start()
 			self:_disable(player)
 		elseif command == "Move" then
 			self:_move(player, direction, lookVector)
-		elseif command == "DebugController" and typeof(direction) == "boolean" then
+		elseif command == "DebugController"
+			and typeof(direction) == "boolean"
+			and DebugControllerPolicy.CanUseTestOverride(RunService:IsStudio())
+		then
 			self.rounds:RequestDebugController(player, direction)
 		end
 	end)

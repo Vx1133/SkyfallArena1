@@ -30,7 +30,6 @@ require(tools.get("selene") == "Kampfkarren/selene@0.32.0", "Selene must remain 
 
 required_files = [
     "src/shared/GameConfig.lua",
-    "src/shared/MapRotation.lua",
     "src/shared/StartupReadinessPolicy.lua",
     "src/shared/ArenaStartupPolicy.lua",
     "tests/lune/update_026_arena_bootstrap_guard.luau",
@@ -51,8 +50,7 @@ required_files = [
     "src/server/Bootstrap.server.lua",
     "src/server/Services/ArenaService.lua",
     "src/server/Services/MapDecorationFactory.lua",
-    "src/server/Services/ClassicNatureMapBuilder.lua",
-    "src/server/Services/CyberpunkMapBuilder.lua",
+    "src/server/Services/SkyGardenMapBuilder.lua",
     "src/server/Services/FloorAppearanceService.lua",
     "src/server/Services/ElementIntegrationService.lua",
     "src/server/Services/BotService.lua",
@@ -96,9 +94,6 @@ for feature in (
     "PrimaryTile = { 79, 170, 66 }",
     "CanopyDeep = { 31, 101, 49 }",
     "Bark = { 103, 72, 48 }",
-    "PrimaryTile = { 233, 242, 252 }",
-    "AlternateTile = { 215, 229, 246 }",
-    "Structure = { 67, 114, 181 }",
     "Earth = { 194, 163, 111 }",
 ):
     require(feature in world_design_source, f"Centralized world design token is missing: {feature}")
@@ -120,7 +115,8 @@ for setting in (
     "Config.HUD_HEIGHT = 30",
     "Config.GRID_SIZE = 15",
     "Config.MAX_PLAYER_CAPACITY = 30",
-    "Config.MAP_COUNT = 2",
+    "Config.ACTIVE_MAP_ID = 1",
+    "Config.MAP_COUNT = 1",
     "Config.ROUND_SECONDS = 180",
     "Config.PILOT_PRIORITY_ELIMINATION_THRESHOLD_SECONDS = Config.ROUND_SECONDS * 0.3",
     'Config.BUBBLE_GUN_TOOL_NAME = "Bubble Blaster"',
@@ -143,7 +139,7 @@ require("TILE_REPAIR_SECONDS" not in config_source, "Broken floor tiles must not
 require("OVERTIME_" not in config_source, "The three-minute round must not use overtime modifiers")
 
 arena_source = (ROOT / "src/server/Services/ArenaService.lua").read_text(encoding="utf-8")
-for map_name in ("SKYFALL CLASSIC ARENA", "SKYFALL CYBERPUNK WHITE & BLUE ARENA"):
+for map_name in ("SKYFALL SKY GARDEN ARENA",):
     require(map_name in arena_source, f"Map design is missing: {map_name}")
 for feature in (
     "function ArenaService:_buildLobby(",
@@ -156,12 +152,11 @@ for feature in (
     "SkyfallLaserAircraft",
     "ControllerLens",
     "WaitingPlatform",
-    "ClassicNatureMapBuilder",
-    "CyberpunkMapBuilder",
+    "SkyGardenMapBuilder",
     "Enum.SurfaceType.Studs",
 ):
     require(feature in arena_source, f"Arena feature is missing: {feature}")
-require(arena_source.count("tileMaterial = Enum.Material.Plastic") == 1, "The Classic floor must use Plastic")
+require(arena_source.count("tileMaterial = Enum.Material.Plastic") == 1, "The Sky Garden floor must use Plastic")
 for feature in (
     '"ArmorPlate_" .. group.name .. "_"',
     'name = "Upper"',
@@ -267,8 +262,8 @@ for lua_path in (ROOT / "src").rglob("*.lua"):
     for token in lighting_write_tokens:
         require(token not in source_text, f"Global Lighting write outside LightingProfileService: {token} in {lua_path.relative_to(ROOT)}")
 require('Instance.new("Clouds")' not in arena_source, "Unsupported global Clouds effect must remain absent")
-require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Classic arena decoration builder is missing")
-require("ClassicNatureMapBuilder.Build(" in arena_source and "CyberpunkMapBuilder.Build(" in arena_source,
+require("function ArenaService:_buildMapDecoration(theme)" in arena_source, "Sky Garden decoration builder is missing")
+require("SkyGardenMapBuilder.Build(" in arena_source,
         "ArenaService must delegate all map decoration to dedicated map builders")
 require("Vector3.new(width + 26, 2, width + 26)" not in arena_source,
         "The old full-width hidden support slab must not return")
@@ -634,13 +629,22 @@ for feature in (
     require(feature in admin_client_source, f"Admin mobile flight control is missing: {feature}")
 
 
-map_rotation_source = (ROOT / "src/shared/MapRotation.lua").read_text(encoding="utf-8")
-require("function MapRotation.GetMapId(roundNumber: number, mapCount: number): number" in map_rotation_source, "Pure map rotation policy is missing")
 debug_policy_source = (ROOT / "src/shared/DebugControllerPolicy.lua").read_text(encoding="utf-8")
 require("enabledAttribute == true" in debug_policy_source, "Debug controller must require an explicit true opt-in")
-round_source = (ROOT / "src/server/Services/RoundService.lua").read_text(encoding="utf-8")
-require("function RoundService:_isDebugControllerRequested(player)" in round_source, "RoundService debug opt-in predicate is missing")
-require("self:_isDebugControllerRequested(debugPlayer)" in round_source, "RoundService selection must validate explicit debug opt-in")
+require("function DebugControllerPolicy.CanUseTestOverride(isStudio: boolean): boolean" in debug_policy_source,
+        "Debug controller must enforce its Studio-only test override")
+require("DebugControllerPolicy.CanUseTestOverride(RunService:IsStudio())" in (ROOT / "src/server/Services/AdminFlightService.lua").read_text(encoding="utf-8"),
+        "Server must reject live-game Debug Drone requests")
+bind_player_source = round_source.split("function RoundService:_bindPlayer(player)", 1)[1].split("function RoundService:_readyPlayerCount()", 1)[0]
+require('player:SetAttribute("SkyfallDebugDroneEnabled", false)' in bind_player_source,
+        "New player sessions must default Debug Drone control to off")
+admin_client_gate = (ROOT / "src/client/AdminFlight.client.lua").read_text(encoding="utf-8")
+require("debugButton.Visible = admin and RunService:IsStudio()" in admin_client_gate,
+        "Debug Drone button must be hidden outside Studio")
+require(not (ROOT / "src/shared/MapRotation.lua").exists(), "Legacy map rotation module must be removed")
+require(not (ROOT / "src/server/Services/CyberpunkMapBuilder.lua").exists(), "Second map builder must be removed")
+require("Config.ACTIVE_MAP_ID = 1" in config_source, "The project must declare one fixed active map")
+require("return Config.ACTIVE_MAP_ID" in round_source, "RoundService must not rotate map IDs")
 
 workflow = (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8")
 require("pull_request:" in workflow, "Pull request validation trigger is missing")
@@ -657,8 +661,8 @@ require("ROBLOX_LUAU_TEST_API_KEY" in upload_workflow, "Cloud smoke tests must u
 
 cloud_tests = (ROOT / "tests/cloud_smoke_tests.luau").read_text(encoding="utf-8")
 for feature in (
-    "Arena builds the 15x15 Classic starting arena in a two-map 30-player experience",
-    "The Classic arena uses neutral lighting and connected stud geometry",
+    "Arena builds the 15x15 Sky Garden in a one-map 30-player experience",
+    "The Sky Garden arena uses the lobby finish and connected stud geometry",
     "Players remain in the lobby until they request Play",
     "Creator flight authorization only grants the personal experience owner",
     "Owner debug control overrides first-round bot selection and can take over an active round",
@@ -667,9 +671,7 @@ for feature in (
     "Round-end cleanup instantly restores every destructible tile",
     "Lobby streaming focus is added and removed once without changing global radius",
     "Late joiners during an active round are routed to the observation lobby",
-    "Round map rotation alternates Classic and Cyberpunk deterministically",
-    "Classic and Cyberpunk have disjoint layouts and share only the lobby surface finish",
-    "A stale disabled debug toggle cannot override normal controller selection",
+            "A stale disabled debug toggle cannot override normal controller selection",
     "Round cleanup does not auto-ready a debug player after the toggle is disabled",
     "Debug drone request requires both the matching player and a true server attribute",
     "A departing debug controller restores its previous live controller",
@@ -783,7 +785,7 @@ clear_ready_source = round_source.split("function RoundService:_clearReadyPlayer
 )[0]
 require("Players:GetPlayers()" in clear_ready_source, "Round cleanup must clear stale aircraft state for every human, not only ready players")
 require("local playersToReset = {}" in clear_ready_source, "Round cleanup must include all active players and queued test players")
-require('debugPlayer:SetAttribute("SkyfallDebugDroneEnabled", false)' in clear_ready_source, "Owner debug mode must reset at round cleanup")
+require('player:SetAttribute("SkyfallDebugDroneEnabled", false)' in clear_ready_source, "Cleanup must clear debug mode for every connected player")
 require("self.readyPlayers[debugPlayer] = true" not in clear_ready_source, "Owner debug mode must not auto-ready across rounds")
 require("self.debugControllerPlayer = nil" in clear_ready_source, "Owner debug pointer must clear at round cleanup")
 require("SkyfallPilotOptIn" in clear_ready_source, "Manual aircraft opt-in must be cleared at round cleanup")
@@ -794,8 +796,7 @@ require('lune = "lune-org/lune@0.11.1"' in (ROOT / "rokit.toml").read_text(encod
 require("lune run tests/lune/update_022_policy.luau" in (ROOT / ".github/workflows/validate.yml").read_text(encoding="utf-8"), "CI must run Update #22 policy tests")
 
 factory_source = (ROOT / "src/server/Services/MapDecorationFactory.lua").read_text(encoding="utf-8")
-classic_builder_source = (ROOT / "src/server/Services/ClassicNatureMapBuilder.lua").read_text(encoding="utf-8")
-cyberpunk_builder_source = (ROOT / "src/server/Services/CyberpunkMapBuilder.lua").read_text(encoding="utf-8")
+sky_garden_builder_source = (ROOT / "src/server/Services/SkyGardenMapBuilder.lua").read_text(encoding="utf-8")
 for feature in (
     "function MapDecorationFactory.CreatePart(",
     "function MapDecorationFactory.CylinderBetween(",
@@ -805,37 +806,26 @@ for feature in (
 ):
     require(feature in factory_source, f"Shared map geometry factory feature is missing: {feature}")
 for feature in (
-    "function ClassicNatureMapBuilder.Build(",
-    "ClassicNatureFloatingIslet_",
-    "ClassicNatureTreeTrunk_",
-    "ClassicNatureCanopy_",
-    "ClassicNatureRootArch_",
-    "ClassicNatureVine_",
-    "organic-irregular-floating-nature-sanctuary",
+    "function SkyGardenMapBuilder.Build(",
+    "SkyGardenFloatingIslet_",
+    "SkyGardenTreeTrunk_",
+    "SkyGardenCanopy_",
+    "SkyGardenRootArch_",
+    "SkyGardenVine_",
+    "sky-garden-organic-floating-sanctuary-v1",
+    'folder.Name = "SkyfallNatureSanctuary"',
+    'folder:SetAttribute("SkyfallMapIdentity", "SkyGarden")',
 ):
-    require(feature in classic_builder_source, f"Classic nature landmark is missing: {feature}")
-for feature in (
-    "function CyberpunkMapBuilder.Build(",
-    "CyberpunkOrbitalFrame_",
-    "CyberpunkGateSpire_",
-    "CyberpunkEnergyBridge_",
-    "CyberpunkAngularDeck_",
-    "CyberpunkCircuitBeam_",
-    "offset-angular-orbital-sky-station",
-):
-    require(feature in cyberpunk_builder_source, f"Cyberpunk architectural landmark is missing: {feature}")
-for forbidden in ("CyberpunkOrbitalFrame_", "CyberpunkGateSpire_", "CyberpunkAngularDeck_"):
-    require(forbidden not in classic_builder_source, f"Cyberpunk geometry leaked into Classic builder: {forbidden}")
-for forbidden in ("ClassicNatureTreeTrunk_", "ClassicNatureCanopy_", "ClassicNatureRootArch_", "ClassicNatureFloatingIslet_"):
-    require(forbidden not in cyberpunk_builder_source, f"Nature geometry leaked into Cyberpunk builder: {forbidden}")
+    require(feature in sky_garden_builder_source, f"Sky Garden landmark is missing: {feature}")
 for source_name, source_text in (
-    ("ClassicNatureMapBuilder", classic_builder_source),
-    ("CyberpunkMapBuilder", cyberpunk_builder_source),
+    ("SkyGardenMapBuilder", sky_garden_builder_source),
     ("MapDecorationFactory", factory_source),
 ):
     require("Enum.Material.Neon" not in source_text, f"{source_name} must not create Neon BaseParts")
-require("ClassicNatureMapBuilder.Build(" in arena_source, "ArenaService must delegate Classic decoration to its dedicated builder")
-require("CyberpunkMapBuilder.Build(" in arena_source, "ArenaService must delegate Cyberpunk decoration to its dedicated builder")
+require("SkyGardenMapBuilder.Build(" in arena_source, "ArenaService must delegate its only map to SkyGardenMapBuilder")
+require("WorldDesignProfile.SkyGarden" in arena_source, "ArenaService must use the Sky Garden palette")
+require("WorldDesignProfile.SkyGarden" in sky_garden_builder_source, "Sky Garden geometry must use its centralized palette")
+require("WorldDesignProfile.Elements.Earth" in element_integration_source, "Element accents must not depend on the removed Cyberpunk palette")
 require('runOptionalArenaStage("MapGeometry"' in arena_source, "Optional map decoration must fail open")
 require('runOptionalArenaStage("ElementTransitions"' in arena_source, "Optional element transitions must fail open")
 require('runOptionalArenaStage("LightingProfile"' in arena_source, "Optional lighting profile must fail open")
@@ -846,8 +836,7 @@ require('error("Skyfall element visual integration failed:' not in arena_source,
 
 require("FloorAppearanceService.Audit(self.mapFolder, profile)" in arena_source, "Every map selection must attempt the generated surface audit")
 require("FloorAppearanceService.Audit(self.tilesFolder, profile)" in arena_source, "Every map selection must attempt the 225 tile surface audit")
-require("SkyfallGeometrySignature" in classic_builder_source and "SkyfallGeometrySignature" in cyberpunk_builder_source,
-        "Each map must expose a distinct geometry signature")
+require("SkyfallGeometrySignature" in sky_garden_builder_source, "Sky Garden must expose a stable geometry signature")
 for feature in (
     'ClockTime = 14',
     'Name = "SkyfallGlobalDaySky"',
@@ -864,9 +853,9 @@ require("captureSurfaceObjects(source)" in floor_appearance_source, "Lobby textu
 require("applySurfaceObjects(target, profile)" in floor_appearance_source, "Lobby texture/decal cloning is missing")
 require("target.TopSurface = profile.TopSurface" in floor_appearance_source, "Material synchronization must copy lobby top-surface style")
 require("target.BottomSurface = profile.BottomSurface" in floor_appearance_source, "Material synchronization must copy lobby bottom-surface style")
-require("theme.tileColor = profile.Color" not in arena_source, "Lobby green must not overwrite the Cyberpunk map palette")
-require("paletteColor(CYBERPUNK_PALETTE.PrimaryTile)" in arena_source, "Cyberpunk primary ice-white tile palette is missing")
-require("paletteColor(CYBERPUNK_PALETTE.AlternateTile)" in arena_source, "Cyberpunk alternate blue-white tile palette is missing")
+require("theme.tileColor = profile.Color" not in arena_source, "Lobby color must not overwrite the Sky Garden palette")
+require("paletteColor(WorldDesignProfile.SkyGarden.PrimaryTile)" in arena_source, "Sky Garden primary tile palette is missing")
+require("paletteColor(WorldDesignProfile.SkyGarden.AlternateTile)" in arena_source, "Sky Garden alternate tile palette is missing")
 
 
 print("Skyfall Arena structural and gameplay validation passed.")

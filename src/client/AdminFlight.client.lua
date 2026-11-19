@@ -1,6 +1,7 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
 local Workspace = game:GetService("Workspace")
 
 local player = Players.LocalPlayer
@@ -111,7 +112,7 @@ local function updateControls()
 	local waiting = state.phase == "Waiting" and player:GetAttribute("SkyfallReady") ~= true
 	local admin = isAdmin()
 	flyButton.Visible = admin and waiting
-	debugButton.Visible = admin
+	debugButton.Visible = admin and RunService:IsStudio()
 	local debugRequested = player:GetAttribute("SkyfallDebugDroneEnabled") == true
 	debugButton.Text = debugRequestPending and "SYNC..." or (debugRequested and "TEST ON" or "DRONE")
 	debugButton.Active = not debugRequestPending

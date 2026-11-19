@@ -5,7 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("WorldDesignProfile", 8))
 local Factory = require(script.Parent:WaitForChild("MapDecorationFactory", 8))
 
-local ClassicNatureMapBuilder = {}
+local SkyGardenMapBuilder = {}
 
 local function color(rgb: { number }): Color3
 	return Color3.fromRGB(rgb[1], rgb[2], rgb[3])
@@ -20,22 +20,22 @@ local function buildTree(
 	height: number,
 	crownScale: number
 ): BasePart
-	local palette = WorldDesignProfile.Classic
+	local palette = WorldDesignProfile.SkyGarden
 	local base = center + baseOffset
 	local top = base + Vector3.new(0, height, 0)
 	local trunk = Factory.CylinderBetween(
-		folder, profile, "Classic", "ClassicNatureTreeTrunk_" .. string.format("%02d", index),
+		folder, profile, "SkyGarden", "SkyGardenTreeTrunk_" .. string.format("%02d", index),
 		base, top, 3.2, color(palette.Bark), true
 	)
 
 	Factory.CylinderBetween(
-		folder, profile, "Classic", "ClassicNatureBranch_" .. string.format("%02d", index) .. "_A",
+		folder, profile, "SkyGarden", "SkyGardenBranch_" .. string.format("%02d", index) .. "_A",
 		top + Vector3.new(0, -height * 0.42, 0),
 		top + Vector3.new(-9 * crownScale, 1, -3 * crownScale),
 		1.45, color(palette.Bark)
 	)
 	Factory.CylinderBetween(
-		folder, profile, "Classic", "ClassicNatureBranch_" .. string.format("%02d", index) .. "_B",
+		folder, profile, "SkyGarden", "SkyGardenBranch_" .. string.format("%02d", index) .. "_B",
 		top + Vector3.new(0, -height * 0.54, 0),
 		top + Vector3.new(8 * crownScale, 3, 4 * crownScale),
 		1.25, color(palette.Root)
@@ -59,8 +59,8 @@ local function buildTree(
 	for crownIndex, offset in ipairs(crownOffsets) do
 		local scale = crownIndex == 1 and 1.18 or (crownIndex % 2 == 0 and 0.78 or 0.9)
 		local canopy = Factory.CreatePart(
-			folder, profile, "Classic",
-			"ClassicNatureCanopy_" .. string.format("%02d", index) .. "_" .. tostring(crownIndex),
+			folder, profile, "SkyGarden",
+			"SkyGardenCanopy_" .. string.format("%02d", index) .. "_" .. tostring(crownIndex),
 			Vector3.new(16, 12, 15) * (crownScale * scale),
 			CFrame.new(top + offset * crownScale),
 			crownColors[crownIndex],
@@ -74,7 +74,7 @@ local function buildTree(
 	local vineEnd = Factory.CreateAttachment(crownParts[2], "NatureVineCanopyAnchor", crownParts[2].Position + Vector3.new(0, -5 * crownScale, 0))
 	Factory.CreateBeam(
 		folder,
-		"ClassicNatureVine_" .. string.format("%02d", index),
+		"SkyGardenVine_" .. string.format("%02d", index),
 		vineStart,
 		vineEnd,
 		color(palette.Vine),
@@ -96,10 +96,10 @@ local function buildFloatingIslet(
 	size: Vector3,
 	rotation: number
 )
-	local palette = WorldDesignProfile.Classic
+	local palette = WorldDesignProfile.SkyGarden
 	local position = center + offset
 	local mainRock = Factory.CreatePart(
-		folder, profile, "Classic", "ClassicNatureFloatingIslet_" .. string.format("%02d", index),
+		folder, profile, "SkyGarden", "SkyGardenFloatingIslet_" .. string.format("%02d", index),
 		size,
 		CFrame.new(position) * CFrame.Angles(0, math.rad(rotation), math.rad(index % 2 == 0 and 7 or -5)),
 		color(palette.Stone),
@@ -107,7 +107,7 @@ local function buildFloatingIslet(
 		true
 	)
 	Factory.CreatePart(
-		folder, profile, "Classic", "ClassicNatureIsletUnderside_" .. string.format("%02d", index),
+		folder, profile, "SkyGarden", "SkyGardenIsletUnderside_" .. string.format("%02d", index),
 		Vector3.new(size.X * 0.72, size.Y * 0.66, size.Z * 0.7),
 		CFrame.new(position + Vector3.new(2, -size.Y * 0.43, -1)) * CFrame.Angles(0, math.rad(rotation + 19), 0),
 		color(palette.StoneShadow),
@@ -115,7 +115,7 @@ local function buildFloatingIslet(
 		false
 	)
 	Factory.CreatePart(
-		folder, profile, "Classic", "ClassicNatureMossShelf_" .. string.format("%02d", index),
+		folder, profile, "SkyGarden", "SkyGardenMossShelf_" .. string.format("%02d", index),
 		Vector3.new(size.X * 0.66, 1.5, size.Z * 0.55),
 		CFrame.new(position + Vector3.new(-1, size.Y * 0.43, 1)) * CFrame.Angles(0, math.rad(rotation - 12), 0),
 		color(palette.CanopyDeep),
@@ -130,7 +130,7 @@ local function buildRootArch(
 	profile: Factory.AppearanceProfile,
 	center: Vector3
 )
-	local palette = WorldDesignProfile.Classic
+	local palette = WorldDesignProfile.SkyGarden
 	local startAngle = math.rad(203)
 	local endAngle = math.rad(315)
 	local radius = 115
@@ -144,8 +144,8 @@ local function buildRootArch(
 		local point = center + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
 		if previous then
 			Factory.CylinderBetween(
-				folder, profile, "Classic",
-				"ClassicNatureRootArch_" .. string.format("%02d", index),
+				folder, profile, "SkyGarden",
+				"SkyGardenRootArch_" .. string.format("%02d", index),
 				previous, point, 1.8 - alpha * 0.45, color(palette.Root), true
 			)
 		end
@@ -160,7 +160,7 @@ local function buildExposedRoots(
 	index: number,
 	baseOffset: Vector3
 )
-	local palette = WorldDesignProfile.Classic
+	local palette = WorldDesignProfile.SkyGarden
 	local base = center + baseOffset
 	local directions = {
 		Vector3.new(-1, -0.1, -0.2),
@@ -170,29 +170,29 @@ local function buildExposedRoots(
 	for rootIndex, direction in ipairs(directions) do
 		local endPosition = base + direction.Unit * (8 + rootIndex * 1.4)
 		Factory.CylinderBetween(
-			folder, profile, "Classic",
-			"ClassicNatureExposedRoot_" .. tostring(index) .. "_" .. tostring(rootIndex),
+			folder, profile, "SkyGarden",
+			"SkyGardenExposedRoot_" .. tostring(index) .. "_" .. tostring(rootIndex),
 			base, endPosition, 1.05, color(palette.Root), false
 		)
 	end
 end
 
-function ClassicNatureMapBuilder.Build(
+function SkyGardenMapBuilder.Build(
 	parent: Folder,
 	center: Vector3,
 	halfWidth: number,
 	profile: Factory.AppearanceProfile
 ): number
-	local previous = parent:FindFirstChild("ClassicNatureSanctuary")
+	local previous = parent:FindFirstChild("SkyfallNatureSanctuary")
 	if previous then
 		previous:Destroy()
 	end
 
 	local folder = Instance.new("Folder")
-	folder.Name = "ClassicNatureSanctuary"
+	folder.Name = "SkyfallNatureSanctuary"
 	folder:SetAttribute("SkyfallGenerated", true)
-	folder:SetAttribute("SkyfallMapIdentity", "Classic")
-	folder:SetAttribute("SkyfallGeometrySignature", "organic-irregular-floating-nature-sanctuary")
+	folder:SetAttribute("SkyfallMapIdentity", "SkyGarden")
+	folder:SetAttribute("SkyfallGeometrySignature", "sky-garden-organic-floating-sanctuary-v1")
 	folder.Parent = parent
 
 	local treeLayouts = {
@@ -204,7 +204,7 @@ function ClassicNatureMapBuilder.Build(
 		local trunk = buildTree(folder, profile, center, index, layout.offset, layout.height, layout.scale)
 		buildExposedRoots(folder, profile, center, index, layout.offset)
 		if index == 2 then
-			Factory.CreatePointLight(trunk, "ClassicNatureCanopyLight", color(WorldDesignProfile.Classic.CanopyMid), 0.18, 16)
+			Factory.CreatePointLight(trunk, "SkyGardenCanopyLight", color(WorldDesignProfile.SkyGarden.CanopyMid), 0.18, 16)
 		end
 	end
 
@@ -224,4 +224,4 @@ function ClassicNatureMapBuilder.Build(
 	return count
 end
 
-return ClassicNatureMapBuilder
+return SkyGardenMapBuilder

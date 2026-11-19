@@ -37,6 +37,9 @@ jobs:
           rojo --version
           selene --version
           lune --version
+          luau-lsp --version
+          stylua --version
+          wally --version
 
       - name: Run pure Luau policy tests
         run: |

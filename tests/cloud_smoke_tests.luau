@@ -2048,6 +2048,7 @@ runTest("An enabled owner debug override is cleared after one round", function()
 		IsRigReady = function() return true end,
 	}
 	harness.pilotPriority = nil
+	harness.random = Random.new()
 	local nextRoundController = harness:_chooseController({ debugPlayer })
 	assert(nextRoundController and nextRoundController.kind == "Bot" and nextRoundController.value == nextRoundBot,
 		"The owner must not be selected after debug state is cleared")

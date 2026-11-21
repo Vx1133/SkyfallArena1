@@ -329,7 +329,7 @@ local function createRaisedRunes(parent: Folder, center: Vector3)
 		mainStroke.Transparency = 0.1
 
 		local branchDirection = (radial + tangent * 0.58).Unit
-		local branchSide = Vector3.yAxis:Cross(branchDirection).Unit
+		local branchSide = branchDirection:Cross(Vector3.yAxis).Unit
 		local branchPosition = runeCenter - radial * 0.11 + tangent * 0.11
 		local branchStroke = createAdornmentPart(
 			parent,

@@ -366,7 +366,7 @@ local function createThreeDimensionalAccents(
 	TweenService:Create(
 		crystal,
 		TweenInfo.new(2.6, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1, false),
-		{ CFrame = crystal.CFrame * CFrame.Angles(0, math.rad(360), 0) }
+		{ CFrame = crystal.CFrame * CFrame.Angles(0, math.rad(359), 0) }
 	):Play()
 
 	local centerAttachment = Instance.new("Attachment")

@@ -816,6 +816,28 @@ function ArenaService:GetMapName()
 	return self.theme.name
 end
 
+function ArenaService:ShowRoundStartSigil()
+	if not self.root then
+		return false
+	end
+
+	local centerIndex = math.floor((Config.GRID_SIZE + 1) / 2)
+	local centerTile = self:GetTile(centerIndex, centerIndex)
+	if not centerTile then
+		return false
+	end
+
+	MagicCircleVFX.Destroy(self.roundSigil)
+	local surfacePosition = centerTile.Position + Vector3.new(0, centerTile.Size.Y * 0.5, 0)
+	self.roundSigil = MagicCircleVFX.Create(
+		self.root,
+		surfacePosition,
+		Config.TILE_SIZE * 1.3,
+		2.8
+	)
+	return self.roundSigil ~= nil
+end
+
 function ArenaService:GetTile(gridX, gridZ)
 	return self.tiles[tileKey(gridX, gridZ)]
 end
@@ -856,8 +878,6 @@ function ArenaService:MarkTile(tile)
 	tile.MaterialVariant = ""
 	tile.Reflectance = 0
 
-	-- The projected sigil adds a readable, short-lived target lock without changing collision.
-	MagicCircleVFX.Create(tile, token)
 	return token
 end
 
@@ -870,7 +890,6 @@ function ArenaService:ClearWarning(tile, token)
 		return
 	end
 	tile:SetAttribute("IsWarning", false)
-	MagicCircleVFX.Destroy(tile)
 	local warningLight = tile:FindFirstChild("TargetWarningLight")
 	if warningLight then
 		warningLight:Destroy()
@@ -904,6 +923,9 @@ function ArenaService:BreakTile(tile, token)
 end
 
 function ArenaService:ResetTiles()
+	MagicCircleVFX.Destroy(self.roundSigil)
+	self.roundSigil = nil
+
 	-- Cancel in-flight visual shots so delayed callbacks cannot leave effects on a clean round.
 	for _, child in ipairs(self.root:GetChildren()) do
 		if string.sub(child.Name, 1, 13) == "LaserVFXShot_" then
@@ -918,7 +940,6 @@ function ArenaService:ResetTiles()
 	end
 
 	for _, tile in pairs(self.tiles) do
-		MagicCircleVFX.Destroy(tile)
 		for _, child in ipairs(tile:GetChildren()) do
 			if
 				child.Name == "LaserImpactAttachment"

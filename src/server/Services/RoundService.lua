@@ -1321,6 +1321,7 @@ function RoundService:_runRound()
 	end
 
 	self.botService:StartRound(botSpawnCFrames, controllerBot)
+	self.arena:ShowRoundStartSigil()
 
 	self:_broadcast()
 

@@ -308,11 +308,45 @@ local function createAdornmentPart(
 	return part
 end
 
+local function createRaisedRunes(parent: Folder, center: Vector3)
+	-- Eight raised, two-stroke runes provide real 3D relief while remaining
+	-- anchored, non-collidable, non-queryable, and inexpensive to render.
+	for index = 1, 8 do
+		local angle = ((index - 1) / 8) * math.pi * 2
+		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		local runeCenter = center + radial * 3.55 + Vector3.new(0, 0.13, 0)
+		local runeColor = if index % 2 == 0 then COLORS.Gold else COLORS.Cyan
+
+		local mainStroke = createAdornmentPart(
+			parent,
+			"RaisedRuneStem_" .. tostring(index),
+			Vector3.new(0.12, 0.065, 0.62),
+			CFrame.fromMatrix(runeCenter, tangent, Vector3.yAxis, -radial),
+			runeColor,
+			Enum.PartType.Block
+		)
+		mainStroke.Transparency = 0.1
+
+		local branchDirection = (radial + tangent * 0.58).Unit
+		local branchSide = Vector3.yAxis:Cross(branchDirection).Unit
+		local branchPosition = runeCenter - radial * 0.11 + tangent * 0.11
+		local branchStroke = createAdornmentPart(
+			parent,
+			"RaisedRuneBranch_" .. tostring(index),
+			Vector3.new(0.10, 0.06, 0.31),
+			CFrame.fromMatrix(branchPosition, branchSide, Vector3.yAxis, -branchDirection),
+			if index % 2 == 0 then COLORS.Ice else COLORS.Gold,
+			Enum.PartType.Block
+		)
+		branchStroke.Transparency = 0.13
+	end
+end
+
 local function createThreeDimensionalAccents(
 	parent: Folder,
 	anchor: Part,
-	center: Vector3,
-	surfaceY: number
+	center: Vector3
 )
 	-- Four small elevated nodes create parallax and make the projection feel volumetric.
 	for index = 1, 4 do
@@ -484,7 +518,8 @@ function MagicCircleVFX.Create(
 		buildOuterRuneLayer(surfaceGui)
 		buildMiddleRing(surfaceGui)
 		buildInnerSigil(surfaceGui)
-		createThreeDimensionalAccents(folder, anchor, center, floorY)
+		createRaisedRunes(folder, center)
+		createThreeDimensionalAccents(folder, anchor, center)
 
 		folder:SetAttribute("SurfacePixelsPerStud", 72)
 		folder:SetAttribute("RingLayerCount", 3)

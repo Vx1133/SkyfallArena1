@@ -907,7 +907,6 @@ function ArenaService:BreakTile(tile, token)
 	end
 
 	tile:SetAttribute("IsWarning", false)
-	MagicCircleVFX.Destroy(tile)
 	local warningLight = tile:FindFirstChild("TargetWarningLight")
 	if warningLight then
 		warningLight:Destroy()

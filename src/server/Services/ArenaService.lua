@@ -5,6 +5,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Config = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("GameConfig", 8))
 local WorldDesignProfile = require(ReplicatedStorage:WaitForChild("Shared", 8):WaitForChild("WorldDesignProfile", 8))
 local LaserVFX = require(script.Parent:WaitForChild("LaserVFX", 8))
+local MagicCircleVFX = require(script.Parent:WaitForChild("MagicCircleVFX", 8))
 local FloorAppearanceService = require(script.Parent:WaitForChild("FloorAppearanceService", 8))
 local ElementIntegrationService = require(script.Parent:WaitForChild("ElementIntegrationService", 8))
 local SkyGardenMapBuilder = require(script.Parent:WaitForChild("SkyGardenMapBuilder", 8))
@@ -855,7 +856,8 @@ function ArenaService:MarkTile(tile)
 	tile.MaterialVariant = ""
 	tile.Reflectance = 0
 
-	-- The red tile itself communicates the warning without a per-tile dynamic light.
+	-- The projected sigil adds a readable, short-lived target lock without changing collision.
+	MagicCircleVFX.Create(tile, token)
 	return token
 end
 
@@ -868,6 +870,7 @@ function ArenaService:ClearWarning(tile, token)
 		return
 	end
 	tile:SetAttribute("IsWarning", false)
+	MagicCircleVFX.Destroy(tile)
 	local warningLight = tile:FindFirstChild("TargetWarningLight")
 	if warningLight then
 		warningLight:Destroy()
@@ -885,6 +888,7 @@ function ArenaService:BreakTile(tile, token)
 	end
 
 	tile:SetAttribute("IsWarning", false)
+	MagicCircleVFX.Destroy(tile)
 	local warningLight = tile:FindFirstChild("TargetWarningLight")
 	if warningLight then
 		warningLight:Destroy()
@@ -914,6 +918,7 @@ function ArenaService:ResetTiles()
 	end
 
 	for _, tile in pairs(self.tiles) do
+		MagicCircleVFX.Destroy(tile)
 		for _, child in ipairs(tile:GetChildren()) do
 			if
 				child.Name == "LaserImpactAttachment"

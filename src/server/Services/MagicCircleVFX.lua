@@ -454,8 +454,7 @@ local function createThreeDimensionalAccents(
 	sparks.Parent = particleAttachment
 	sparks:Emit(9)
 
-	-- Keep the projected plane slightly above the floor to prevent surface z-fighting.
-	anchor.CFrame = CFrame.new(center.X, surfaceY + 0.075, center.Z)
+	-- The projection plane is positioned by Create before its adornments are assembled.
 end
 
 local NEXT_EFFECT_ID = 0

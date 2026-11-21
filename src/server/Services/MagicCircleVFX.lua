@@ -156,7 +156,7 @@ end
 
 local function buildOuterRuneLayer(parent: SurfaceGui)
 	local layer = createRotatingLayer(parent, "OuterRunicCrown", 0.94, 6.2, 1)
-	createCircleStroke(layer, "OuterCyanRing", 4.5, COLORS.Cyan, 0.12)
+	createCircleStroke(layer, "OuterCyanRing", 9, COLORS.Cyan, 0.12)
 
 	local center = Vector2.new(0.5, 0.5)
 
@@ -213,7 +213,7 @@ end
 
 local function buildMiddleRing(parent: SurfaceGui)
 	local layer = createRotatingLayer(parent, "CounterRotatingGlyphTrack", 0.69, 4.8, -1)
-	createCircleStroke(layer, "MiddleGoldRing", 3.6, COLORS.Gold, 0.1)
+	createCircleStroke(layer, "MiddleGoldRing", 7.5, COLORS.Gold, 0.1)
 
 	local center = Vector2.new(0.5, 0.5)
 	for index = 1, 16 do
@@ -253,7 +253,7 @@ end
 
 local function buildInnerSigil(parent: SurfaceGui)
 	local layer = createRotatingLayer(parent, "InnerTriuneSigil", 0.43, 3.4, 1)
-	createCircleStroke(layer, "InnerIceRing", 3.1, COLORS.Ice, 0.08)
+	createCircleStroke(layer, "InnerIceRing", 6.5, COLORS.Ice, 0.08)
 
 	local center = Vector2.new(0.5, 0.5)
 	local points = table.create(6) :: { Vector2 }

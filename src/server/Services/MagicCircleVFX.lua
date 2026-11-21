@@ -3,7 +3,7 @@
 -- Skyfall Arena's projected arcane activation sigil.
 -- Built from native Roblox UI, Beams, and a few small 3D accents so it
 -- stays editable, does not depend on third-party asset IDs, and can be
--- cleaned up with the target tile.
+-- cleaned up by its owner or by Debris after its configured lifetime.
 
 local Debris = game:GetService("Debris")
 local TweenService = game:GetService("TweenService")
@@ -312,7 +312,7 @@ local function createThreeDimensionalAccents(
 	parent: Folder,
 	anchor: Part,
 	center: Vector3,
-	tileTopY: number
+	surfaceY: number
 )
 	-- Four small elevated nodes create parallax and make the projection feel volumetric.
 	for index = 1, 4 do
@@ -355,15 +355,15 @@ local function createThreeDimensionalAccents(
 
 	for index = 1, 4 do
 		local angle = ((index - 1) / 4) * math.pi * 2
-		local targetAttachment = Instance.new("Attachment")
-		targetAttachment.Name = "SigilSpokeAttachment_" .. tostring(index)
-		targetAttachment.Position = Vector3.new(math.cos(angle) * 1.55, 0.23, math.sin(angle) * 1.55)
-		targetAttachment.Parent = anchor
+		local spokeEndAttachment = Instance.new("Attachment")
+		spokeEndAttachment.Name = "SigilSpokeAttachment_" .. tostring(index)
+		spokeEndAttachment.Position = Vector3.new(math.cos(angle) * 1.55, 0.23, math.sin(angle) * 1.55)
+		spokeEndAttachment.Parent = anchor
 
 		local spoke = Instance.new("Beam")
 		spoke.Name = "SigilEnergySpoke_" .. tostring(index)
 		spoke.Attachment0 = centerAttachment
-		spoke.Attachment1 = targetAttachment
+		spoke.Attachment1 = spokeEndAttachment
 		spoke.FaceCamera = true
 		spoke.Segments = 4
 		spoke.Width0 = 0.045
@@ -420,8 +420,8 @@ local function createThreeDimensionalAccents(
 	sparks.Parent = particleAttachment
 	sparks:Emit(9)
 
-	-- Keep the projected plane a fraction above the tile to prevent surface z-fighting.
-	anchor.CFrame = CFrame.new(center.X, tileTopY + 0.075, center.Z)
+	-- Keep the projected plane slightly above the floor to prevent surface z-fighting.
+	anchor.CFrame = CFrame.new(center.X, surfaceY + 0.075, center.Z)
 end
 
 local NEXT_EFFECT_ID = 0

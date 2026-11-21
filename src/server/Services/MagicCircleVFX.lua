@@ -1,6 +1,6 @@
 --!strict
 
--- Skyfall Arena's projected arcane targeting sigil.
+-- Skyfall Arena's projected arcane activation sigil.
 -- Built from native Roblox UI, Beams, and a few small 3D accents so it
 -- stays editable, does not depend on third-party asset IDs, and can be
 -- cleaned up with the target tile.
@@ -424,37 +424,45 @@ local function createThreeDimensionalAccents(
 	anchor.CFrame = CFrame.new(center.X, tileTopY + 0.075, center.Z)
 end
 
-function MagicCircleVFX.Destroy(tile: BasePart)
-	local existing = tile:FindFirstChild(FOLDER_NAME)
-	if existing then
-		existing:Destroy()
+local NEXT_EFFECT_ID = 0
+
+function MagicCircleVFX.Destroy(effect: Folder?)
+	if not effect or not effect.Parent then
+		return
 	end
+	effect:Destroy()
 end
 
-function MagicCircleVFX.Create(tile: BasePart, strikeToken: number): boolean
-	if not tile.Parent
-		or tile:GetAttribute("StrikeToken") ~= strikeToken
-		or tile:GetAttribute("IsWarning") ~= true
+function MagicCircleVFX.Create(
+	parent: Instance,
+	surfacePosition: Vector3,
+	diameter: number,
+	lifetime: number?
+): Folder?
+	if typeof(parent) ~= "Instance"
+		or typeof(surfacePosition) ~= "Vector3"
+		or typeof(diameter) ~= "number"
 	then
-		return false
+		return nil
 	end
 
-	MagicCircleVFX.Destroy(tile)
+	local effectDiameter = math.clamp(diameter, 6, 40)
+	local effectLifetime = math.clamp(lifetime or 2.8, 0.5, 8)
+	NEXT_EFFECT_ID += 1
 
 	local folder = Instance.new("Folder")
-	folder.Name = FOLDER_NAME
-	folder:SetAttribute("StrikeToken", strikeToken)
-	folder:SetAttribute("VisualRole", "ProjectedTargetSigil")
-	folder.Parent = tile
+	folder.Name = FOLDER_NAME .. "_" .. tostring(NEXT_EFFECT_ID)
+	folder:SetAttribute("VisualRole", "ArenaActivationSigil")
+	folder.Parent = parent
 
 	local success, message = pcall(function()
-		local center = tile.Position
-		local tileTopY = tile.Position.Y + tile.Size.Y * 0.5
+		local center = surfacePosition
+		local floorY = surfacePosition.Y
 
 		local anchor = Instance.new("Part")
 		anchor.Name = "MagicCircleProjectionPlane"
-		anchor.Size = Vector3.new(tile.Size.X, 0.06, tile.Size.Z)
-		anchor.CFrame = CFrame.new(center.X, tileTopY + 0.075, center.Z)
+		anchor.Size = Vector3.new(effectDiameter, 0.06, effectDiameter)
+		anchor.CFrame = CFrame.new(center.X, floorY + 0.075, center.Z)
 		anchor.Transparency = 1
 		anchor.Anchored = true
 		anchor.CanCollide = false
@@ -476,7 +484,7 @@ function MagicCircleVFX.Create(tile: BasePart, strikeToken: number): boolean
 		buildOuterRuneLayer(surfaceGui)
 		buildMiddleRing(surfaceGui)
 		buildInnerSigil(surfaceGui)
-		createThreeDimensionalAccents(folder, anchor, center, tileTopY)
+		createThreeDimensionalAccents(folder, anchor, center, floorY)
 
 		folder:SetAttribute("SurfacePixelsPerStud", 72)
 		folder:SetAttribute("RingLayerCount", 3)
@@ -487,12 +495,11 @@ function MagicCircleVFX.Create(tile: BasePart, strikeToken: number): boolean
 	if not success then
 		folder:Destroy()
 		warn("[SkyfallMagicCircleVFX] Optional sigil build failed: " .. tostring(message))
-		return false
+		return nil
 	end
 
-	-- Safety cleanup in addition to explicit tile-warning cleanup.
-	Debris:AddItem(folder, 5)
-	return true
+	Debris:AddItem(folder, effectLifetime)
+	return folder
 end
 
 return MagicCircleVFX

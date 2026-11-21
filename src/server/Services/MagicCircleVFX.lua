@@ -83,13 +83,7 @@ local function createUiBar(
 	bar.BorderSizePixel = 0
 	bar.Parent = parent
 
-	local cap = Instance.new("UICorner")
-	cap.CornerRadius = UDim.new(1, 0)
-	cap.Parent = bar
-
-	TweenService:Create(bar, FADE_IN, {
-		BackgroundTransparency = transparency,
-	}):Play()
+	bar.BackgroundTransparency = transparency
 end
 
 local function createUiLine(
@@ -131,13 +125,7 @@ local function createUiDot(
 	dot.BorderSizePixel = 0
 	dot.Parent = parent
 
-	local corner = Instance.new("UICorner")
-	corner.CornerRadius = UDim.new(1, 0)
-	corner.Parent = dot
-
-	TweenService:Create(dot, FADE_IN, {
-		BackgroundTransparency = transparency,
-	}):Play()
+	dot.BackgroundTransparency = transparency
 end
 
 local function createRotatingLayer(
@@ -275,30 +263,21 @@ local function buildInnerSigil(parent: SurfaceGui)
 	end
 
 	-- Two interlocked triangles form the central star without a bitmap decal.
-	for index = 1, 3 do
-		local nextIndex = if index == 3 then 1 else index + 1
+	local triangleEdges = {
+		{ 1, 3 }, { 3, 5 }, { 5, 1 },
+		{ 2, 4 }, { 4, 6 }, { 6, 2 },
+	}
+	for index, edge in ipairs(triangleEdges) do
 		createUiLine(
 			layer,
-			"InnerTriangleA_" .. tostring(index),
-			points[index],
-			points[nextIndex],
+			"InnerStarEdge_" .. tostring(index),
+			points[edge[1]],
+			points[edge[2]],
 			0.018,
-			COLORS.Cyan,
-			0.04
-		)
-		local oppositeIndex = index + 3
-		local nextOpposite = if index == 3 then 4 else oppositeIndex + 1
-		createUiLine(
-			layer,
-			"InnerTriangleB_" .. tostring(index),
-			points[oppositeIndex],
-			points[nextOpposite],
-			0.018,
-			COLORS.Gold,
+			if index <= 3 then COLORS.Cyan else COLORS.Gold,
 			0.04
 		)
 	end
-
 	createUiDot(layer, "SigilCore", center, 0.09, COLORS.Ice, 0.02, 45)
 	return layer
 end
